@@ -1,0 +1,55 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Vite / React Build Output
+/dist
+/build
+.vite/ # Vite's internal cache directory
+
+# Environment Variables
+.env
+.env.*.local # Local environment files (e.g., .env.development.local)
+
+# Logs
+logs/
+*.log
+
+# Operating System Files
+.DS_Store # macOS specific
+Thumbs.db # Windows specific
+
+# IDE and Editor Specific Files
+.idea/ # IntelliJ IDEA
+.vscode/ # VS Code
+!.vscode/extensions.json
+*.swp # Vim swap files
+*.swo # Vim swap files
+*~ # Emacs backup files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+
+screenshots/
