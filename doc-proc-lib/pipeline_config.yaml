@@ -2,13 +2,21 @@
 
 services: # List of services used in the pipeline
   - name: azure_storage # Name of the service, should be unique
-    type: azure_blob # Type of the service, can be one of: azure_blob, database, azure_search, etc.
+    type: azure_blob # Type of the service, can be one of: azure_blob, database, azure_search, azure_ai_inference.
     test_connection: true # Whether to test the connection to the service on pipeline load
     settings: # Settings for the service connection
       account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME} # Name of the Azure Blob Storage account, read from environment variable
       credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE} # Type of credential used for the connection, can be either azure_key_credential or default_azure_credential.
       credential_key: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY} # Account key for the Azure Blob Storage, read from environment variable
 
+  - name: azure_ai_inference_service_01
+    type: azure_ai_inference
+    test_connection: true
+    settings: # Settings for the service connection
+      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT} # Endpoint for the Azure AI Inference Service, read from environment variable
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE} # Type of credential used for the connection, can be either azure_key_credential or default_azure_credential.
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY} # API key for the Azure AI Inference Service, read from environment variable
+      
   # - name: destination_db
   #   type: database
   #   test_connection: true
@@ -28,29 +36,13 @@ services: # List of services used in the pipeline
   #     api_key: myapikey
 
 steps: # List of steps that can be used in the pipeline
-  - id: extract_pdf # Unique identifier for the step
-    description: Extract documents from source # Description of the step
+  - id: sample_step # Unique identifier for the step
+    description: Sample step for development # Description of the step
     type: script # Type of the step, e.g., script, service, etc.
-    module_name: extract_pdf # Name of the module to be used for this step
-    module_path: ./doc/proc/step/extract_pdf.py # Path to the module file, relative to the folder where the execution is run
-    class_name: PDFExtractorStep # Class name in the module to be instantiated
-    tags: [pdf, extraction, azure_blob] # Tags for the step, can be used for filtering or categorization
-
-  - id: document_transformer
-    description: Transform and preprocess documents
-    type: script
-    module_name: document_transformer
-    module_path: ./doc/proc/step/document_transformer.py
-    class_name: DocumentTransformerStep
-    tags: [transform, preprocessing, azure_blob]
-
-  - id: document_loader
-    description: Load processed documents to destination
-    type: script
-    module_name: document_loader
-    module_path: ./doc/proc/step/document_loader.py
-    class_name: DocumentLoaderStep
-    tags: [load, azure_blob, database]
+    module_name: sample # Name of the module to be used for this step
+    module_path: ./doc/proc/step/sample.py # Path to the module file, relative to the folder where the execution is run
+    class_name: SampleStep # Class name in the module to be instantiated
+    tags: [sample] # Tags for the step, can be used for filtering or categorization
 
   - id: pdf_to_png
     description: Convert PDF pages to PNG images
@@ -60,6 +52,14 @@ steps: # List of steps that can be used in the pipeline
     class_name: PDFPagesToPNGStep
     tags: [pdf, png, azure_blob]
 
+  - id: pdf_page_png_to_markdown
+    description: Convert PDF page images to Markdown format using Azure AI Inference Service
+    type: script
+    module_name: pdf_page_png_to_markdown
+    module_path: ./doc/proc/step/pdf_page_png_to_markdown.py
+    class_name: PDFPagePNGToMarkdownStep
+    tags: [transform, extraction, markdown, azure_ai_inference]
+
 pipelines: # List of pipelines that can be executed
   - name: pipeline_1 # Name of the pipeline, should be unique
     description: 'A pipeline to extract, transform, and load documents from Azure Blob Storage to a database' # Description of the pipeline
@@ -68,8 +68,9 @@ pipelines: # List of pipelines that can be executed
 
     step_instances: # List of step instances in the pipeline
       # Each step instance refers to a step defined above and can have custom settings
-      - name: extract # name of the step instance, should be unique within the pipeline
-        step_id: extract_pdf # reference to the step id defined above
+
+      - name: samplp1 # name of the step instance, should be unique within the pipeline
+        step_id: sample_step # reference to the step id defined above
         enabled: true # whether the step is enabled or not
         settings: # settings for the step instance, can include any custom parameters
           fail_pipeline_on_error: true # whether to fail the entire pipeline if this step fails
@@ -77,17 +78,6 @@ pipelines: # List of pipelines that can be executed
           retries: 3 # number of retries if the step fails
           timeout: 600 # timeout for the step in seconds
           # additional custom settings can be added here
-          key1: value1
-          key2: value2
-
-      - name: transform
-        step_id: document_transformer
-        enabled: true
-        settings:
-          fail_pipeline_on_error: true
-          retry_on_failure: false
-          retries: 3
-          timeout: 600
           key1: value1
           key2: value2
 
@@ -102,7 +92,7 @@ pipelines: # List of pipelines that can be executed
           key1: value1
           key2: value2
 
-      - name: pdf_to_png
+      - name: pdf_to_png_1
         step_id: pdf_to_png
         enabled: true
         settings:
@@ -113,9 +103,27 @@ pipelines: # List of pipelines that can be executed
           png_output_folder: ./output/png # Custom setting for PNG output folder, relative to the execution path
           num_pages: 10 # Custom setting for number of pages to convert
 
+      - name: pdf_page_png_to_markdown_1
+        step_id: pdf_page_png_to_markdown
+        enabled: true
+        settings:
+          fail_pipeline_on_error: true
+          retry_on_failure: false
+          retries: 3
+          timeout: 600
+          ai_model_inference_service: azure_ai_inference_service_01 # Reference to the AI model inference service to be used for this step
+          prompts: 
+            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+            user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 1.0
+          frequency_penalty: 0.0
+          presence_penalty: 0.0
+
     # Execution sequence of the steps in the pipeline
     # This defines the order in which the steps will be executed
-    execution_sequence: [extract, pdf_to_png, load, transform]
+    execution_sequence: [pdf_to_png_1, pdf_page_png_to_markdown_1]
 
     # Pipeline-wide settings
     settings:

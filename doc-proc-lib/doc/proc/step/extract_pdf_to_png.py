@@ -32,14 +32,14 @@ class PDFPagesToPNGStep(StepBase):
             pages_to_convert = len(doc)
 
         # Prepare a list to store the paths of the saved PNG files
-        png_file_paths = []
+        pages_data = []
 
         # Iterate through pages and save as PNG
         for page_num in range(0, pages_to_convert):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
             pix.save(f'{png_output_folder}/page_{page_num+1}.png')
-            png_file_paths.append(f'{png_output_folder}/page_{page_num+1}.png')
+            pages_data.append({'page_num': page_num+1, 'png': f'{png_output_folder}/page_{page_num+1}.png'})
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
@@ -49,5 +49,5 @@ class PDFPagesToPNGStep(StepBase):
                                data=        
                                             {
                                                 **input_data.data,
-                                                "png_file_paths": png_file_paths
+                                                "pages_data": pages_data
                                             })

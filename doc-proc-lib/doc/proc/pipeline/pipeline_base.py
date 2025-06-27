@@ -43,6 +43,13 @@ class PipelineExecutionContext:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+    def get_service(self, service_name: str) -> Optional[ServiceBase]:
+        """Get a service by name from the execution context."""
+        if not self.services:
+            return None
+        
+        return next((service for service in self.services if service.name == service_name), None)
+
 
 class PipelineExecutionError(Exception):
     """Custom exception for errors during pipeline execution."""

@@ -9,6 +9,12 @@ if TYPE_CHECKING:
     from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 
 
+class StepExecutionError(Exception):
+    """
+    Custom exception for errors during step execution.
+    """
+    pass
+
 class StepInputOutput(pydantic.BaseModel):
     id: Optional[str] = None
     summary_data: Optional[dict] = None

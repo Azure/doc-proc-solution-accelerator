@@ -1,6 +1,7 @@
 import logging
 
 from .blob_service import BlobService
+from .azure_ai_inference_service import AzureAIInferenceService
 from .service_base import ServiceBase
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,15 @@ async def get_blob_service(name:str, type:str, settings: dict) -> BlobService:
         return blob_service
 
 
+def get_ai_inference_service(name:str, type:str, settings: dict) -> AzureAIInferenceService:
+    """
+    Get an instance of AzureAIInferenceService using the provided settings.
+    """
+
+    logger.debug(f"Creating AzureAIInferenceService instance: {name}.")
+    return AzureAIInferenceService(name=name, type=type, **settings)
+
+
 async def get_service(name:str, type:str, settings: dict) -> ServiceBase:
     """Get an instance of the specified service type."""
 
@@ -24,5 +34,7 @@ async def get_service(name:str, type:str, settings: dict) -> ServiceBase:
 
     if type == 'azure_blob':
         return await get_blob_service(name=name, type=type, settings=settings)
+    elif type == 'azure_ai_inference':
+        return get_ai_inference_service(name=name, type=type, settings=settings)
 
     raise ValueError(f"Unknown service type: {type}")

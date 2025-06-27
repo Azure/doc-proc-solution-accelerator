@@ -79,7 +79,8 @@ class BlobService(ServiceBase):
         if self.credential_key not in ['', None]:
             self.blob_service_client = BlobServiceClient(account_url=account_url, credential=self.credential_key)
         else:
-            self.blob_service_client = BlobServiceClient(account_url=account_url, credential=DefaultAzureCredential(exclude_interactive_browser_credential=False))
+            async with DefaultAzureCredential() as credential:
+                self.blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
 
         logger.debug(f"Initialized BlobServiceClient")
 
