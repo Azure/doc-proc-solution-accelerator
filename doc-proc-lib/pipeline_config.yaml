@@ -81,17 +81,6 @@ pipelines: # List of pipelines that can be executed
           key1: value1
           key2: value2
 
-      - name: load
-        step_id: document_loader
-        enabled: true
-        settings:
-          fail_pipeline_on_error: true
-          retry_on_failure: false
-          retries: 3
-          timeout: 600
-          key1: value1
-          key2: value2
-
       - name: pdf_to_png_1
         step_id: pdf_to_png
         enabled: true

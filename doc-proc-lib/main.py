@@ -75,6 +75,7 @@ async def main():
         result = await pipeline.run(input_data=input_data)
         logger.info(f"Pipeline '{pipeline.name}' executed successfully.")
         logger.debug(f"Result: {result}")
+        
     except Exception as e:
         logger.error(f"Error executing pipeline: {e}.")
         logger.error("Pipeline execution failed. Please check the logs for more details.")
