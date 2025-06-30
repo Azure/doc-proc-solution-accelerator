@@ -4,9 +4,9 @@ from colorama import Fore, Style, init
 from dotenv import load_dotenv
 import logging
 
-# from doc.proc.pipeline.pipeline_base import Pipeline
+from doc.proc.pipeline.pipeline_base import Pipeline
 from doc.proc.pipeline.pipeline_config import PipelineConfig
-# from doc.proc.step.step_base import StepInputOutput
+from doc.proc.step.step_base import StepInputOutput
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_config import ServiceConfig
 
@@ -81,7 +81,7 @@ async def load_step_catalog_config(step_catalog_yaml_file: str) -> StepConfig:
         logger.error(f"Error loading service catalog: {e}")
 
 
-async def load_pipeline_config(pipeline_config_yaml_file: str, service_catalog: List[ServiceConfig] = None, step_catalog: List[StepConfig] = None) -> "PipelineConfig":
+async def load_pipeline_config(pipeline_config_yaml_file: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "PipelineConfig":
     """Load pipeline configuration from a YAML file."""
     
     yaml_str = ''
@@ -91,7 +91,7 @@ async def load_pipeline_config(pipeline_config_yaml_file: str, service_catalog: 
 
     try:
         # Load pipeline configuration
-        pipeline_config = PipelineConfig.from_yaml(yaml_str, services_catalog=service_catalog, step_catalog=step_catalog)
+        pipeline_config = PipelineConfig.from_yaml(yaml_str, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
         logger.info(f"Pipeline configuration loaded successfully.")
         logger.debug(f"Pipeline configuration: {pipeline_config}")
 
@@ -101,6 +101,30 @@ async def load_pipeline_config(pipeline_config_yaml_file: str, service_catalog: 
         logger.error(f"Error loading pipeline configuration: {e}")
 
 
+async def load_pipeline(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "Pipeline":
+    """Load pipeline from configuration."""
+    
+    if not pipeline_config:
+        raise ValueError("Pipeline configuration cannot be None or empty.")
+
+    if not isinstance(pipeline_config, PipelineConfig):
+        raise TypeError(f"Expected PipelineConfig instance, got {type(pipeline_config)}")
+
+    # Create the pipeline instance
+    pipeline = await Pipeline.create(pipeline_config=pipeline_config,
+                                     step_catalog_config=step_catalog_config,
+                                     service_catalog_config=service_catalog_config
+                                    )
+
+    logger.info(f"Pipeline '{pipeline.name}' loaded successfully with {len(pipeline.pipeline_execution_steps)} execution steps.")
+    
+    return pipeline
+
+
+#####
+#####
+##### Main function to load and execute the pipeline
+#####
 async def main():
 
     # Load services catalog configuration
@@ -115,33 +139,29 @@ async def main():
 
     # Load pipeline configuration
     pipeline_config_yaml_file = 'pipeline_config.yaml'
-    pipeline_config = await load_pipeline_config(pipeline_config_yaml_file, service_catalog_config, step_catalog_config)
-
-    # # Example usage of PipelineConfig
-    # yaml_str = ''
-    
-    # with open('pipeline_config.yaml', 'r') as file:
-    #     yaml_str = file.read()
-    #
-    # try:
-    #     
-
-    #     pipeline = await Pipeline.create(pipeline_config=pipeline_config, 
-    #                                     services_config=service_config,
-    #                                     steps_config=step_config)
+    pipeline_config = await load_pipeline_config(pipeline_config_yaml_file=pipeline_config_yaml_file, 
+                                                 step_catalog_config=step_catalog_config, 
+                                                 service_catalog_config=service_catalog_config)
 
 
-    #     logger.info(f"Pipeline '{pipeline.name}' loaded successfully with {len(pipeline.pipeline_execution_steps)} execution steps.")
+    # get the configuration for the first pipeline
+    first_pipeline = pipeline_config[0] if pipeline_config else None
 
-    #     # Run the pipeline
-    #     input_data = StepInputOutput(summary_data={}, data={ "input_pdf_file": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf" })
-    #     result = await pipeline.run(input_data=input_data)
-    #     logger.info(f"Pipeline '{pipeline.name}' executed successfully.")
-    #     logger.debug(f"Result: {result}")
-        
-    # except Exception as e:
-    #     logger.error(f"Error executing pipeline: {e}.")
-    #     logger.error("Pipeline execution failed. Please check the logs for more details.")
+    # Load the pipeline
+    try:
+        pipeline = await load_pipeline(pipeline_config=first_pipeline, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
+
+        # Run the pipeline
+        input_data = StepInputOutput(summary_data={}, data={ "input_pdf_file": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf" })
+        result = await pipeline.run(input_data=input_data)
+        logger.info(f"Pipeline '{pipeline.name}' executed successfully.")
+        logger.debug(f"Result: {result}")
+
+    except Exception as e:
+        logger.error(f"Error executing pipeline: {e}.")
+        logger.error("Pipeline execution failed. Please check the logs for more details.")
+      
+   
 
 
 if __name__ == "__main__":

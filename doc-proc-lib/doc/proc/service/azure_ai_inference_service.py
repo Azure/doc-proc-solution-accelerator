@@ -7,7 +7,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, ChatRequestMessage, ChatCompletions
 
-from .service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class AzureAIInferenceService(ServiceBase):
     """Azure AI Inference service for managing AI inference operations."""
 
-    def __init__(self, name: str, type: str, **settings):
-        super().__init__(name=name, type=type, **settings)
+    def __init__(self, name: str, type: str, settings:dict, **kwargs):
+        super().__init__(name=name, type=type, settings=settings, **kwargs)
 
         self.endpoint = settings.get('endpoint')
         self.credential_type = settings.get('credential_type')

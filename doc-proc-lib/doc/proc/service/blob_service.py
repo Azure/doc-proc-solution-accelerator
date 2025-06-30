@@ -3,7 +3,7 @@ import os
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobServiceClient
 
-from .service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 class BlobService(ServiceBase):
     """Azure Blob Storage service for managing blob storage operations."""
 
-    def __init__(self, name: str, type: str, **settings):
-        super().__init__(name=name, type=type, **settings)
+    def __init__(self, name: str, type: str, settings:dict, **kwargs):
+        super().__init__(name=name, type=type, settings=settings, **kwargs)
 
         self.storage_account_name = settings.get('account_name')
         self.credential_type = settings.get('credential_type')
@@ -94,10 +94,11 @@ class BlobService(ServiceBase):
     async def test_connection(self) -> bool:
         """Test the connection to the Azure Blob Storage service."""
         try:
-            async with self.blob_service_client as client:
-                # Attempt to get service properties to verify connection
-               props = await client.get_service_properties()
-               return props is not None
+            async with self:
+                async with self.blob_service_client as client:
+                    # Attempt to get service properties to verify connection
+                    props = await client.get_service_properties()
+                    return props is not None
         except Exception as e:
             raise ServiceExecutionError(f"Failed to connect to Azure Blob Storage: {str(e)}")
 

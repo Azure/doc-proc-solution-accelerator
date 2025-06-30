@@ -114,12 +114,12 @@ services_catalog:
       description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
 
   - id: azure_ai_inference_service_01
-    name: "Azure AI Inference Service - Primary"
-    description: "Primary Azure AI service for document processing and inference"
+    name: "Azure AI Inference Service"
+    description: "Azure AI service for document processing and inference"
     type: azure_ai_inference
-    module_name: blob_service
-    module_path: ./doc/proc/service/blob_service.py
-    class_name: BlobService
+    module_name: azure_ai_inference_service
+    module_path: ./doc/proc/service/azure_ai_inference_service.py
+    class_name: AzureAIInferenceService
     test_connection: true
     category: "AI Services"
     version: "1.0"
@@ -171,7 +171,7 @@ services_catalog:
       description_long: "Azure AI Inference service for natural language processing, document analysis, and content generation."
 
   - id: azure_ai_search_service_01
-    name: "Azure AI Search - Primary"
+    name: "Azure AI Search Service"
     description: "Azure AI Search service for indexing and searching documents"
     type: azure_search
     module_name: blob_service
@@ -218,7 +218,7 @@ services_catalog:
       description_long: "Azure AI Search service for full-text search, semantic search, and vector search capabilities."
 
   - id: azure_cosmos_db_01
-    name: "Azure Cosmos DB - Primary"
+    name: "Azure Cosmos DB"
     description: "Azure Cosmos DB for storing processed document metadata and results"
     type: azure_cosmos
     module_name: blob_service

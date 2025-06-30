@@ -43,7 +43,7 @@ class PipelineConfig(BaseModel):
         return PipelineConfig(**config)
 
     @staticmethod
-    def from_yaml(yaml_str: str, services_catalog: List[ServiceConfig] = None, step_catalog: List[StepConfig] = None) -> List["PipelineConfig"]:
+    def from_yaml(yaml_str: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> List["PipelineConfig"]:
         """Load steps and pipelines configuration from a YAML string."""
         if not yaml_str:
             raise ValueError("YAML string cannot be empty")
@@ -59,10 +59,11 @@ class PipelineConfig(BaseModel):
                         raise ValueError(f"Service instance '{service.name}' is missing required fields: name or service_catalog_id.")
 
                 # Validate service instances against the service catalog
-                if services_catalog:
+                if service_catalog_config:
                     for service in service_instances:
-                        if not any(s.id == service.service_catalog_id for s in services_catalog):
-                            raise ValueError(f"Service instance '{service.name}' references unknown service catalog id '{service.service_catalog_id}' that could not be found in service catalog configuration.")
+                        s_found = next((s for s in service_catalog_config if s.id == service.service_catalog_id), None)
+                        if not s_found:
+                            raise ValueError(f"Service instance '{service.name}' references unknown service catalog id '{service.service_catalog_id}' that could not be found in service catalog configuration. Available services: {[s.id for s in service_catalog_config]}")
 
             
             # Load and validate pipelines
@@ -92,8 +93,8 @@ class PipelineConfig(BaseModel):
                             raise ValueError(f"Service '{service_name}' referenced in step '{step.name}' does not exist in the service instances.")
                     
                     # Validate step catalog reference
-                    if step_catalog:
-                        if not any(s.id == step.step_catalog_id for s in step_catalog):
+                    if step_catalog_config:
+                        if not any(s.id == step.step_catalog_id for s in step_catalog_config):
                             raise ValueError(f"Step '{step.name}' references unknown step catalog id '{step.step_catalog_id}' that could not be found in the step catalog configuration.")
 
             return pipelines

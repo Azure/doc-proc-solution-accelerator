@@ -18,34 +18,29 @@ logger = logging.getLogger(__name__)
 
 class PDFPagePNGToMarkdownStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, settings=settings, **kwargs)
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, services:List[str] = None, settings: dict = None, **kwargs):
+        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, services=services, settings=settings, **kwargs)
 
         # Initialize settings with default values if not provided
         if not self.settings:
             self.settings = {}
 
-        # get AI Model Inference Service from settings
-        self.ai_model_inference_service_name = self.settings.get("ai_model_inference_service", None)
-        if not self.ai_model_inference_service_name:
-            logger.error("AI Model Inference Service name not found in settings. Cannot proceed with conversion.")
-            raise StepExecutionError("AI Model Inference Service name not found in settings. Cannot proceed with conversion.")
 
         # get prompts from settings
         self.prompts = self.settings.get("prompts", {})
         if not self.prompts:
-            logger.error("No prompts found in settings. Cannot proceed with conversion.")
-            raise StepExecutionError("No prompts found in settings. Cannot proceed with conversion.")
+            logger.error("No prompts found in settings.")
+            raise StepExecutionError("No prompts found in settings.")
 
         self.system_prompt = self.prompts.get("system", "")
         if not self.system_prompt:
-            logger.error("System prompt not found in settings. Cannot proceed with conversion.")
-            raise StepExecutionError("System prompt not found in settings. Cannot proceed with conversion.")
+            logger.error("System prompt not found in settings.")
+            raise StepExecutionError("System prompt not found in settings.")
 
         self.user_prompt = self.prompts.get("user", "")
         if not self.user_prompt:
-            logger.error("User prompt not found in settings. Cannot proceed with conversion.")
-            raise StepExecutionError("User prompt not found in settings. Cannot proceed with conversion.")
+            logger.error("User prompt not found in settings.")
+            raise StepExecutionError("User prompt not found in settings.")
 
         self.max_completion_tokens = self.settings.get("max_completion_tokens", 4000)
         self.temperature = self.settings.get("temperature", 1.0)
@@ -65,14 +60,31 @@ class PDFPagePNGToMarkdownStep(StepBase):
             png_data = png_file.read()
             return base64.b64encode(png_data).decode('ascii')
         
+    
+    def get_ai_inference_service(self, context: "PipelineExecutionContext"):
+        """
+        Get the AI Model Inference Service from the context.
         
+        :param context: PipelineExecutionContext instance.
+        :return: AI Model Inference Service instance.
+        """
+
+        for name in self.services:
+            cs = context.get_service(name)
+            print(cs)
+            if cs and cs.type == 'azure_ai_inference':
+                return cs
+
+        return None
+
+
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         
         # get Azure AI Model Inference Service from context
-        ai_model_inference_service = context.get_service(self.ai_model_inference_service_name)
+        ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:
-            logger.error("AI Model Inference Service not found in context.")
-            raise StepExecutionError("AI Model Inference Service not found in context.")
+            logger.error("Azure AI Model Inference Service not found in context.")
+            raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         # get the path to the png files from input data
         pages_data = input_data.data.get("pages_data", [])
@@ -80,7 +92,6 @@ class PDFPagePNGToMarkdownStep(StepBase):
             logger.error("No pages data found in input data. Cannot proceed with conversion.")
             #do nothing
             raise StepExecutionError("No pages data found in input data. Cannot proceed with conversion.")
-
 
         # Convert each PNG file to Markdown using the AI Model Inference Service
         for page_data in pages_data:
@@ -112,7 +123,6 @@ class PDFPagePNGToMarkdownStep(StepBase):
                                     ),
                                 ],)
                         ]
-                
                 
 
                 response = ai_model_inference_service.run_chat_completion(messages=chat_completion_messages,
