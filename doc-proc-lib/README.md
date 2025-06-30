@@ -330,12 +330,12 @@ pipelines:
 Service Catalog (Template)     →     Service Instance (Configured)
      ↓                                        ↓
 "azure_storage_01"             →     "primary_blob_storage"
-                                           ↓
+                                              ↓
 Step Catalog (Template)        →     Pipeline Step (Configured)
      ↓                                        ↓
 "pdf_to_png"                   →     "extract_pdf_pages"
-                                           ↓
-                               Pipeline Execution
+                                              ↓
+                                      Pipeline Execution
 ```
 
 ## Core Components
@@ -613,6 +613,8 @@ services_catalog:
         required: true
 ```
 
+View the [Service documentation](SERVICE_README.md) for more details on how to create and use services.
+
 ### Custom Step
 
 1. **Create step class:**
@@ -677,6 +679,9 @@ steps:
       setting1: "custom_value"
 ```
 
+#### View the [Step documentation](STEP_README.md) for more details on how to create steps and use them in pipelines.
+
+
 ## Environment Variables
 
 Create a `.env` file with your configuration:
@@ -726,7 +731,7 @@ LOG_LEVEL=DEBUG
 
 3. **Step Execution Errors**
    ```
-   Error: Step 'pdf_to_png' failed with timeout
+   Error: Step failed with timeout
    ```
    - Increase timeout values in step configuration
    - Check input data format and availability
@@ -736,7 +741,7 @@ LOG_LEVEL=DEBUG
    ```
    Error: Cannot import module 'custom_step'
    ```
-   - Verify module paths in catalog configuration
+   - Verify module paths in catalog configuration - paths should be relative to the location the executable code is running from
    - Check Python path and module structure
    - Ensure all dependencies are installed
 
@@ -762,13 +767,6 @@ LOG_LEVEL=DEBUG
        print("Configuration loaded successfully")
    except Exception as e:
        print(f"Configuration error: {e}")
-   ```
-
-4. **Step-by-Step Execution:**
-   ```python
-   # Run individual steps for testing
-   step_result = await step.run(input_data, context)
-   print(f"Step output: {step_result}")
    ```
 
 ### Performance Optimization
