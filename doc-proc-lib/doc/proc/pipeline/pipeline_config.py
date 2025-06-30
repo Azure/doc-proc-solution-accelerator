@@ -43,6 +43,20 @@ class PipelineConfig(BaseModel):
         return PipelineConfig(**config)
 
     @staticmethod
+    def from_file(file_path: str) -> List["PipelineConfig"]:
+        """Load steps and pipelines configuration from a YAML file."""
+        if not file_path:
+            raise ValueError("File path cannot be empty")
+        try:
+            with open(file_path, 'r') as file:
+                yaml_str = file.read()
+            return PipelineConfig.from_yaml(yaml_str)
+        except FileNotFoundError:
+            raise ValueError(f"Configuration file '{file_path}' not found.")
+        except Exception as e:
+            raise ValueError(f"An error occurred while loading the pipeline configuration from file: {str(e)}")
+
+    @staticmethod
     def from_yaml(yaml_str: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> List["PipelineConfig"]:
         """Load steps and pipelines configuration from a YAML string."""
         if not yaml_str:
