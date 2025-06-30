@@ -1,5 +1,5 @@
 
-import { LayoutDashboard, Vault, Settings, Link, Workflow, Puzzle, Server } from "lucide-react";
+import { LayoutDashboard, Vault, Settings, Link, Workflow, Puzzle, Server, Cog } from "lucide-react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -13,7 +13,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
+const navigationItems = [
   {
     title: "Dashboard",
     url: "/",
@@ -45,6 +45,20 @@ const menuItems = [
     icon: Vault,
   },
   {
+    title: "Vaults6",
+    url: "/vaults6",
+    icon: Vault,
+  },  
+  {
+    title: "App Connections",
+    url: "/connections",
+    icon: Link,
+  },
+
+];
+
+const processingItems = [
+  {
     title: "Pipelines",
     url: "/pipeline",
     icon: Workflow,
@@ -53,6 +67,11 @@ const menuItems = [
     title: "Pipelines2",
     url: "/pipeline2",
     icon: Workflow,
+  },
+  {
+    title: "Pipeline Config",
+    url: "/pipeline-config",
+    icon: Cog,
   },
   {
     title: "Steps",
@@ -64,12 +83,6 @@ const menuItems = [
     url: "/services",
     icon: Server,
   },
-  {
-    title: "App Connections",
-    url: "/connections",
-    icon: Link,
-  },
-
 ];
 
 export function AppSidebar() {
@@ -85,10 +98,28 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>App</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                    <RouterLink to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </RouterLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        <SidebarGroup>
+          <SidebarGroupLabel>Processing</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {processingItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <RouterLink to={item.url}>

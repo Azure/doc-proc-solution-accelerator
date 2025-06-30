@@ -1,0 +1,271 @@
+# service_catalog.yaml - Reusable service definitions
+
+services_catalog:
+  # Sample service configuration
+  - id: sample_service_01                                                       # Unique identifier for the service
+    name: "Sample Service"                                                      # Human-readable name for the service
+    description: "A sample service configuration demonstrating all properties"  # Description of the service
+    type: sample_type                                                           # The type/category of the service
+    module_name: sample_service                                                 # Python module name implementing the service
+    module_path: ./doc/proc/service/sample_service.py                           # Path to the module file
+    class_name: SampleService                                                   # Class name to instantiate for this service
+    test_connection: false                                                      # Whether to test connection on startup
+    category: "Sample Category"                                                 # Logical grouping/category for the service
+    version: "1.0"                                                              # Version of the service definition
+    tags: [sample, demo, test]                                                  # List of tags for search/filtering
+
+    # Schema for required and optional settings
+    settings_schema:
+      sample_setting:
+        type: string
+        title: "Sample Setting"
+        description: "A sample setting required by the service"
+        required: true
+        env_var: "SAMPLE_SERVICE_SETTING"
+        default: ${SAMPLE_SERVICE_SETTING}
+      sample_optional:
+        type: integer
+        title: "Optional Setting"
+        description: "An optional integer setting"
+        required: false
+        default: 10
+        min: 0  # Minimum value for the integer
+        max: 100  # Maximum value for the integer
+      sample_with_pattern:
+        type: string
+        title: "Pattern Setting"
+        description: "A setting that must match a specific pattern"
+        required: true
+        pattern: "^[a-zA-Z0-9_]+$"  # Must be alphanumeric or underscore
+        env_var: "SAMPLE_SERVICE_PATTERN_SETTING"
+        default: ${SAMPLE_SERVICE_PATTERN_SETTING}
+      sample_enum:
+        type: string
+        title: "Enum Setting"
+        description: "A setting that must be one of the predefined values"
+        required: false
+        enum: ["option1", "option2", "option3"] # Must be one of these options
+        default: "option1"
+      sample_sensitive:
+        type: string      # Sensitive information, e.g., API keys
+        required: true
+        sensitive: true  # Marked as sensitive to hide in UI
+        title: "Sensitive Setting"
+        description: "A sensitive setting that should not be displayed in plain text"
+        env_var: "SAMPLE_SERVICE_SENSITIVE_SETTING"  # Environment variable for sensitive data
+        default: ${SAMPLE_SERVICE_SENSITIVE_SETTING}  # Use environment variable for sensitive data
+      sample_boolean:
+        type: boolean
+        title: "Boolean Setting"
+        description: "A boolean setting to enable or disable a feature"
+        required: false
+        default: false  # Default value for the boolean setting
+
+    # UI metadata for display purposes
+    ui_metadata:
+      icon: "settings"       # Icon to represent the service in UI
+      color: "#CCCCCC"       # Color for the service in UI
+      description_short: "A sample service" # Short description for quick reference
+      description_long: "This is a sample service configuration used for demonstration and documentation purposes."  # Long description for detailed view
+  
+  - id: azure_storage_01
+    name: "Azure Blob Storage - Primary"
+    description: "Primary Azure Blob Storage account for document storage and retrieval"
+    type: azure_blob
+    module_name: blob_service
+    module_path: ./doc/proc/service/blob_service.py
+    class_name: BlobService
+    test_connection: true
+    category: "Storage"
+    version: "1.0"
+    tags: [azure, storage, blob, documents]
+    
+    # Service configuration settings schema
+    settings_schema:
+      account_name:
+        type: string
+        title: "Storage Account Name"
+        description: "Name of the Azure Blob Storage account"
+        required: true
+        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_NAME"
+        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE"
+        default: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
+      credential_key:
+        type: string
+        title: "Account Key"
+        description: "Account key for Azure Blob Storage authentication"
+        required: false
+        sensitive: true
+        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_KEY"
+        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+        
+    # UI metadata
+    ui_metadata:
+      icon: "database"
+      color: "#0078D4"
+      description_short: "Azure Blob Storage for document storage"
+      description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
+
+  - id: azure_ai_inference_service_01
+    name: "Azure AI Inference Service - Primary"
+    description: "Primary Azure AI service for document processing and inference"
+    type: azure_ai_inference
+    module_name: blob_service
+    module_path: ./doc/proc/service/blob_service.py
+    class_name: BlobService
+    test_connection: true
+    category: "AI Services"
+    version: "1.0"
+    tags: [azure, ai, inference, llm, processing]
+
+    settings_schema:
+      endpoint:
+        type: string
+        title: "Service Endpoint"
+        description: "Endpoint URL for the Azure AI Inference Service"
+        required: true
+        pattern: "^https://.*"
+        env_var: "AZURE_AI_INFERENCE_SERVICE_ENDPOINT"
+        default: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE"
+        default: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key:
+        type: string
+        title: "API Key"
+        description: "API key for Azure AI Inference Service authentication"
+        required: false
+        sensitive: true
+        env_var: "AZURE_AI_INFERENCE_SERVICE_API_KEY"
+        default: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+      model_name:
+        type: string
+        title: "Model Name"
+        description: "Name of the AI model to use for inference"
+        default: "gpt-4o"
+        enum: ["gpt-4o", "gpt-4", "gpt-35-turbo"]
+      max_tokens:
+        type: integer
+        title: "Max Tokens"
+        description: "Maximum number of tokens for responses"
+        default: 4000
+        minimum: 100
+        maximum: 8000
+    
+    ui_metadata:
+      icon: "brain"
+      color: "#8B5CF6"
+      description_short: "Azure AI Inference for document processing"
+      description_long: "Azure AI Inference service for natural language processing, document analysis, and content generation."
+
+  - id: azure_ai_search_service_01
+    name: "Azure AI Search - Primary"
+    description: "Azure AI Search service for indexing and searching documents"
+    type: azure_search
+    module_name: blob_service
+    module_path: ./doc/proc/service/blob_service.py
+    class_name: BlobService
+    test_connection: true
+    category: "Search"
+    version: "1.0"
+    tags: [azure, search, index, cognitive]
+    
+    settings_schema:
+      service_name:
+        type: string
+        title: "Search Service Name"
+        description: "Name of the Azure AI Search service"
+        required: true
+        env_var: "AZURE_SEARCH_SERVICE_NAME"
+        default: ${AZURE_SEARCH_SERVICE_NAME}
+      index_name:
+        type: string
+        title: "Index Name"
+        description: "Name of the search index to use"
+        required: true
+        default: "documents-index"
+      api_key:
+        type: string
+        title: "Admin API Key"
+        description: "Admin API key for Azure AI Search service"
+        required: true
+        sensitive: true
+        env_var: "AZURE_SEARCH_SERVICE_API_KEY"
+        default: ${AZURE_SEARCH_SERVICE_API_KEY}
+      api_version:
+        type: string
+        title: "API Version"
+        description: "Azure Search API version to use"
+        default: "2023-11-01"
+        enum: ["2023-11-01", "2023-07-01-Preview", "2021-04-30-Preview"]
+    
+    ui_metadata:
+      icon: "search"
+      color: "#FF6B35"
+      description_short: "Azure AI Search for document indexing and retrieval"
+      description_long: "Azure AI Search service for full-text search, semantic search, and vector search capabilities."
+
+  - id: azure_cosmos_db_01
+    name: "Azure Cosmos DB - Primary"
+    description: "Azure Cosmos DB for storing processed document metadata and results"
+    type: azure_cosmos
+    module_name: blob_service
+    module_path: ./doc/proc/service/blob_service.py
+    class_name: BlobService
+    test_connection: true
+    category: "Database"
+    version: "1.0"
+    tags: [azure, cosmos, database, nosql, metadata]
+    
+    settings_schema:
+      endpoint:
+        type: string
+        title: "Cosmos DB Endpoint"
+        description: "Endpoint URL for Azure Cosmos DB"
+        required: true
+        pattern: "^https://.*"
+        env_var: "AZURE_COSMOS_DB_ENDPOINT"
+        default: ${AZURE_COSMOS_DB_ENDPOINT}
+      key:
+        type: string
+        title: "Primary Key"
+        description: "Primary key for Cosmos DB authentication"
+        required: true
+        sensitive: true
+        env_var: "AZURE_COSMOS_DB_KEY"
+        default: ${AZURE_COSMOS_DB_KEY}
+      database_name:
+        type: string
+        title: "Database Name"
+        description: "Name of the Cosmos DB database"
+        required: true
+        default: "document-processing"
+      container_name:
+        type: string
+        title: "Container Name"
+        description: "Name of the Cosmos DB container"
+        required: true
+        default: "documents"
+      partition_key:
+        type: string
+        title: "Partition Key"
+        description: "Partition key for the container"
+        default: "/id"
+    
+    ui_metadata:
+      icon: "database"
+      color: "#00BCF2"
+      description_short: "Azure Cosmos DB for document metadata"
+      description_long: "Azure Cosmos DB service for storing document metadata, processing results, and application state."

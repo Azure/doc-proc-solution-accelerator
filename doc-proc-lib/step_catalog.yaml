@@ -1,0 +1,185 @@
+# step_catalog.yaml - Reusable step definitions
+
+step_catalog:
+  - id: sample_step
+    name: "Sample Development Step"
+    description: "Sample step for development and testing"
+    type: script
+    module_name: sample
+    module_path: ./doc/proc/step/sample.py
+    class_name: SampleStep
+    tags: [sample, development]
+    category: "Development"
+    version: "1.0"
+    fail_pipeline_on_error: true
+    retry_on_failure: true
+    retries: 3
+    timeout: 600
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      key1:
+        type: string
+        title: "Custom Key 1"
+        description: "First custom configuration key"
+        default: "value1"
+      key2:
+        type: string
+        title: "Custom Key 2"
+        description: "Second custom configuration key"
+        default: "value2"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "gear"
+      color: "#6B7280"
+      description_short: "A sample step used for development and testing purposes."
+      description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
+          
+  - id: pdf_to_png
+    name: "PDF to PNG Converter"
+    description: "Convert PDF pages to PNG images"
+    type: script
+    module_name: pdf_to_png
+    module_path: ./doc/proc/step/extract_pdf_to_png.py
+    class_name: PDFPagesToPNGStep
+    tags: [pdf, png, conversion, azure_blob]
+    category: "Document Processing"
+    version: "2.1"
+    fail_pipeline_on_error: true
+    retry_on_failure: false
+    retries: 3
+    timeout: 600
+    
+    # Settings schema for UI generation and validation
+    settings_schema:
+      storage_service:
+        type: string
+        title: "Storage Service"
+        description: "Reference to the storage service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_blob"
+      png_output_folder:
+        type: string
+        title: "PNG Output Folder"
+        description: "Directory path where PNG files will be saved"
+        default: "./output/png"
+        required: true
+        pattern: "^\\.\\/.*"
+      num_pages:
+        type: integer
+        title: "Number of Pages"
+        description: "Maximum number of pages to convert (0 = all pages)"
+        default: 10
+        min: 0
+        max: 1000
+      dpi:
+        type: integer
+        title: "DPI Resolution"
+        description: "Resolution for PNG output in dots per inch"
+        default: 300
+        min: 72
+        max: 600
+      image_format:
+        type: string
+        title: "Image Format"
+        description: "Output image format"
+        default: "PNG"
+        enum: ["PNG", "JPEG", "TIFF"]
+
+    ui_metadata:
+      icon: "image"
+      color: "#10B981"
+      description_short: "Converts PDF document pages into PNG image files."
+      description_long: "Converts PDF document pages into PNG image files. Supports batch processing and custom output directories."
+      
+  - id: pdf_page_png_to_markdown
+    name: "PNG to Markdown Converter"
+    description: "Convert PDF page images to Markdown using AI"
+    type: script
+    module_name: pdf_page_png_to_markdown
+    module_path: ./doc/proc/step/pdf_page_png_to_markdown.py
+    class_name: PDFPagePNGToMarkdownStep
+    tags: [transform, extraction, markdown, azure_ai_inference, ai]
+    category: "AI Processing"
+    version: "1.5"
+    fail_pipeline_on_error: true
+    retry_on_failure: false
+    retries: 3
+    timeout: 600
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      ai_model_inference_service:
+        type: string
+        title: "AI Inference Service"
+        description: "Reference to the AI service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_inference"
+      storage_service:
+        type: string
+        title: "Storage Service"
+        description: "Reference to the storage service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_blob"
+      system_prompt:
+        type: string
+        title: "System Prompt"
+        description: "Instructions for the AI system"
+        default: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+        ui_component: "textarea"
+      user_prompt:
+        type: string
+        title: "User Prompt Template"
+        description: "Template for user prompts sent to AI"
+        default: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
+        ui_component: "textarea"
+      max_completion_tokens:
+        type: integer
+        title: "Max Completion Tokens"
+        description: "Maximum number of tokens to generate"
+        default: 4000
+        min: 100
+        max: 8000
+      temperature:
+        type: number
+        title: "Temperature"
+        description: "Controls randomness in AI responses (0.0 = deterministic, 2.0 = very random)"
+        default: 1.0
+        min: 0.0
+        max: 2.0
+        multipleOf: 0.1
+      top_p:
+        type: number
+        title: "Top P"
+        description: "Controls diversity of AI responses"
+        default: 0.4
+        min: 0.0
+        max: 1.0
+        multipleOf: 0.1
+      frequency_penalty:
+        type: number
+        title: "Frequency Penalty"
+        description: "Reduces repetition in AI responses"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+      presence_penalty:
+        type: number
+        title: "Presence Penalty"
+        description: "Encourages AI to talk about new topics"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+
+    ui_metadata:
+      icon: "brain"
+      color: "#8B5CF6"
+      description_short: "Uses Azure AI services to extract text and generate markdown from PDF page images."
+      description_long: "Uses Azure AI services to extract text and generate markdown from PDF page images. Supports custom prompts and AI model parameters."
+      
