@@ -64,6 +64,20 @@ class StepConfig(pydantic.BaseModel):
         return StepConfig(**config)
 
     @staticmethod
+    def from_file(file_path: str) -> List["StepConfig"]:
+        """Load steps configuration from a YAML file."""
+        if not file_path:
+            raise ValueError("File path cannot be empty")
+        try:
+            with open(file_path, 'r') as file:
+                yaml_str = file.read()
+                return StepConfig.from_yaml(yaml_str)
+        except FileNotFoundError:
+            raise ValueError(f"File not found: {file_path}")
+        except Exception as e:
+            raise ValueError(f"An error occurred while loading the step configuration: {str(e)}")
+        
+    @staticmethod
     def from_yaml(yaml_str: str) -> List["StepConfig"]:
         """Load steps and pipelines configuration from a YAML string."""
         if not yaml_str:
@@ -78,3 +92,5 @@ class StepConfig(pydantic.BaseModel):
             raise ValueError(f"Validation error in pipeline configuration: {ve}")
         except Exception as e:
             raise ValueError(f"An error occurred while loading the pipeline configuration: {str(e)}")
+        
+
