@@ -1,10 +1,10 @@
 from typing import List
 
+import pymupdf
+
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepInputOutput
 
-
-import pymupdf
 
 class PDFPagesToPNGStep(StepBase):
 

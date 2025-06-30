@@ -1,9 +1,8 @@
 import logging
 
 from doc.proc.utils.import_module import import_module
-
-from .service_base import ServiceBase
-from .service_config import ServiceConfig
+from doc.proc.service.service_base import ServiceBase
+from doc.proc.service.service_config import ServiceConfig
 
 logger = logging.getLogger(__name__)
 

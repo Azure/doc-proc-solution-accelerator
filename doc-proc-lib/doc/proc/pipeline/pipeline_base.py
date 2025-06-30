@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel
 import logging
 
-from .pipeline_config import PipelineConfig, ServiceInstanceConfig, StepInstanceConfig
+from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig, StepInstanceConfig
 from doc.proc.step.step_base import StepBase, StepInputOutput
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_base import ServiceBase

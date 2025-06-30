@@ -1,6 +1,6 @@
 import logging
 
-from .service_base import ServiceBase
+from doc.proc.service.service_base import ServiceBase
 
 logger = logging.getLogger(__name__)
 
