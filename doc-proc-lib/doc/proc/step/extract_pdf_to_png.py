@@ -8,8 +8,8 @@ import pymupdf
 
 class PDFPagesToPNGStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, settings=settings, **kwargs)
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, services: List[str] = None, settings: dict = None, **kwargs):
+        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, services=services, settings=settings, **kwargs)
 
 
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:

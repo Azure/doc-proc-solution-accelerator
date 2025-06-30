@@ -48,8 +48,9 @@ pipelines:
         enabled: true
         services: [primary_ai_inference_service, primary_blob_storage] # References to service instances
         settings:
-          system_prompt: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-          user_prompt: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
+          prompts:
+            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+            user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
           max_completion_tokens: 4000
           temperature: 1.0
           top_p: 1.0

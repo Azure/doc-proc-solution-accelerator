@@ -26,12 +26,13 @@ class StepBase:
     Base class for pipeline steps.
     """
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, settings: dict = None, **kwargs):
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, services: List[str] = None, settings: dict = None, **kwargs):
         self.id = id
         self.name = name
         self.enabled = enabled
         self.description = description
         self.tags = tags or []
+        self.services = services or []
         self.settings = settings or {}
         self.params = kwargs
 
@@ -42,6 +43,8 @@ class StepBase:
         Run the step with the given input.
         Type hint for context is a string to avoid circular import.
         Import PipelineExecutionContext inside the method if runtime access is needed.
+        Use this method to implement the step's logic.
+        Use the context to access pipeline execution details and get services if needed.
         """
         # from pipeline.pipeline_base import PipelineExecutionContext  # Uncomment if runtime access is needed
         raise NotImplementedError("Subclasses must implement this method.")

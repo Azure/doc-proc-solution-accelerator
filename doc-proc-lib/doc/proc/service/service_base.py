@@ -12,9 +12,10 @@ class ServiceBase:
     This class provides a method to get an instance of a service based on the provided settings.
     """
 
-    def __init__(self, name: str, type: str, **kwargs):
+    def __init__(self, name: str, type: str, settings: dict, **kwargs):
         self.name = name
         self.type = type
+        self.settings = settings or {}
         self.params = kwargs
 
         if not self.name:
