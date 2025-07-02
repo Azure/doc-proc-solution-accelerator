@@ -18,6 +18,7 @@ class StepInstanceConfig(BaseModel):
     name: str  # Instance name in the pipeline
     step_catalog_id: str  # Reference to step id in the step catalog
     enabled: bool = True
+    debug_mode: bool = False  # Enable debug mode for this step
     services: List[str] = []  # References to service instances used by this step
     settings: Optional[dict] = None
 

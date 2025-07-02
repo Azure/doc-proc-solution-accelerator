@@ -354,39 +354,70 @@ analysis_result = response.choices[0].message.content
 ```yaml
 - id: azure_ai_search_service_01
   name: "Azure AI Search Service"
-  type: azure_search
-  module_name: search_service
-  module_path: ./doc/proc/service/search_service.py
-  class_name: SearchService
+  type: azure_ai_search
+  module_name: azure_ai_search_service
+  module_path: ./doc/proc/service/azure_ai_search_service.py
+  class_name: AzureAISearchService
   test_connection: true
   
   settings_schema:
-    service_name:
+    account_name:
       type: string
-      title: "Search Service Name"
+      title: "Search Service Account Name"
       required: true
-      env_var: "AZURE_SEARCH_SERVICE_NAME"
-      default: ${AZURE_SEARCH_SERVICE_NAME}
+      env_var: "AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME"
+      default: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
     
-    index_name:
+    credential_type:
       type: string
-      title: "Index Name"
-      required: true
-      default: "documents-index"
+      title: "Credential Type"
+      enum: ["azure_key_credential", "default_azure_credential"]
+      default: "azure_key_credential"
+      env_var: "AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE"
+      default: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
     
     api_key:
       type: string
       title: "Admin API Key"
       required: true
       sensitive: true
-      env_var: "AZURE_SEARCH_API_KEY"
-      default: ${AZURE_SEARCH_API_KEY}
+      env_var: "AZURE_AI_SEARCH_SERVICE_API_KEY"
+      default: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
     
     api_version:
       type: string
       title: "API Version"
-      enum: ["2023-11-01", "2023-07-01-Preview"]
-      default: "2023-11-01"
+      enum: ["2024-07-01", "2023-11-01", "2025-05-01-preview"]
+      default: "2024-07-01"
+    
+    index_name:
+      type: string
+      title: "Index Name"
+      required: true
+      default: "documents-index"
+```
+
+**Usage in Pipeline**:
+```python
+# In a step's run method
+search_service = context.get_service("ai_search_service")
+
+# Write documents to search index
+documents = [
+    {
+        "id": "doc1",
+        "file_name": "document.pdf",
+        "page_num": 1,
+        "markdown": "# Document content...",
+        "summary": "Document summary",
+        "@search.action": "upload"
+    }
+]
+
+result = await search_service.write_documents(
+    index_name="documents_index",
+    documents=documents
+)
 ```
 
 ## Creating Custom Services
@@ -1245,7 +1276,9 @@ class ServiceDebugger:
             'AZURE_AI_ENDPOINT',
             'AZURE_AI_API_KEY',
             'AZURE_COSMOS_ENDPOINT',
-            'AZURE_COSMOS_KEY'
+            'AZURE_COSMOS_KEY',
+            'AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME',
+            'AZURE_AI_SEARCH_SERVICE_API_KEY'
         ]
         
         print("Environment Variable Check:")

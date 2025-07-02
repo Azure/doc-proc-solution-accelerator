@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 async def get_service(service_config: ServiceConfig, instance_settings: dict = None) -> ServiceBase:
     """Get an instance of the specified service type."""
 
-    logger.debug(f"Creating service instance.")
-
     # Validate service_config
     if not isinstance(service_config, ServiceConfig):
         raise TypeError(f"Service configuration must be an instance of ServiceConfig, got \"{type(service_config)}\"")
@@ -22,7 +20,7 @@ async def get_service(service_config: ServiceConfig, instance_settings: dict = N
     if not service_config.type:
         raise ValueError("Service configuration must have a type.")
 
-    logger.debug(f"Service instance name: {service_config.name} and type: {service_config.type}.")
+    logger.debug(f"Creating service instance name: {service_config.name} of type: {service_config.type}.")
 
     # Create service instance based on type
     if not service_config.module_name:

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="80" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <!-- Main gradient for background -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0078D4;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <!-- Document gradient -->
+    <linearGradient id="docGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0078D4" />
+      <stop offset="100%" style="stop-color:#106EBE" />
+    </linearGradient>
+    
+    <!-- AI brain gradient -->
+    <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6" />
+      <stop offset="100%" style="stop-color:#7C3AED" />
+    </linearGradient>
+    
+    <!-- Pipeline gradient -->
+    <linearGradient id="pipelineGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d4b55b" />
+      <stop offset="100%" style="stop-color:#d4b55b" />
+    </linearGradient>
+
+    <!-- Pipeline gradient -->
+    <linearGradient id="pipelineGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#059669" />
+      <stop offset="100%" style="stop-color:#059669" />
+    </linearGradient>
+    
+    <!-- Text gradient -->
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1F2937" />
+      <stop offset="50%" style="stop-color:#0078D4" />
+      <stop offset="100%" style="stop-color:#8B5CF6" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="80" rx="8" fill="url(#bgGradient)" stroke="#E5E7EB" stroke-width="1"/>
+  
+  <!-- Document Icon -->
+  <g transform="translate(10, 19) scale(1.2)">
+    <!-- Document body -->
+    <rect x="0" y="4" width="14" height="18" rx="1" fill="url(#docGradient)" opacity="0.9"/>
+    <!-- Document corner fold -->
+    <path d="M10 4 L14 4 L14 8 L10 4" fill="#ffffff" opacity="0.3"/>
+    <!-- Document lines -->
+    <rect x="2" y="8" width="8" height="1" rx="0.5" fill="#ffffff" opacity="0.6"/>
+    <rect x="2" y="11" width="10" height="1" rx="0.5" fill="#ffffff" opacity="0.6"/>
+    <rect x="2" y="14" width="6" height="1" rx="0.5" fill="#ffffff" opacity="0.6"/>
+    <rect x="2" y="17" width="9" height="1" rx="0.5" fill="#ffffff" opacity="0.6"/>
+  </g>
+  
+  <!-- Arrow flow (pipeline) -->
+  <g transform="translate(33, 35)">
+    <!-- Arrow 1 -->
+    <path d="M0 0 L12 0 M9 -3 L12 0 L9 3" stroke="url(#pipelineGradient1)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- AI Brain Icon -->
+  <g transform="translate(47, 22)" scale="1.4">
+    <!-- Brain outline - Exact Lucide React brain icon paths -->
+    <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" 
+          fill="url(#aiGradient)" stroke="#ffffff" stroke-width="0.3" opacity="0.9"/>
+    <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" 
+          fill="url(#aiGradient)" stroke="#ffffff" stroke-width="0.3" opacity="0.9"/>
+    
+    <!-- Brain internal structure -->
+    <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" 
+          stroke="#ffffff" stroke-width="0.5" opacity="0.7" fill="none"/>
+    
+    <!-- Brain detail lines -->
+    <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <path d="M3.477 10.896a4 4 0 0 1 .585-.396" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <path d="M19.938 10.5a4 4 0 0 1 .585.396" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <path d="M6 18a4 4 0 0 1-1.967-.516" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <path d="M19.967 17.484A4 4 0 0 1 18 18" 
+          stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    
+    <!-- Neural activity indicators -->
+    <!-- <circle cx="8" cy="9" r="0.6" fill="#ffffff" opacity="0.8"/> -->
+    <!-- <circle cx="16" cy="9" r="0.6" fill="#ffffff" opacity="0.8"/> -->
+    <circle cx="10" cy="13" r="0.5" fill="#ffffff" opacity="0.7"/>
+    <circle cx="14" cy="13" r="0.5" fill="#ffffff" opacity="0.7"/>
+  </g>
+  
+  <!-- Arrow flow (pipeline) -->
+  <g transform="translate(75, 35)">
+    <!-- Arrow 2 -->
+    <path d="M0 0 L12 0 M9 -3 L12 0 L9 3" stroke="url(#pipelineGradient2)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Database/Output Icon -->
+  <g transform="translate(92, 23) scale(1.3)">
+    <!-- Database cylinder -->
+    <ellipse cx="6" cy="3" rx="6" ry="2" fill="url(#docGradient)" opacity="0.9"/>
+    <rect x="0" y="3" width="12" height="12" fill="url(#docGradient)" opacity="0.9"/>
+    <ellipse cx="6" cy="15" rx="6" ry="2" fill="url(#docGradient)" opacity="1"/>
+    <!-- Database rings -->
+    <ellipse cx="6" cy="6" rx="6" ry="1.5" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.6"/>
+    <ellipse cx="6" cy="9" rx="6" ry="1.5" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.6"/>
+    <ellipse cx="6" cy="12" rx="6" ry="1.5" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.6"/>
+  </g>
+  
+  <!-- Text Logo -->
+  <g transform="translate(115, 30)">
+    <!-- Doc-Proc text -->
+    <text x="0" y="12" font-family="'Segoe UI', Arial, sans-serif" font-size="16" font-weight="bold" fill="url(#textGradient)">
+      Doc-Proc
+    </text>
+  </g>
+  
+  <!-- Solution Accelerator text at bottom left -->
+  <g transform="translate(60, 65)">
+    <!-- Solution Accelerator text -->
+    <text x="0" y="8" font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="bold" fill="#0078D4" opacity="0.9">
+      Solution Accelerator
+    </text>
+  </g>
+  
+  <!-- Decorative elements -->
+  <!-- Processing dots under brain -->
+  <g transform="translate(54, 50)">
+    <circle cx="0" cy="0" r="1.5" fill="#d4b55b" opacity="0.6">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="5" cy="0" r="1.5" fill="#b85ee6" opacity="0.6">
+      <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="10" cy="0" r="1.5" fill="#10B981" opacity="0.6">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+    </circle>
+  </g>
+  
+  <!-- Enhanced tech pattern in background - Upper Right -->
+  <g opacity="0.6">
+    <circle cx="175" cy="12" r="6" fill="none" stroke="#8B5CF6" stroke-width="1.5"/>
+    <circle cx="175" cy="12" r="10" fill="none" stroke="#8B5CF6" stroke-width="1"/>
+    <circle cx="175" cy="12" r="3" fill="#8B5CF6" opacity="0.4"/>
+    <path d="M170 7 L180 17 M180 7 L170 17" stroke="#8B5CF6" stroke-width="1.2"/>
+    <!-- Additional geometric elements -->
+    <polygon points="185,8 188,12 185,16 182,12" fill="#8B5CF6" opacity="0.3"/>
+    <circle cx="188" cy="18" r="2" fill="#8B5CF6" opacity="0.2"/>
+  </g>
+  
+  <!-- Enhanced tech pattern in background - Lower Left -->
+  <g opacity="0.6">
+    <rect x="8" y="58" width="10" height="10" rx="2" fill="none" stroke="#0078D4" stroke-width="1.5"/>
+    <rect x="10" y="60" width="6" height="6" rx="1" fill="#0078D4" opacity="0.3"/>
+    <circle cx="13" cy="63" r="1.5" fill="#0078D4" opacity="0.5"/>
+    <path d="M6 56 L20 70" stroke="#0078D4" stroke-width="1" opacity="0.6"/>
+    <!-- Additional tech elements -->
+    <polygon points="3,68 6,70 3,72 0,70" fill="#0078D4" opacity="0.3"/>
+    <rect x="22" y="65" width="3" height="3" rx="0.5" fill="#0078D4" opacity="0.2"/>
+  </g>
+</svg>

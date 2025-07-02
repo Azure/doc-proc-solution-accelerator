@@ -173,29 +173,31 @@ services_catalog:
   - id: azure_ai_search_service_01
     name: "Azure AI Search Service"
     description: "Azure AI Search service for indexing and searching documents"
-    type: azure_search
-    module_name: blob_service
-    module_path: ./doc/proc/service/blob_service.py
-    class_name: BlobService
+    type: azure_ai_search
+    module_name: azure_ai_search_service
+    module_path: ./doc/proc/service/azure_ai_search_service.py
+    class_name: AzureAISearchService
     test_connection: true
     category: "Search"
     version: "1.0"
     tags: [azure, search, index, cognitive]
     
     settings_schema:
-      service_name:
+      account_name:
         type: string
-        title: "Search Service Name"
+        title: "Search Service Account Name"
         description: "Name of the Azure AI Search service"
         required: true
-        env_var: "AZURE_SEARCH_SERVICE_NAME"
-        default: ${AZURE_SEARCH_SERVICE_NAME}
-      index_name:
+        env_var: "AZURE_SEARCH_SERVICE_ACCOUNT_NAME"
+        default: ${AZURE_SEARCH_SERVICE_ACCOUNT_NAME}
+      credential_type:
         type: string
-        title: "Index Name"
-        description: "Name of the search index to use"
-        required: true
-        default: "documents-index"
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE"
+        default: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
       api_key:
         type: string
         title: "Admin API Key"
@@ -208,8 +210,14 @@ services_catalog:
         type: string
         title: "API Version"
         description: "Azure Search API version to use"
-        default: "2023-11-01"
-        enum: ["2023-11-01", "2023-07-01-Preview", "2021-04-30-Preview"]
+        default: "2025-05-01-preview"
+        enum: ['2025-05-01-preview', '2024-07-01', '2023-11-01']
+      index_name:
+        type: string
+        title: "Index Name"
+        description: "Name of the search index to use"
+        required: true
+        default: "documents-index"
     
     ui_metadata:
       icon: "search"

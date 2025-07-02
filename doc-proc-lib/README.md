@@ -1,3 +1,9 @@
+<p>
+    <picture>
+    <img src="../logo.svg" alt="doc-proc-solution-accelerator" style="width:200px;height:80px" />
+    </picture>
+</p>
+
 # Doc-Proc-Lib: Document Processing Pipeline Library
 
 A flexible, modular document processing pipeline library built with Python that enables the creation of complex document processing workflows through configurable pipelines, steps, and services.
@@ -43,10 +49,10 @@ The library supports:
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │ Service Catalog │    │  Step Catalog   │    │Pipeline Config  │
 │                 │    │                 │    │                 │
-│ - Azure Blob    │    │ - PDF to PNG    │    │ - Service       │
-│ - Azure AI      │    │ - PNG to MD     │    │   Instances     │
-│ - Cosmos DB     │    │ - Custom Steps  │    │ - Pipeline      │
-│ - Search        │    │                 │    │   Definition    │
+│ - Azure Blob    │    │ - DOC to MD     │    │ - Service       │
+│ - Azure AI      │    │ - MD to Index   │    │   Instances     │
+│ - AI SEARCH     │    │ - Custom Steps  │    │ - Pipeline      │
+│ - COSMOS        │    │                 │    │   Definition    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -136,6 +142,8 @@ The `service_catalog.yaml` defines reusable service templates that can be instan
 
 **Structure:**
 ```yaml
+# Sample service configuration
+## 
 services_catalog:
   - id: azure_storage_01                             # Unique service identifier
     name: "Azure Blob Storage - Primary"             # Human-readable name
@@ -197,55 +205,47 @@ The `step_catalog.yaml` defines reusable processing step templates. Steps are th
 **Structure:**
 ```yaml
 step_catalog:
-  - id: pdf_to_png                                   # Unique step identifier
-    name: "PDF to PNG Converter"                     # Human-readable name
-    description: "Convert PDF pages to PNG images"
+  - id: sample_01                                    # Unique step identifier
+    name: "Sample Step"                              # Human-readable name
+    description: "Sample Step Configuration"
     type: script                                     # Step type
-    module_name: pdf_to_png                          # Python module name
-    module_path: ./doc/proc/step/extract_pdf_to_png.py
-    class_name: PDFPagesToPNGStep                    # Step class name
-    tags: [pdf, png, conversion]                     # Search/filter tags
-    category: "Document Processing"                  # Logical grouping
-    version: "2.1"                                   # Version
+    module_name: sample                              # Python module name
+    module_path: ./doc/proc/step/sample.py
+    class_name: SampleStep                           # Step class name
+    tags: [sample]                                   # Search/filter tags
+    category: "Sample".                              # Logical grouping
+    version: "1.0"                                   # Version
     
     # Error handling configuration
-    fail_pipeline_on_error: true                     # Stop pipeline on error
+    fail_pipeline_on_error: false                    # Stop pipeline on error
     retry_on_failure: false                          # Retry failed steps
-    retries: 3                                       # Number of retries
+    retries: 0                                       # Number of retries
     timeout: 600                                     # Timeout in seconds
     
     # Configuration schema
     settings_schema:
-      png_output_folder:
+      setting_1:
         type: string
-        title: "PNG Output Folder"
-        description: "Directory for PNG files"
-        default: "./output/png"
+        title: "Sample setting 01"
+        description: "Sample setting 01"
+        default: "sample value"
         required: true
         pattern: "^\\.\\/.*"               
       
-      num_pages:
+      setting_2:
         type: integer
-        title: "Number of Pages"
-        description: "Max pages to convert (0 = all)"
+        title: "Sample integer setting"
+        description: "Sample integer setting"
         default: 10
         min: 0
         max: 1000
-      
-      dpi:
-        type: integer
-        title: "DPI Resolution"
-        description: "Output resolution"
-        default: 300
-        min: 72
-        max: 600
     
     # UI metadata
     ui_metadata:
       icon: "image"
       color: "#10B981"
-      description_short: "Converts PDF pages to PNG images"
-      description_long: "Converts PDF document pages into PNG image files. Supports batch processing and custom output directories."
+      description_short: "Sample Step"
+      description_long: "Sample Step"
 ```
 
 **Key Features:**
@@ -276,6 +276,15 @@ service_instances:
       api_key: ${AZURE_AI_API_KEY}
       model_name: "gpt-4o"
       max_tokens: 4000
+  
+  - name: ai_search_service
+    service_catalog_id: azure_ai_search_service_01
+    settings:
+      account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
+      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      api_version: "2024-07-01"
+      index_name: "documents_index"
 
 # Pipeline definitions
 pipelines:
@@ -285,26 +294,39 @@ pipelines:
     
     # Pipeline steps
     steps:
-      - name: extract_pdf_pages              # Step instance name
-        step_catalog_id: pdf_to_png          # Reference to catalog
+      - name: extract_and_process_pdf        # Step instance name
+        step_catalog_id: pdf_text_extractor  # Reference to catalog
         enabled: true                        # Enable/disable step
-        services: [primary_blob_storage]     # Required services
+        services: [primary_blob_storage, ai_inference_service]  # Required services
         settings:                           # Step-specific settings
           png_output_folder: "./output/png"
           num_pages: 10
           dpi: 300
-      
-      - name: convert_to_markdown
-        step_catalog_id: pdf_page_png_to_markdown
-        enabled: true
-        services: [ai_inference_service, primary_blob_storage]
-        settings:
-          system_prompt: "Convert images to markdown..."
+          prompts:
+            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+            user: "Extract the text from the following image into markdown and provide descriptions of images..."
           max_completion_tokens: 4000
           temperature: 1.0
+      
+      - name: write_to_search_index
+        step_catalog_id: ai_search_index_writer
+        enabled: true
+        services: [ai_search_service]
+        settings:
+          index_name: "documents_index"
+          chunks_iterator_field: "data.chunks_data"
+          index_field_mappings: |
+            {
+              "page_id": "id",
+              "input_file_path": "file_name",
+              "page_num": "page_num",
+              "markdown": "markdown",
+              "summary": "summary",
+              "page_image_base64": "page_image"
+            }
     
     # Execution order
-    execution_sequence: [extract_pdf_pages, convert_to_markdown]
+    execution_sequence: [extract_and_process_pdf, write_to_search_index]
     
     # Pipeline settings
     settings:
@@ -533,32 +555,46 @@ class CustomAnalysisStep(StepBase):
 
 ### Azure AI Search Service
 - **Purpose**: Document indexing and search
-- **Configuration**: Service name, API key, index
-- **Usage**: Full-text search, semantic search
+- **Configuration**: Service name, API key, index name, API version
+- **Usage**: Full-text search, semantic search, vector search, document indexing
 
 ## Built-in Steps
 
-### PDF to PNG Step
+### PDF Text Extractor Step
 ```yaml
-# Converts PDF pages to PNG images
-step_catalog_id: pdf_to_png
+# Extracts text from PDF documents using AI
+step_catalog_id: pdf_text_extractor
 settings:
   png_output_folder: "./output/png"
   num_pages: 10          # 0 = all pages
   dpi: 300              # Image resolution
   image_format: "PNG"   # PNG, JPEG, TIFF
-```
-
-### PNG to Markdown Step
-```yaml
-# Converts images to markdown using AI
-step_catalog_id: pdf_page_png_to_markdown
-settings:
-  system_prompt: "Convert images to markdown..."
-  user_prompt: "Extract text and describe images..."
+  prompts:
+    system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+    user: "Extract the text from the following image into markdown and provide descriptions of images..."
   max_completion_tokens: 4000
   temperature: 1.0
   top_p: 0.4
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+```
+
+### AI Search Index Writer Step
+```yaml
+# Writes processed document data to Azure AI Search index
+step_catalog_id: ai_search_index_writer
+settings:
+  index_name: "documents_index"
+  chunks_iterator_field: "data.chunks_data"
+  index_field_mappings: |
+    {
+      "page_id": "id",
+      "input_file_path": "file_name",
+      "page_num": "page_num",
+      "markdown": "markdown",
+      "summary": "summary",
+      "page_image_base64": "page_image"
+    }
 ```
 
 ### Sample Development Step
@@ -697,9 +733,10 @@ AZURE_AI_INFERENCE_SERVICE_ENDPOINT=https://your-ai-service.openai.azure.com/
 AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE=azure_key_credential
 AZURE_AI_INFERENCE_SERVICE_API_KEY=your_api_key
 
-# Azure Search
-AZURE_SEARCH_SERVICE_NAME=your_search_service
-AZURE_SEARCH_SERVICE_API_KEY=your_search_api_key
+# Azure AI Search
+AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME=your_search_service_account_name
+AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE=azure_key_credential
+AZURE_AI_SEARCH_SERVICE_API_KEY=your_search_api_key
 
 # Azure Cosmos DB
 AZURE_COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/

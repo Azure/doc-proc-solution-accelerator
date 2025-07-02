@@ -26,12 +26,13 @@ class StepBase:
     Base class for pipeline steps.
     """
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, services: List[str] = None, settings: dict = None, **kwargs):
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
         self.id = id
         self.name = name
         self.enabled = enabled
         self.description = description
         self.tags = tags or []
+        self.debug_mode = debug_mode
         self.services = services or []
         self.settings = settings or {}
         self.params = kwargs

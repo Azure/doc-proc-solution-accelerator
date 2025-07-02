@@ -45,7 +45,6 @@ class PipelineExecutionContext:
 
     def get_service(self, service_name: str) -> Optional[ServiceBase]:
         """Get a service by name from the execution context."""
-        print(service_name)
         if not hasattr(self, 'services') or not isinstance(self.services, list):
             return None
         
@@ -269,13 +268,14 @@ class Pipeline:
                                    description=step_config.description, 
                                    enabled=step_instance_config.enabled, 
                                    tags=step_config.tags, 
+                                   debug_mode=step_instance_config.debug_mode,
                                    services=step_instance_config.services,
                                    settings=step_instance_config.settings)
 
         if not isinstance(step_instance, StepBase):
             raise TypeError(f"Step \"{step_config.id}\" is not an instance of StepBase")
 
-        logger.debug(f"Step instance \"{step_instance.name}\" created successfully. Enabled: {step_instance.enabled}, Tags: {step_instance.tags}")
+        logger.info(f"Step instance \"{step_instance.name}\" created successfully. Enabled: {step_instance.enabled}, Tags: {step_instance.tags}")
 
         return step_instance
     
@@ -327,7 +327,7 @@ class Pipeline:
 
         for step in self.pipeline_execution_steps:
             
-            logger.debug(f"Executing step: {step.name} (Enabled: {step.enabled})")
+            logger.debug(f"Executing step: {step.name} (Enabled: {step.enabled}, Debug Mode: {step.debug_mode})")
 
             step_start_time = datetime.now()
             step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
@@ -369,9 +369,12 @@ class Pipeline:
                 
                 continue
 
-            logger.debug(f"Step {step.name} executed successfully. Output data: {output_data.data}")
+            step_elapsed_time = (datetime.now() - step_start_time).total_seconds()
+            logger.info(f"Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
+            if step.debug_mode:
+                logger.debug(f"Step {step.name} output data: {output_data.data}")
             step_result.result = "Succeeded"
-            step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+            step_result.elapsed_time_secs = step_elapsed_time
             pipeline_execution_result.step_execution_results.append(step_result)
 
         # Finalize the pipeline execution result
