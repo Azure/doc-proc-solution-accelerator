@@ -6,7 +6,7 @@ from azure.storage.blob.aio import BlobServiceClient
 
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("doc.proc.service.blob_service") # need to specify the logger name as this module is loaded dynamically
 
 
 class BlobService(ServiceBase):
@@ -105,6 +105,7 @@ class BlobService(ServiceBase):
 
         return False
 
+
     async def get_container_client(self, container_name:str):
 
         async with self.blob_service_client.get_container_client(container_name) as container_client:
@@ -118,3 +119,5 @@ class BlobService(ServiceBase):
         file_blob_client = await container_client.upload_blob(name=filename, data=file_content, overwrite=False)
 
         return file_blob_client.url
+    
+    

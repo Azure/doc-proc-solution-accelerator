@@ -2,14 +2,14 @@ import logging
 
 from doc.proc.service.service_base import ServiceBase
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("doc.proc.service.sample_service") # need to specify the logger name as this module is loaded dynamically
 
 
 class SampleService(ServiceBase):
     """Sample service for demonstration purposes."""
 
-    def __init__(self, name: str, type: str, **settings):
-        super().__init__(name=name, type=type, **settings)
+    def __init__(self, name: str, type: str, settings:dict, **kwargs):
+        super().__init__(name=name, type=type, settings=settings, **kwargs)
 
         # Initialize service-specific settings
         self.sample_setting = settings.get('sample_setting') 
@@ -22,6 +22,8 @@ class SampleService(ServiceBase):
         # Validate sample_setting
         if not self.sample_setting:
             raise ValueError("Settings key 'sample_setting' is required")
+        
+        logger.debug(f"Initialized SampleService with settings: {settings}")
         
     async def test_connection(self) -> bool:
         """Test the connection of the service."""

@@ -9,7 +9,7 @@ from azure.ai.inference.models import SystemMessage, ChatRequestMessage, ChatCom
 
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("doc.proc.service.azure_ai_inference_service") # need to specify the logger name as this module is loaded dynamically
 
 
 class AzureAIInferenceService(ServiceBase):

@@ -308,33 +308,81 @@ settings_schema:
     default: "value2"
 ```
 
-### PDF to PNG Converter
+### PDF Text Extractor
 
-**ID**: `pdf_to_png`
-**Purpose**: Convert PDF pages to PNG images
+**ID**: `pdf_text_extractor`
+**Purpose**: Extract text from PDF documents using AI (combines PDF to PNG conversion and AI text extraction)
 **Category**: Document Processing
 
 **Key Settings**:
 - `storage_service`: Azure Blob Storage service reference
+- `ai_model_inference_service`: Azure AI Inference service reference
 - `png_output_folder`: Output directory for PNG files
 - `num_pages`: Maximum pages to convert (0 = all)
 - `dpi`: Output resolution (72-600)
 - `image_format`: Output format (PNG, JPEG, TIFF)
-
-### PNG to Markdown Converter
-
-**ID**: `pdf_page_png_to_markdown`
-**Purpose**: Convert PDF page images to Markdown using AI
-**Category**: AI Processing
-
-**Key Settings**:
-- `ai_model_inference_service`: Azure AI Inference service reference
-- `storage_service`: Azure Blob Storage service reference
-- `system_prompt`: AI system instructions
-- `user_prompt`: Template for user prompts
+- `prompts`: System and user prompts for AI processing
+  - `system`: AI system instructions
+  - `user`: Template for user prompts
 - `max_completion_tokens`: Maximum tokens to generate
 - `temperature`: Response randomness (0.0-2.0)
 - `top_p`: Response diversity (0.0-1.0)
+- `frequency_penalty`: Reduces repetition in AI responses
+- `presence_penalty`: Encourages AI to talk about new topics
+
+**Example Configuration**:
+```yaml
+steps:
+  - name: extract_pdf_text
+    step_catalog_id: pdf_text_extractor
+    services: [primary_blob_storage, primary_ai_inference_service]
+    settings:
+      png_output_folder: "./output/png"
+      num_pages: 10
+      dpi: 300
+      image_format: "PNG"
+      prompts:
+        system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+        user: "Extract the text from the following image into markdown and provide descriptions of images..."
+      max_completion_tokens: 4000
+      temperature: 1.0
+      top_p: 1.0
+      frequency_penalty: 0.0
+      presence_penalty: 0.0
+```
+
+### AI Search Index Writer
+
+**ID**: `ai_search_index_writer`
+**Purpose**: Write processed document data to Azure AI Search index
+**Category**: AI Processing
+
+**Key Settings**:
+- `ai_search_service`: Azure AI Search service reference
+- `storage_service`: Azure Blob Storage service reference
+- `index_name`: Name of the Azure AI Search index to write to
+- `chunks_iterator_field`: Field in StepInputOutput to iterate over chunks
+- `index_field_mappings`: JSON mapping of document fields to index fields
+
+**Example Configuration**:
+```yaml
+steps:
+  - name: write_to_search_index
+    step_catalog_id: ai_search_index_writer
+    services: [primary_ai_search_service]
+    settings:
+      index_name: "documents_index"
+      chunks_iterator_field: "data.chunks_data"
+      index_field_mappings: |
+        {
+          "page_id": "id",
+          "input_file_path": "file_name",
+          "page_num": "page_num",
+          "markdown": "markdown",
+          "summary": "summary",
+          "page_image_base64": "page_image"
+        }
+```
 
 ## Best Practices
 

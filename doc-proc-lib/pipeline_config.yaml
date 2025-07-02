@@ -19,6 +19,15 @@ service_instances:
       model_name: "gpt-4.1-mini"
       max_tokens: 4000
 
+  - name: primary_ai_search_service
+    service_catalog_id: azure_ai_search_service_01
+    settings:
+      account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
+      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      api_version: "2025-05-01-preview" # Updated to the latest version
+      index_name: "documents_index" # Name of the search index to use
+
 pipelines:
   - name: pipeline_1
     description: 'A pipeline to extract, transform, and load documents from Azure Blob Storage to a database'
@@ -29,25 +38,21 @@ pipelines:
         step_catalog_id: sample_step # Reference to step in catalog
         enabled: true
         services: [] # References to service instances
+        debug_mode: false # Enable debug mode for this step
         settings:
           key1: "custom_value1"
           key2: "custom_value2"
 
-      - name: pdf_to_png_1
-        step_catalog_id: pdf_to_png
+      - name: pdf_text_extractor_1
+        step_catalog_id: pdf_text_extractor
         enabled: true
-        services: [primary_blob_storage] # References to service instances
+        services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
+        debug_mode: false # Enable debug mode for this step
         settings:
           png_output_folder: "./output/png"
           num_pages: 10
           dpi: 300
           image_format: "PNG"
-
-      - name: pdf_page_png_to_markdown_1
-        step_catalog_id: pdf_page_png_to_markdown
-        enabled: true
-        services: [primary_ai_inference_service, primary_blob_storage] # References to service instances
-        settings:
           prompts:
             system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
             user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
@@ -57,9 +62,28 @@ pipelines:
           frequency_penalty: 0.0
           presence_penalty: 0.0
 
-    execution_sequence: [pdf_to_png_1, pdf_page_png_to_markdown_1]
+      - name: ai_search_index_writer_1
+        step_catalog_id: ai_search_index_writer
+        enabled: true
+        services: [primary_ai_search_service] # References to service instances
+        debug_mode: true # Enable debug mode for this step
+        settings:
+          index_name: "documents_index"
+          chunks_iterator_field: "data.chunks_data"
+          index_field_mappings: | 
+                                  {
+                                    "page_id": "id",
+                                    "input_file_path": "file_name",
+                                    "page_num": "page_num",
+                                    "markdown": "markdown",
+                                    "summary": "summary",
+                                    "page_image_base64": "page_image"
+                                  }
+        
+
+    execution_sequence: [pdf_text_extractor_1, ai_search_index_writer_1]
     
-    # Settings for the pipeline execution
+    # Global settings for the pipeline execution
     settings:
       enabled: true
       retry_delay: 5
