@@ -17,8 +17,8 @@ class StepExecutionError(Exception):
 
 class StepInputOutput(pydantic.BaseModel):
     id: Optional[str] = None
-    summary_data: Optional[dict] = None
-    data: Optional[dict] = None
+    summary_data: dict = None
+    data: dict = None
 
 
 class StepBase:
@@ -26,12 +26,13 @@ class StepBase:
     Base class for pipeline steps.
     """
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
         self.id = id
         self.name = name
         self.enabled = enabled
         self.description = description
         self.tags = tags or []
+        self.fail_step_on_document_error = fail_step_on_document_error
         self.debug_mode = debug_mode
         self.services = services or []
         self.settings = settings or {}

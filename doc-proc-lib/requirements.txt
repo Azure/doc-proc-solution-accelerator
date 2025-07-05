@@ -7,3 +7,4 @@ pydantic==2.11.7
 PyMuPDF==1.26.1
 python-dotenv==1.1.1
 PyYAML==6.0.2
+python-magic==0.4.27

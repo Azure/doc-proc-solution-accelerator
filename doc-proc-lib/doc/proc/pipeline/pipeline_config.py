@@ -17,7 +17,8 @@ class PipelineSettingsConfig(BaseModel):
 class StepInstanceConfig(BaseModel):
     name: str  # Instance name in the pipeline
     step_catalog_id: str  # Reference to step id in the step catalog
-    enabled: bool = True
+    enabled: bool = True # Whether the step is enabled
+    fail_step_on_document_error: bool = False  # Whether to fail the step if document processing fails
     debug_mode: bool = False  # Enable debug mode for this step
     services: List[str] = []  # References to service instances used by this step
     settings: Optional[dict] = None

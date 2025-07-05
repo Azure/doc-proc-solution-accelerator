@@ -14,8 +14,8 @@ class AISearchIndexWriterStep(StepBase):
     
     """
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
+        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
 
         # Initialize settings with default values if not provided
         if not self.settings:
@@ -102,7 +102,6 @@ class AISearchIndexWriterStep(StepBase):
         # Get the chunks data from input
 
         try:
-
             # get the chunks data from input
             chunks_iterator_field_parts = self.chunks_iterator_field.split(".")
             if chunks_iterator_field_parts[0] == "":

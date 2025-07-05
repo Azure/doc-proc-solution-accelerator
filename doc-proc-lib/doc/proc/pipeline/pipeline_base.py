@@ -268,6 +268,7 @@ class Pipeline:
                                    description=step_config.description, 
                                    enabled=step_instance_config.enabled, 
                                    tags=step_config.tags, 
+                                   fail_step_on_document_error=step_instance_config.fail_step_on_document_error,
                                    debug_mode=step_instance_config.debug_mode,
                                    services=step_instance_config.services,
                                    settings=step_instance_config.settings)
@@ -337,7 +338,7 @@ class Pipeline:
                     step_result.result = "Skipped"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     pipeline_execution_result.step_execution_results.append(step_result)
-                    logger.debug(f"Step {step.name} is skipped as it is not enabled.")
+                    logger.info(f"Step {step.name} is skipped as it is not enabled.")
                     continue
 
                 # Update the context with the current step

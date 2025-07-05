@@ -38,6 +38,7 @@ pipelines:
         step_catalog_id: sample_step # Reference to step in catalog
         enabled: true
         services: [] # References to service instances
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           key1: "custom_value1"
@@ -47,15 +48,34 @@ pipelines:
         step_catalog_id: pdf_text_extractor
         enabled: true
         services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
-        debug_mode: false # Enable debug mode for this step
+        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: true # Enable debug mode for this step
         settings:
           png_output_folder: "./output/png"
-          num_pages: 10
+          num_pages: 3 # Maximum number of pages to convert (-1 = all pages)
           dpi: 300
           image_format: "PNG"
           prompts:
             system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-            user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
+            user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}==End-Extracted-Text==\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}==End-Image-Descriptions=="
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 1.0
+          frequency_penalty: 0.0
+          presence_penalty: 0.0
+
+      - name: custom_ai_prompt_1
+        step_catalog_id: custom_ai_prompt
+        enabled: true
+        services: [primary_ai_inference_service] # References to service instances
+        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: true # Enable debug mode for this step
+        settings:
+          chunk_field_to_apply_prompt_on: markdown_text
+          output_field_name: custom_ai_prompt_output
+          prompts:
+            system: "You are an AI assistant. Please process the input accordingly."
+            user: "This is a custom AI prompt step. Please process the input accordingly.\nInput: {chunk_content}"
           max_completion_tokens: 4000
           temperature: 1.0
           top_p: 1.0
@@ -66,7 +86,8 @@ pipelines:
         step_catalog_id: ai_search_index_writer
         enabled: true
         services: [primary_ai_search_service] # References to service instances
-        debug_mode: true # Enable debug mode for this step
+        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
         settings:
           index_name: "documents_index"
           chunks_iterator_field: "data.chunks_data"
@@ -81,7 +102,7 @@ pipelines:
                                   }
         
 
-    execution_sequence: [pdf_text_extractor_1, ai_search_index_writer_1]
+    execution_sequence: [pdf_text_extractor_1, custom_ai_prompt_1]
     
     # Global settings for the pipeline execution
     settings:
@@ -89,4 +110,3 @@ pipelines:
       retry_delay: 5
       timeout: 300
       max_concurrent_runs: 5
-      
