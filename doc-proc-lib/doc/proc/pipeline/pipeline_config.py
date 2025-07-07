@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 import yaml
 
 from doc.proc.step.step_config import StepConfig
+from doc.proc.step.step_base import StepInstanceConfig
 from doc.proc.service.service_config import ServiceConfig
 
 
@@ -12,16 +13,6 @@ class PipelineSettingsConfig(BaseModel):
     retry_delay: Optional[int] = 5  # Delay in seconds between retries
     timeout: Optional[int] = 300  # Timeout for the entire pipeline execution in seconds
     max_concurrent_runs: Optional[int] = 5  # Maximum number of concurrent runs for the pipeline
-
-
-class StepInstanceConfig(BaseModel):
-    name: str  # Instance name in the pipeline
-    step_catalog_id: str  # Reference to step id in the step catalog
-    enabled: bool = True # Whether the step is enabled
-    fail_step_on_document_error: bool = False  # Whether to fail the step if document processing fails
-    debug_mode: bool = False  # Enable debug mode for this step
-    services: List[str] = []  # References to service instances used by this step
-    settings: Optional[dict] = None
 
 
 class ServiceInstanceConfig(BaseModel):
@@ -112,6 +103,13 @@ class PipelineConfig(BaseModel):
                     if step_catalog_config:
                         if not any(s.id == step.step_catalog_id for s in step_catalog_config):
                             raise ValueError(f"Step '{step.name}' references unknown step catalog id '{step.step_catalog_id}' that could not be found in the step catalog configuration.")
+
+                    # Validate step condition if present
+                    if step.condition:
+                        from doc.proc.utils.secure_condition_evaluator import validate_condition
+                        condition_errors = validate_condition(step.condition)
+                        if condition_errors:
+                            raise ValueError(f"Invalid condition in step '{step.name}': {', '.join(condition_errors)}")
 
             return pipelines
         

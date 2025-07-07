@@ -2,15 +2,15 @@ import logging
 from typing import List
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 
 logger = logging.getLogger("doc.proc.step.sample_step")
 
 class SampleStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
 
 
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:

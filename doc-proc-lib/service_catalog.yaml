@@ -1,6 +1,7 @@
 # service_catalog.yaml - Reusable service definitions
 
 services_catalog:
+
   # Sample service configuration
   - id: sample_service_01                                                       # Unique identifier for the service
     name: "Sample Service"                                                      # Human-readable name for the service
@@ -68,6 +69,8 @@ services_catalog:
       description_short: "A sample service" # Short description for quick reference
       description_long: "This is a sample service configuration used for demonstration and documentation purposes."  # Long description for detailed view
   
+
+  # Azure Blob Storage service for document storage and retrieval
   - id: azure_storage_01
     name: "Azure Blob Storage - Primary"
     description: "Primary Azure Blob Storage account for document storage and retrieval"
@@ -113,6 +116,8 @@ services_catalog:
       description_short: "Azure Blob Storage for document storage"
       description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
 
+
+  # Azure AI Inference Service for document processing and inference
   - id: azure_ai_inference_service_01
     name: "Azure AI Inference Service"
     description: "Azure AI service for document processing and inference"
@@ -170,6 +175,8 @@ services_catalog:
       description_short: "Azure AI Inference for document processing"
       description_long: "Azure AI Inference service for natural language processing, document analysis, and content generation."
 
+
+  # Azure AI Search Service for indexing and searching documents
   - id: azure_ai_search_service_01
     name: "Azure AI Search Service"
     description: "Azure AI Search service for indexing and searching documents"
@@ -225,6 +232,8 @@ services_catalog:
       description_short: "Azure AI Search for document indexing and retrieval"
       description_long: "Azure AI Search service for full-text search, semantic search, and vector search capabilities."
 
+
+  # Azure Cosmos DB for storing processed document metadata and results
   - id: azure_cosmos_db_01
     name: "Azure Cosmos DB"
     description: "Azure Cosmos DB for storing processed document metadata and results"

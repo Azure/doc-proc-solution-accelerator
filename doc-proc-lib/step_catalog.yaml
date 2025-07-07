@@ -1,6 +1,9 @@
 # step_catalog.yaml - Reusable step definitions
 
 step_catalog:
+
+  ########################################################
+  # Sample step for development and testing purposes
   - id: sample_step
     name: "Sample Development Step"
     description: "Sample step for development and testing"
@@ -11,10 +14,6 @@ step_catalog:
     tags: [sample, development]
     category: "Development"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
 
     # Settings schema for UI generation and validation
     settings_schema:
@@ -36,7 +35,30 @@ step_catalog:
       description_short: "A sample step used for development and testing purposes."
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
-          
+  ########################################################
+  # Document type identification step
+  - id: document_type_identifier
+    name: "Document Type Identifier"
+    description: "Identifies the type of documents based on various methods"
+    type: script
+    module_name: document_type_identifier
+    module_path: ./doc/proc/step/document_type_identifier.py
+    class_name: DocumentTypeIdentifierStep
+    tags: [document, identification, classification]
+    category: "Processing"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      identification_methods:
+        type: string
+        title: "Identification Methods"
+        description: "Methods to use for document type identification. Comma separated list. Possible values: magic_bytes, file_extension"
+        default: "magic_bytes, file_extension"
+        ui_component: "input"
+
+  ########################################################
+  # PDF text extraction step          
   - id: pdf_text_extractor
     name: "PDF Text Extractor"
     description: "Extract text and metadata from PDF documents"
@@ -47,10 +69,6 @@ step_catalog:
     tags: [pdf, text, extraction, azure_blob]
     category: "Document Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
         
     # Settings schema for UI generation and validation
     settings_schema:
@@ -153,7 +171,8 @@ step_catalog:
       description_short: "Extracts text from PDF document pages into markdown."
       description_long: "Extracts text from PDF document pages into PNG image files and then uses Azure AI Inference Service to convert them to markdown."
 
-
+  ########################################################
+  # AI Search Index Writer step
   - id: ai_search_index_writer
     name: "AI Search Index Writer"
     description: "Writes AI-generated summaries and metadata to search index"
@@ -164,10 +183,6 @@ step_catalog:
     tags: [ai, search, index, azure_search]
     category: "AI Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: false
-    retries: 3
-    timeout: 600
     
     # Settings schema for UI generation and validation
     settings_schema:
@@ -191,12 +206,6 @@ step_catalog:
         description: "Name of the Azure AI Search index to write to"
         default: "pdf-index"
         ui_component: "input"
-      chunks_iterator_field:
-        type: string
-        title: "Chunks Iterator Field"
-        description: "Field in the StepInputOutput to iterate over chunks"
-        default: "data.chunks_data"
-        ui_component: "input"
       index_field_mappings:
         type: string
         title: "Index Field Mappings"
@@ -206,11 +215,10 @@ step_catalog:
                     "page_id": "id",
                     "input_file_path": "file_name",
                     "page_num": "page_num",
-                    "markdown_text": "markdown",
+                    "markdown": "page_markdown",
                     "markdown_text": "markdown_text",
                     "markdown_image_descriptions": "image_descriptions",
-                    "summary": "summary",
-                    "page_image_base64": "page_image"
+                    "summary": "summary"
                   }
         ui_component: "textarea"
       
@@ -220,6 +228,7 @@ step_catalog:
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
+  ########################################################
   - id: custom_ai_prompt
     name: "Custom AI Prompt Step"
     description: "Custom step to execute AI prompts with dynamic configuration"
@@ -230,10 +239,6 @@ step_catalog:
     tags: [ai, prompt, custom]
     category: "AI Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
         
     # Settings schema for UI generation and validation
     settings_schema:

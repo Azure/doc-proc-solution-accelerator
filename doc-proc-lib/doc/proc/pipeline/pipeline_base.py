@@ -5,13 +5,14 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel
 import logging
 
-from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig, StepInstanceConfig
-from doc.proc.step.step_base import StepBase, StepInputOutput
+from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig
+from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutput
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_base import ServiceBase
 from doc.proc.service.service_config import ServiceConfig
 from doc.proc.service.service_manager import get_service
 from doc.proc.utils.import_module import import_module
+from doc.proc.utils.secure_condition_evaluator import SecureConditionEvaluator, ConditionEvaluationError
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ class StepExecutionResult(BaseModel):
     """Model for the result of a step execution."""
     step_name: str
     result: Literal["NotStarted", "Succeeded", "Failed", "Skipped"] = "NotStarted"
+    reason: Optional[str] = None  # Reason for skipping or failure, if applicable
     elapsed_time_secs: float
     error: Optional[str] = None  # Error message if the step fails
     error_message: Optional[str] = None  # Detailed error message if available
@@ -31,6 +33,7 @@ class PipelineExecutionResult(BaseModel):
     """Model for the output of a pipeline execution."""
     pipeline_name: str
     result: Literal["NotStarted", "Succeeded", "Failed", "PartialSucceeded"] = "NotStarted"
+    reason: Optional[str] = None  # Reason for failure or partial success, if applicable
     elapsed_time_secs: float
     step_execution_results: List[StepExecutionResult] = []  # List of StepExecutionResult for each step in the pipeline
     summary_data: dict = {}  # Summary data for the pipeline execution
@@ -100,6 +103,7 @@ class Pipeline:
             raise PipelineConfigError("Services configuration must be a non-empty list if provided")
 
         self.execution_context: PipelineExecutionContext = None
+        self.condition_evaluator = SecureConditionEvaluator()  # Initialize condition evaluator
         self.services: List[ServiceBase] = []
         self.pipeline_step_instances: List[StepBase] = []
         self.pipeline_execution_steps: List[StepBase] = []
@@ -202,22 +206,6 @@ class Pipeline:
             self.pipeline_step_instances.append(step_instance)
 
 
-    def __load_execution_steps(self):
-        """Load steps in the order defined by the execution sequence."""
-        
-        logger.debug("Loading pipeline execution steps based on the execution sequence")
-
-        ordered_steps = []
-        for step_name in self.execution_sequence:
-            step = next((s for s in self.pipeline_step_instances if s.name == step_name), None)
-            if not step:
-                raise PipelineConfigError(f"Execution sequence step \"{step_name}\" not found in pipeline steps")
-
-            ordered_steps.append(step)
-
-        self.pipeline_execution_steps = ordered_steps
-
-
     @staticmethod
     def __init_step(step_config: StepConfig, step_instance_config: StepInstanceConfig) -> StepBase:
         """Load steps based on the configuration."""
@@ -263,23 +251,31 @@ class Pipeline:
 
 
         # Create an instance of the step class with the provided configuration
-        step_instance = step_class(id=step_config.id, 
-                                   name=step_instance_config.name, 
-                                   description=step_config.description, 
-                                   enabled=step_instance_config.enabled, 
-                                   tags=step_config.tags, 
-                                   fail_step_on_document_error=step_instance_config.fail_step_on_document_error,
-                                   debug_mode=step_instance_config.debug_mode,
-                                   services=step_instance_config.services,
-                                   settings=step_instance_config.settings)
+        step_instance = step_class(instance_config=step_instance_config) 
 
         if not isinstance(step_instance, StepBase):
             raise TypeError(f"Step \"{step_config.id}\" is not an instance of StepBase")
 
-        logger.info(f"Step instance \"{step_instance.name}\" created successfully. Enabled: {step_instance.enabled}, Tags: {step_instance.tags}")
+        logger.info(f"Step instance \"{step_instance.name}\" of type {type(step_instance).__name__} created successfully. Enabled: {step_instance.enabled}")
 
         return step_instance
     
+
+    def __load_execution_steps(self):
+        """Load steps in the order defined by the execution sequence."""
+        
+        logger.debug("Loading pipeline execution steps based on the execution sequence")
+
+        ordered_steps = []
+        for step_name in self.execution_sequence:
+            step = next((s for s in self.pipeline_step_instances if s.name == step_name), None)
+            if not step:
+                raise PipelineConfigError(f"Execution sequence step \"{step_name}\" not found in pipeline steps")
+
+            ordered_steps.append(step)
+
+        self.pipeline_execution_steps = ordered_steps
+
 
     @staticmethod
     async def create(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "Pipeline":
@@ -334,12 +330,46 @@ class Pipeline:
             step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
 
             try:
+                # Check if the step is enabled
                 if not step.enabled:
                     step_result.result = "Skipped"
+                    step_result.reason = "Step is not enabled"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     pipeline_execution_result.step_execution_results.append(step_result)
                     logger.info(f"Step {step.name} is skipped as it is not enabled.")
                     continue
+
+                # Evaluate step condition if present
+                if step.condition:
+                    try:
+                        condition_met = self._evaluate_step_condition(step, output_data)
+                        if not condition_met:
+                            step_result.result = "Skipped"
+                            step_result.reason = f"Condition not met: {step.condition}"
+                            step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+                            pipeline_execution_result.step_execution_results.append(step_result)
+                            logger.info(f"Step {step.name} is skipped as condition was not met: {step.condition}")
+                            continue
+                    
+                    except ConditionEvaluationError as ce:
+                        logger.error(f"Condition evaluation error for step {step.name}: {ce}")
+                        step_result.result = "Failed"
+                        step_result.reason = f"Condition evaluation error: {str(ce)}"
+                        step_result.error = f"Condition evaluation error: {str(ce)}"
+                        step_result.error_message = str(ce)
+                        step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+                        pipeline_execution_result.step_execution_results.append(step_result)
+                        
+                        if step.fail_pipeline_on_error == True:
+                            pipeline_execution_result.result = "Failed"
+                            pipeline_execution_result.reason = f"Pipeline execution failed due to condition evaluation error in step {step.name}"
+                            pipeline_execution_result.data = output_data.data
+                            pipeline_execution_result.summary_data = output_data.summary_data
+                            pipeline_execution_result.elapsed_time_secs = (datetime.now() - context.start_time).total_seconds()
+                            logger.error(f"Pipeline execution failed due to condition evaluation error in step {step.name}")
+                            return pipeline_execution_result
+                        
+                        continue
 
                 # Update the context with the current step
                 context.current_step = step
@@ -353,14 +383,16 @@ class Pipeline:
                 logger.error(f"Error executing step {step.name}: {str(e)}")
 
                 step_result.result = "Failed"
+                step_result.reason = f"Error executing step: {str(e)}"
                 step_result.error = str(e)
                 step_result.error_message = str(e)
                 step_result.error_traceback = e.__traceback__ if hasattr(e, '__traceback__') else None
                 step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                 pipeline_execution_result.step_execution_results.append(step_result)
 
-                if step.settings.get("fail_pipeline_on_error", True):
+                if step.fail_pipeline_on_error == True:
                     pipeline_execution_result.result = "Failed"
+                    pipeline_execution_result.reason = f"Pipeline execution failed due to step {step.name} error: {str(e)}"
                     pipeline_execution_result.data = output_data.data
                     pipeline_execution_result.summary_data = output_data.summary_data
                     pipeline_execution_result.elapsed_time_secs = (datetime.now() - context.start_time).total_seconds()
@@ -388,3 +420,46 @@ class Pipeline:
         logger.info(f"Pipeline '{self.name}' executed with result: {pipeline_execution_result.result}. Total elapsed time: {elapsed_time_secs:.2f} seconds.")
 
         return pipeline_execution_result
+
+
+    def _evaluate_step_condition(self, step: StepBase, input_data: StepInputOutput) -> bool:
+        """
+        Evaluate a step's condition against the current pipeline data.
+        
+        Args:
+            step: The step to evaluate the condition for
+            input_data: The current input data for the step
+            
+        Returns:
+            bool: True if the condition is met or no condition is set, False otherwise
+            
+        Raises:
+            ConditionEvaluationError: If condition evaluation fails
+        """
+        if not step.condition:
+            return True  # No condition means always run
+        
+        try:
+            logger.debug(f"Evaluating condition for step {step.name}: {step.condition}")
+            
+            # Create evaluation context with current data
+            evaluation_data = {}
+            
+            # Add input data to evaluation context
+            if input_data.data:
+                evaluation_data.update(input_data.data)
+            
+            # Add summary data to evaluation context
+            if input_data.summary_data:
+                evaluation_data.update(input_data.summary_data)
+            
+            # Evaluate the condition
+            condition_group = self.condition_evaluator.parse_condition_string(step.condition)
+            result = self.condition_evaluator.evaluate(condition_group, evaluation_data)
+            
+            logger.debug(f"Condition evaluation result for step {step.name}: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error evaluating condition for step {step.name}: {e}")
+            raise ConditionEvaluationError(f"Failed to evaluate condition '{step.condition}': {str(e)}")

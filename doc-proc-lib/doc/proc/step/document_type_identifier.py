@@ -1,12 +1,10 @@
 import logging
 from typing import List
 from enum import Enum
-import magic
-import mimetypes
 from pathlib import Path
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 logger = logging.getLogger("doc.proc.step.document_type_identifier")
 
@@ -29,20 +27,24 @@ class DocumentCategory(Enum):
 class IdentificationMethod(Enum):
     MAGIC_BYTES = "magic_bytes"
     FILE_EXTENSION = "file_extension"
-    CONTENT_ANALYSIS = "content_analysis"
-    AI_CLASSIFICATION = "ai_classification"
-    METADATA_ANALYSIS = "metadata_analysis"
-    STRUCTURAL_ANALYSIS = "structural_analysis"
+
 
 class DocumentTypeIdentifierStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
+        
+        # Initialize settings with default values if not provided
+        if not self.settings:
+            self.settings = {}
 
         # Extract configuration settings
-        self.identification_methods = [IdentificationMethod(m) for m in self.settings.get("identification_methods", 
-                                                                                         ["magic_bytes", "file_extension"])]
-        
+        methods = self.settings.get("identification_methods", "magic_bytes, file_extension")
+
+        self.identification_methods = [IdentificationMethod(m.strip()) for m in methods.split(",")]
+
+        logger.debug(f"Initialized DocumentTypeIdentifierStep with identification_methods: {self.identification_methods}")
+
 
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         """
@@ -60,7 +62,8 @@ class DocumentTypeIdentifierStep(StepBase):
         if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-
+        
+        # get documents from input data
         documents = input_data.data.get("documents", [])
         if not documents or not isinstance(documents, list):
             raise ValueError(f"No documents list found in input data.")
@@ -72,7 +75,7 @@ class DocumentTypeIdentifierStep(StepBase):
         }
 
         # Iterate through each document in the input data
-        logger.debug(f"Processing {len(documents)} documents...")
+        logger.info(f"Processing {len(documents)} documents...")
 
         final_documents_list = []
 
@@ -84,8 +87,8 @@ class DocumentTypeIdentifierStep(StepBase):
                 
 
                 document_dict = document if isinstance(document, dict) else {"file_path": document}
-                if not isinstance(document_dict, dict):
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary.")
+                if not isinstance(document_dict, dict) or "file_path" not in document_dict:
+                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
 
                 # Process the file based on identification methods
                 identification_result = await self.process_document(
@@ -146,6 +149,7 @@ class DocumentTypeIdentifierStep(StepBase):
         
         # Method 2: File extension analysis
         if IdentificationMethod.FILE_EXTENSION in identification_methods:
+            
             extension_result = await self.identify_by_file_extension(document)
             identification_results["file_extension"] = extension_result
         
@@ -158,9 +162,13 @@ class DocumentTypeIdentifierStep(StepBase):
     
     async def identify_by_magic_bytes(self, document: dict) -> dict:
         """Identify document type using magic bytes/file signatures"""
+        
+        import magic
+        
         try:
-            
-            file_path = document.get("path", "")
+            logger.debug(f"Identifying document by magic bytes: {document.get('file_path', 'unknown')}")
+
+            file_path = document.get("file_path", "")
             if not file_path:
                 return {"error": "No file path available", "confidence": 0.0, "method": "magic_bytes"}
             # Read the file content
@@ -193,53 +201,56 @@ class DocumentTypeIdentifierStep(StepBase):
     
     async def identify_by_file_extension(self, document: dict) -> dict:
         """Identify document type using file extension"""
+        
         try:
-            filepath = document.get("path", "")
-            if not filepath:
-                return {"error": "No filepath available", "confidence": 0.0, "method": "file_extension"}
-            
+            logger.debug(f"Identifying document by file extension: {document.get('file_path', 'unknown')}")
+
+            file_path = document.get("file_path", "")
+            if not file_path:
+                return {"error": "No file path available", "confidence": 0.0, "method": "file_extension"}
+
             # Extract extension
-            file_path = Path(filepath)
+            file_path = Path(file_path)
             extension = file_path.suffix.lower()
             
             # Map extensions to document types
             extension_mapping = {
-                ".pdf": {"type": "pdf", "subtype": "portable_document", "category": "document"},
-                ".docx": {"type": "word_document", "subtype": "openxml", "category": "office_document"},
-                ".doc": {"type": "word_document", "subtype": "legacy", "category": "office_document"},
-                ".xlsx": {"type": "excel_spreadsheet", "subtype": "openxml", "category": "spreadsheet"},
-                ".xls": {"type": "excel_spreadsheet", "subtype": "legacy", "category": "spreadsheet"},
-                ".pptx": {"type": "powerpoint_presentation", "subtype": "openxml", "category": "presentation"},
-                ".ppt": {"type": "powerpoint_presentation", "subtype": "legacy", "category": "presentation"},
-                ".txt": {"type": "text_document", "subtype": "plain_text", "category": "text"},
-                ".rtf": {"type": "rich_text", "subtype": "rtf", "category": "text"},
-                ".odt": {"type": "openoffice_document", "subtype": "text", "category": "office_document"},
-                ".ods": {"type": "openoffice_spreadsheet", "subtype": "calc", "category": "spreadsheet"},
-                ".odp": {"type": "openoffice_presentation", "subtype": "impress", "category": "presentation"},
-                ".jpg": {"type": "image", "subtype": "jpeg", "category": "image"},
-                ".jpeg": {"type": "image", "subtype": "jpeg", "category": "image"},
-                ".png": {"type": "image", "subtype": "png", "category": "image"},
-                ".gif": {"type": "image", "subtype": "gif", "category": "image"},
-                ".bmp": {"type": "image", "subtype": "bitmap", "category": "image"},
-                ".tiff": {"type": "image", "subtype": "tiff", "category": "image"},
-                ".svg": {"type": "image", "subtype": "svg", "category": "image"},
-                ".html": {"type": "web_document", "subtype": "html", "category": "web"},
-                ".htm": {"type": "web_document", "subtype": "html", "category": "web"},
-                ".xml": {"type": "structured_document", "subtype": "xml", "category": "text"},
-                ".json": {"type": "data_document", "subtype": "json", "category": "text"},
-                ".csv": {"type": "data_document", "subtype": "csv", "category": "text"},
-                ".zip": {"type": "archive", "subtype": "zip", "category": "archive"},
-                ".rar": {"type": "archive", "subtype": "rar", "category": "archive"},
-                ".7z": {"type": "archive", "subtype": "7zip", "category": "archive"},
-                ".tar": {"type": "archive", "subtype": "tar", "category": "archive"},
-                ".gz": {"type": "archive", "subtype": "gzip", "category": "archive"}
+                ".pdf": {"type": "pdf", "mime_type": "application/pdf", "subtype": "pdf", "category": DocumentCategory.PDF.value},
+                ".docx": {"type": "word_document", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "subtype": "openxml", "category": "office_document"},
+                ".doc": {"type": "word_document", "mime_type": "application/msword", "subtype": "legacy", "category": "office_document"},
+                ".xlsx": {"type": "excel_spreadsheet", "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "subtype": "openxml", "category": "spreadsheet"},
+                ".xls": {"type": "excel_spreadsheet", "mime_type": "application/vnd.ms-excel", "subtype": "legacy", "category": "spreadsheet"},
+                ".pptx": {"type": "powerpoint_presentation", "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation", "subtype": "openxml", "category": "presentation"},
+                ".ppt": {"type": "powerpoint_presentation", "mime_type": "application/vnd.ms-powerpoint", "subtype": "legacy", "category": "presentation"},
+                ".txt": {"type": "text_document", "mime_type": "text/plain", "subtype": "plain_text", "category": "text"},
+                ".rtf": {"type": "rich_text", "mime_type": "application/rtf", "subtype": "rtf", "category": "text"},
+                ".odt": {"type": "openoffice_document", "mime_type": "application/vnd.oasis.opendocument.text", "subtype": "text", "category": "office_document"},
+                ".ods": {"type": "openoffice_spreadsheet", "mime_type": "application/vnd.oasis.opendocument.spreadsheet", "subtype": "calc", "category": "spreadsheet"},
+                ".odp": {"type": "openoffice_presentation", "mime_type": "application/vnd.oasis.opendocument.presentation", "subtype": "impress", "category": "presentation"},
+                ".jpg": {"type": "image", "mime_type": "image/jpeg", "subtype": "jpeg", "category": "image"},
+                ".jpeg": {"type": "image", "mime_type": "image/jpeg", "subtype": "jpeg", "category": "image"},
+                ".png": {"type": "image", "mime_type": "image/png", "subtype": "png", "category": "image"},
+                ".gif": {"type": "image", "mime_type": "image/gif", "subtype": "gif", "category": "image"},
+                ".bmp": {"type": "image", "mime_type": "image/bmp", "subtype": "bitmap", "category": "image"},
+                ".tiff": {"type": "image", "mime_type": "image/tiff", "subtype": "tiff", "category": "image"},
+                ".svg": {"type": "image", "mime_type": "image/svg+xml", "subtype": "svg", "category": "image"},
+                ".html": {"type": "web_document", "mime_type": "text/html", "subtype": "html", "category": "web"},
+                ".htm": {"type": "web_document", "mime_type": "text/html", "subtype": "html", "category": "web"},
+                ".xml": {"type": "structured_document", "mime_type": "application/xml", "subtype": "xml", "category": "text"},
+                ".json": {"type": "data_document", "mime_type": "application/json", "subtype": "json", "category": "text"},
+                ".csv": {"type": "data_document", "mime_type": "text/csv", "subtype": "csv", "category": "text"},
+                ".zip": {"type": "archive", "mime_type": "application/zip", "subtype": "zip", "category": "archive"},
+                ".rar": {"type": "archive", "mime_type": "application/x-rar-compressed", "subtype": "rar", "category": "archive"},
+                ".7z": {"type": "archive", "mime_type": "application/x-7z-compressed", "subtype": "7zip", "category": "archive"},
+                ".tar": {"type": "archive", "mime_type": "application/x-tar", "subtype": "tar", "category": "archive"},
+                ".gz": {"type": "archive", "mime_type": "application/gzip", "subtype": "gzip", "category": "archive"}
             }
             
             if extension in extension_mapping:
                 result = extension_mapping[extension]
                 result.update({
                     "extension": extension,
-                    "confidence": 0.7,
+                    "confidence": 0.9,
                     "method": "file_extension"
                 })
                 return result
@@ -247,7 +258,7 @@ class DocumentTypeIdentifierStep(StepBase):
                 return {
                     "extension": extension,
                     "type": "unknown",
-                    "confidence": 0.3,
+                    "confidence": 0.0,
                     "method": "file_extension"
                 }
 
@@ -267,7 +278,7 @@ class DocumentTypeIdentifierStep(StepBase):
         # Weight different methods by reliability
         method_weights = {
             "magic_bytes": 0.95,
-            "file_extension": 0.8
+            "file_extension": 0.9
         }
         
         weighted_results = []
@@ -294,6 +305,7 @@ class DocumentTypeIdentifierStep(StepBase):
         # Create final identification result
         final_result = {
             "primary_type": best_result["result"].get("type", "unknown"),
+            "mime_type": best_result["result"].get("mime_type", "unknown"),
             "confidence": best_result["weighted_confidence"],
             "best_method": best_result["method"],
             "all_methods": {method: result for method, result in results.items()}

@@ -1,0 +1,185 @@
+# Example Pipeline Configuration with Secure Condition Evaluation
+# This demonstrates how to use conditions to control step execution
+
+service_instances:
+  - name: primary_ai_inference_service
+    service_catalog_id: azure_ai_inference_service_01
+    settings:
+      endpoint: "https://myaiservice.cognitiveservices.azure.com/"
+      api_key: "your-api-key"
+      
+  - name: primary_ai_search_service
+    service_catalog_id: azure_ai_search_service_01
+    settings:
+      account_name: "mysearchservice"
+      api_key: "your-search-api-key"
+
+pipelines:
+  - name: "Conditional Document Processing Pipeline"
+    description: "A pipeline that demonstrates secure condition evaluation for dynamic step execution"
+    version: "1.0"
+    
+    steps:
+      # Step 1: Always identify document types first
+      - name: identify_document_types
+        step_catalog_id: document_type_identifier
+        enabled: true
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+      
+      # Step 2: Process PDFs with high confidence
+      - name: process_high_confidence_pdfs
+        step_catalog_id: pdf_text_extractor
+        condition: "document_type.primary_type == 'pdf' and document_type.confidence > 0.8"
+        services: [primary_ai_inference_service]
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          png_output_folder: "./output/png"
+          dpi: 300
+          extract_images: true
+      
+      # Step 3: Process PDFs with lower confidence using different settings
+      - name: process_low_confidence_pdfs
+        step_catalog_id: pdf_text_extractor
+        condition: "document_type.primary_type == 'pdf' and document_type.confidence <= 0.8"
+        services: [primary_ai_inference_service]
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          png_output_folder: "./output/png"
+          dpi: 150
+          extract_images: false
+      
+      # Step 4: Process Office documents
+      - name: process_office_documents
+        step_catalog_id: office_document_processor
+        condition: "document_type.category in ['office_document', 'spreadsheet', 'presentation']"
+        settings:
+          extract_text: true
+          preserve_formatting: true
+          extract_images: true
+      
+      # Step 5: Process images with OCR
+      - name: process_images
+        step_catalog_id: image_text_extractor
+        condition: "document_type.category == 'image'"
+        services: [primary_ai_inference_service]
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          ocr_engine: "azure_computer_vision"
+          language: "auto"
+      
+      # Step 6: Handle large files differently
+      - name: process_large_files
+        step_catalog_id: large_file_processor
+        condition: "file_size >= 10485760"  # 10MB or larger
+        settings:
+          chunk_size: 1048576  # 1MB chunks
+          parallel_processing: true
+      
+      # Step 7: Apply security scanning to specific file types
+      - name: security_scan
+        step_catalog_id: security_scanner
+        condition: "document_type.primary_type in ['pdf', 'office_document'] and metadata.encrypted == false"
+        settings:
+          scan_for_malware: true
+          scan_for_sensitive_data: true
+          quarantine_suspicious: true
+      
+      # Step 8: Extract metadata from documents with specific tags
+      - name: extract_legal_metadata
+        step_catalog_id: legal_metadata_extractor
+        condition: "'legal' in tags or 'contract' in tags or file_name contains 'contract'"
+        settings:
+          extract_parties: true
+          extract_dates: true
+          extract_clauses: true
+      
+      # Step 9: Generate summaries for important documents
+      - name: generate_summary
+        step_catalog_id: document_summarizer
+        condition: "'important' in tags or document_type.confidence > 0.9"
+        services: [primary_ai_inference_service]
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          summary_length: "medium"
+          include_key_points: true
+      
+      # Step 10: Index documents based on confidence and type
+      - name: index_high_quality_documents
+        step_catalog_id: ai_search_index_writer
+        condition: "document_type.confidence > 0.7 and document_type.primary_type != 'unknown'"
+        services: [primary_ai_search_service]
+        settings:
+          ai_search_service: "primary_ai_search_service"
+          index_name: "high-quality-documents"
+          index_field_mappings: |
+            {
+              "file_path": "file_name",
+              "document_type.primary_type": "document_type",
+              "document_type.confidence": "confidence_score",
+              "document_type.category": "category",
+              "extracted_text": "content",
+              "metadata.author": "author",
+              "metadata.creation_date": "created_date",
+              "summary": "summary"
+            }
+      
+      # Step 11: Archive documents to different locations based on type
+      - name: archive_legal_documents
+        step_catalog_id: document_archiver
+        condition: "'legal' in tags or 'contract' in tags"
+        settings:
+          archive_location: "legal_archive"
+          retention_period: "7_years"
+          encrypt_archive: true
+      
+      # Step 12: Send notifications for processed important documents
+      - name: notify_important_documents
+        step_catalog_id: notification_sender
+        condition: "'important' in tags and document_type.confidence > 0.8"
+        settings:
+          notification_type: "email"
+          recipients: ["admin@company.com", "processing@company.com"]
+          include_summary: true
+      
+      # Step 13: Handle unknown or low-confidence documents
+      - name: handle_unknown_documents
+        step_catalog_id: unknown_document_handler
+        condition: "document_type.primary_type == 'unknown' or document_type.confidence <= 0.3"
+        settings:
+          action: "quarantine"
+          manual_review_required: true
+          notify_admin: true
+    
+    execution_sequence: [
+      "identify_document_types",
+      "process_high_confidence_pdfs",
+      "process_low_confidence_pdfs",
+      "process_office_documents",
+      "process_images",
+      "process_large_files",
+      "security_scan",
+      "extract_legal_metadata",
+      "generate_summary",
+      "index_high_quality_documents",
+      "archive_legal_documents",
+      "notify_important_documents",
+      "handle_unknown_documents"
+    ]
+    
+    settings:
+      enabled: true
+      retries: 2
+      retry_delay: 60
+      timeout: 1800  # 30 minutes
+      max_concurrent_runs: 3
+      logging:
+        enabled: true
+        level: INFO
+        format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        handlers:
+          - type: console
+            level: INFO
+          - type: file
+            level: DEBUG
+            filename: conditional_pipeline.log

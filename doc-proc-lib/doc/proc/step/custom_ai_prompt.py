@@ -9,23 +9,19 @@ import pymupdf
 
 from azure.ai.inference.models import (
         SystemMessage,
-        UserMessage,
-        TextContentItem,
-        ImageContentItem,
-        ImageUrl,
-        ImageDetailLevel,
+        UserMessage
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 logger = logging.getLogger("doc.proc.step.custom_ai_prompt") # need to specify the logger name as this module is loaded dynamically
 
 class CustomAIPromptStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
-
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
+        
         # Initialize settings with default values if not provided
         if not self.settings:
             self.settings = {}
@@ -99,7 +95,7 @@ class CustomAIPromptStep(StepBase):
         }
 
         # Iterate through each document in the input data
-        logger.debug(f"Processing {len(documents)} documents...")
+        logger.info(f"Processing {len(documents)} documents...")
 
         for document in documents:
             try:
@@ -170,6 +166,8 @@ class CustomAIPromptStep(StepBase):
         if not chunks:
             logger.error(f"No chunks found in document: {document}.")
             raise StepExecutionError(f"No chunks found in document: {document}.")
+
+        logger.debug(f"Processing {len(chunks)} chunks.")
 
         # Process each chunk
         for chunk in chunks:

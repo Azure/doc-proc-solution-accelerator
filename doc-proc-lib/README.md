@@ -560,51 +560,14 @@ class CustomAnalysisStep(StepBase):
 
 ## Built-in Steps
 
-### PDF Text Extractor Step
-```yaml
-# Extracts text from PDF documents using AI
-step_catalog_id: pdf_text_extractor
-settings:
-  png_output_folder: "./output/png"
-  num_pages: 10          # 0 = all pages
-  dpi: 300              # Image resolution
-  image_format: "PNG"   # PNG, JPEG, TIFF
-  prompts:
-    system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-    user: "Extract the text from the following image into markdown and provide descriptions of images..."
-  max_completion_tokens: 4000
-  temperature: 1.0
-  top_p: 0.4
-  frequency_penalty: 0.0
-  presence_penalty: 0.0
-```
+| Step Name                  | Description                        | Documentation Link                                                        |
+|----------------------------|------------------------------------|---------------------------------------------------------------------------|
+| PDF Text Extractor Step    | Extracts text from PDF documents   | [PDF Text Extractor Step Documentation](./doc/proc/step/pdf_text_extractor.md) |
+| Custom AI Prompt Step      | Runs custom AI prompt processing   | [Custom AI Prompt Step Documentation](./doc/proc/step/custom_ai_prompt.md)     |
+| Document Type Identifier Step      | Automatically identifies document types   | [Document Type Identifier Step Documentation](./doc/proc/step/document_type_identifier.md)     |
+| AI Search Index Writer Step| Writes data to AI search index     | [AI Search Index Writer Step Documentation](./doc/proc/step/ai_search_index_writer.md) |
 
-### AI Search Index Writer Step
-```yaml
-# Writes processed document data to Azure AI Search index
-step_catalog_id: ai_search_index_writer
-settings:
-  index_name: "documents_index"
-  chunks_iterator_field: "data.chunks_data"
-  index_field_mappings: |
-    {
-      "page_id": "id",
-      "input_file_path": "file_name",
-      "page_num": "page_num",
-      "markdown": "markdown",
-      "summary": "summary",
-      "page_image_base64": "page_image"
-    }
-```
 
-### Sample Development Step
-```yaml
-# Template for creating new steps
-step_catalog_id: sample_step
-settings:
-  key1: "custom_value1"
-  key2: "custom_value2"
-```
 
 ## Creating Custom Components
 

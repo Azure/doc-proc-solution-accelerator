@@ -1,8 +1,11 @@
 # pipeline_config.yaml - Configuration of Pipelines that uses external catalogs
 
 
+########################################################
+# SERVICE INSTANCES
 # Service instances - references to services catalog with custom settings
 service_instances:
+
   - name: primary_blob_storage
     service_catalog_id: azure_storage_01 # Reference to service in catalog
     settings:
@@ -28,15 +31,29 @@ service_instances:
       api_version: "2025-05-01-preview" # Updated to the latest version
       index_name: "documents_index" # Name of the search index to use
 
+
+########################################################
+# PIPELINES
+# Pipeline definitions - references to steps catalog with custom settings
 pipelines:
+
+  ###########################################################
+  # PIPELINE INSTANCE
   - name: pipeline_1
     description: 'A pipeline to extract, transform, and load documents from Azure Blob Storage to a database'
     version: '1.0'
 
+    ###########################################################
+    # PIPELINE STEP INSTANCES
+    # Define the steps in the pipeline, referencing the step catalog and providing custom settings
     steps:
       - name: sample_step_1
         step_catalog_id: sample_step # Reference to step in catalog
         enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
         services: [] # References to service instances
         fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
@@ -44,12 +61,29 @@ pipelines:
           key1: "custom_value1"
           key2: "custom_value2"
 
+      - name: "document_type_identifier_1"
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: true # Enable debug mode for this step
+        settings:
+          identification_methods: "file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
+    
       - name: pdf_text_extractor_1
         step_catalog_id: pdf_text_extractor
         enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
         services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
           png_output_folder: "./output/png"
           num_pages: 3 # Maximum number of pages to convert (-1 = all pages)
@@ -57,7 +91,17 @@ pipelines:
           image_format: "PNG"
           prompts:
             system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-            user: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}==End-Extracted-Text==\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}==End-Image-Descriptions=="
+            user: |
+              Extract the text from the following image into markdown and provide descriptions of images. 
+              Always format the markdown as follows to distinguish the text extracted from image descriptions:
+              
+              ==Extracted-Text==
+              {Insert extracted text as markdown here}
+              ==End-Extracted-Text==
+
+              ==Image-Descriptions==
+              {Insert image descriptions as markdown here}
+              ==End-Image-Descriptions==
           max_completion_tokens: 4000
           temperature: 1.0
           top_p: 1.0
@@ -67,9 +111,13 @@ pipelines:
       - name: custom_ai_prompt_1
         step_catalog_id: custom_ai_prompt
         enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
         services: [primary_ai_inference_service] # References to service instances
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
           chunk_field_to_apply_prompt_on: markdown_text
           output_field_name: custom_ai_prompt_output
@@ -85,28 +133,37 @@ pipelines:
       - name: ai_search_index_writer_1
         step_catalog_id: ai_search_index_writer
         enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
         services: [primary_ai_search_service] # References to service instances
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           index_name: "documents_index"
-          chunks_iterator_field: "data.chunks_data"
           index_field_mappings: | 
                                   {
                                     "page_id": "id",
                                     "input_file_path": "file_name",
                                     "page_num": "page_num",
                                     "markdown": "markdown",
-                                    "summary": "summary",
-                                    "page_image_base64": "page_image"
+                                    "summary": "summary"
                                   }
-        
 
-    execution_sequence: [pdf_text_extractor_1, custom_ai_prompt_1]
+      
+    ##########################################################
+    # PIPELINE EXECUTION
+    # Define the execution sequence of the steps in the pipeline
+    execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
     
+    ##########################################################
+    # PIPELINE SETTINGS
     # Global settings for the pipeline execution
     settings:
       enabled: true
       retry_delay: 5
       timeout: 300
       max_concurrent_runs: 5
+
+  

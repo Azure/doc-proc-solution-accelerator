@@ -40,7 +40,7 @@ class StepConfigSchemaSettings(pydantic.RootModel[dict[str, "StepConfigSchemaPar
 
 
 class StepConfig(pydantic.BaseModel):
-    """Config class for global pipeline step definitions."""
+    """Config class for global pipeline step catalog definitions."""
     
     id: str
     name: str
@@ -52,10 +52,6 @@ class StepConfig(pydantic.BaseModel):
     tags: Optional[List[str]] = None  # Tags for categorization or filtering
     category: Optional[str] = None  # Category for grouping steps
     version: Optional[str] = None  # Version of the step
-    fail_pipeline_on_error: bool = True  # Whether to fail the pipeline if this step fails
-    retry_on_failure: bool = True  # Whether to retry the step on failure
-    retries: int = 3  # Number of retries if the step fails
-    timeout: int = 600  # Timeout for the step in seconds
     settings_schema: Optional[StepConfigSchemaSettings] = None
     ui_metadata: Optional[StepConfigUIMetadata] = StepConfigUIMetadata()
 
