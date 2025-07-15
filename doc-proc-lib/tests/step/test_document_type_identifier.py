@@ -117,25 +117,23 @@ class TestDocumentTypeIdentifierStep:
             data={}  # No documents
         )
         
-        with pytest.raises(ValueError) as exc_info:
-            await step.run(step_input, mock_pipeline_context)
-        assert "No documents list found in input data" in str(exc_info.value)
+        result = await step.run(step_input, mock_pipeline_context)
+        assert result.summary_data[f"{step.name}_stats"]["total_documents"] == 0
     
     @pytest.mark.asyncio
-    @patch('doc.proc.step.document_type_identifier.magic')
-    async def test_doc_identifier_step_successful_processing(self, mock_magic, doc_identifier_step_config, document_input_mixed, mock_pipeline_context):
+    async def test_doc_identifier_step_successful_processing(self, document_input_mixed, mock_pipeline_context):
         """Test successful document type identification."""
-        step = DocumentTypeIdentifierStep(doc_identifier_step_config)
         
-        # Mock magic library for MIME type detection
-        mock_magic.from_file.side_effect = [
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        ]
+        config = StepInstanceConfig(
+            step_catalog_id="document_type_identifier",
+            name="doc_identifier_instance",
+            settings={
+                "identification_methods": "file_extension"
+            }
+        )
+        step = DocumentTypeIdentifierStep(config)
         
-        with patch('os.path.exists', return_value=True):
-            result = await step.run(document_input_mixed, mock_pipeline_context)
+        result = await step.run(document_input_mixed, mock_pipeline_context)
         
         assert isinstance(result, StepInputOutput)
         

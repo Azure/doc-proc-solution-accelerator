@@ -23,8 +23,8 @@ class TestSampleStep:
         
         stats = result.summary_data[f"{step.name}_stats"]
         assert stats["total_documents"] == 1
-        assert stats["successful_sample_runs"] == 1
-        assert stats["failed_sample_runs"] == 0
+        assert stats["successful_documents"] == 1
+        assert stats["failed_documents"] == 0
         
         # Check that sample data was added to the document
         documents = result.data["documents"]
@@ -47,9 +47,9 @@ class TestSampleStep:
         
         stats = result.summary_data[f"{step.name}_stats"]
         assert stats["total_documents"] == 3
-        assert stats["successful_sample_runs"] == 3
-        assert stats["failed_sample_runs"] == 0
-        
+        assert stats["successful_documents"] == 3
+        assert stats["failed_documents"] == 0
+
         # Check that all documents have sample data
         for doc in result.data["documents"]:
             assert "sample_data" in doc
@@ -64,9 +64,9 @@ class TestSampleStep:
         
         stats = result.summary_data[f"{step.name}_stats"]
         assert stats["total_documents"] == 0
-        assert stats["successful_sample_runs"] == 0
-        assert stats["failed_sample_runs"] == 0
-    
+        assert stats["successful_documents"] == 0
+        assert stats["failed_documents"] == 0
+
     @pytest.mark.asyncio
     async def test_sample_step_no_documents_key(self, sample_step_config, mock_pipeline_context):
         """Test SampleStep when input data has no documents key."""
@@ -77,11 +77,12 @@ class TestSampleStep:
         
         step = SampleStep(sample_step_config)
         
-        with pytest.raises(ValueError) as exc_info:
-            await step.run(step_input, mock_pipeline_context)
+        result = await step.run(step_input, mock_pipeline_context)
         
-        assert "No documents list found in input data" in str(exc_info.value)
-    
+        assert result.summary_data[f"{step.name}_stats"]["total_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["successful_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["failed_documents"] == 0
+
     @pytest.mark.asyncio
     async def test_sample_step_documents_not_list(self, sample_step_config, mock_pipeline_context):
         """Test SampleStep when documents is not a list."""
@@ -92,10 +93,11 @@ class TestSampleStep:
         
         step = SampleStep(sample_step_config)
         
-        with pytest.raises(ValueError) as exc_info:
-            await step.run(step_input, mock_pipeline_context)
+        result = await step.run(step_input, mock_pipeline_context)
         
-        assert "No documents list found in input data" in str(exc_info.value)
+        assert result.summary_data[f"{step.name}_stats"]["total_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["successful_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["failed_documents"] == 0
     
     @pytest.mark.asyncio
     async def test_sample_step_preserves_original_summary_data(self, sample_step_config, mock_pipeline_context):

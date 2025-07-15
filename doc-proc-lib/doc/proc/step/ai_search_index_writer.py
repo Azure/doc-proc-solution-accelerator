@@ -60,10 +60,6 @@ class AISearchIndexWriterStep(StepBase):
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
 
         # get Azure AI Search Service from context
         ai_search_service = self.get_ai_search_service(context)
@@ -72,13 +68,30 @@ class AISearchIndexWriterStep(StepBase):
             raise StepExecutionError("Azure AI Search Service not found in context.")
 
         _stats = {
-            "total_documents": len(documents),
+            "total_documents": 0,
             "successful_documents": 0,
             "failed_documents": 0,
         }
 
+        # get documents from input data
+        documents = input_data.data.get("documents", [])
+        if not documents or not isinstance(documents, list):
+            logger.warning(f"No documents list found in input data.")
+            # skipping processing if no documents are found
+            return StepInputOutput(summary_data=
+                                    {
+                                        **input_data.summary_data, f"{self.name}_stats": _stats
+                                    }, 
+                               data=
+                                    {
+                                        **input_data.data
+                                    })
+        
+
         # Iterate through each document in the input data
         logger.info(f"Processing {len(documents)} documents...")
+
+        _stats["total_documents"] = len(documents)
             
         for document in documents:
             try:
