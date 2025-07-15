@@ -2,7 +2,18 @@
 Example demonstrating secure condition evaluation in document processing pipelines.
 """
 
-from doc.proc.utils.secure_condition_evaluator import evaluate_condition, validate_condition
+import sys
+import os
+
+# Add the parent directory to Python path to enable imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+try:
+    # Try relative import first (when run as module)
+    from ..doc.proc.utils.secure_condition_evaluator import evaluate_condition, validate_condition
+except ImportError:
+    # Fall back to absolute import (when run directly)
+    from doc.proc.utils.secure_condition_evaluator import evaluate_condition, validate_condition
 
 
 def main():
@@ -39,7 +50,7 @@ def main():
         "document_type.primary_type == 'pdf'",
         
         # Confidence threshold
-        "document_type.confidence > 0.8",
+        "document_type.confidence > 1.0",
         
         # File size check (files larger than 1MB)
         "file_size >= 1048576",
@@ -48,7 +59,7 @@ def main():
         "document_type.category in ['pdf', 'office_document']",
         
         # Tag-based processing
-        "'important' in metadata.tags",
+        "metadata.tags contains 'important'",
         
         # Filename pattern matching
         "file_name ends_with '.pdf'",
@@ -112,7 +123,7 @@ def main():
         },
         {
             "step_name": "Legal Document Processor",
-            "condition": "'legal' in metadata.tags or 'contract' in metadata.tags",
+            "condition": "metadata.tags contains 'legal' or metadata.tags contains 'contract'",
             "description": "Special processing for legal documents"
         },
         {

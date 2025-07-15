@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import abstractmethod
 import pydantic
-from typing import List, Literal, Optional, Any, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -18,9 +18,10 @@ class StepInstanceConfig(pydantic.BaseModel):
     timeout: int = 600 # Timeout for the step in seconds
     fail_step_on_document_error: bool = False  # Whether to fail the step if document processing fails
     debug_mode: bool = False  # Enable debug mode for this step
+    condition: Optional[str] = None  # Optional condition to evaluate before running the step
     services: List[str] = []  # References to service instances used by this step
     settings: Optional[dict] = None # Additional settings for the step instance
-    condition: Optional[str] = None  # Optional condition to evaluate before running the step
+    
 
 class StepExecutionError(Exception):
     """

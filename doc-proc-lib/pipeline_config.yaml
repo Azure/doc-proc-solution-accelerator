@@ -10,23 +10,21 @@ service_instances:
     service_catalog_id: azure_storage_01 # Reference to service in catalog
     settings:
       account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
+      credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
       credential_key: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
 
   - name: primary_ai_inference_service
     service_catalog_id: azure_ai_inference_service_01
     settings:
       endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
-      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
       api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
-      model_name: "gpt-4.1-mini"
-      max_tokens: 4000
 
   - name: primary_ai_search_service
     service_catalog_id: azure_ai_search_service_01
     settings:
       account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
+      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
       api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
       api_version: "2025-05-01-preview" # Updated to the latest version
       index_name: "documents_index" # Name of the search index to use
@@ -47,6 +45,7 @@ pipelines:
     # PIPELINE STEP INSTANCES
     # Define the steps in the pipeline, referencing the step catalog and providing custom settings
     steps:
+      ## STEP 1: Sample Step
       - name: sample_step_1
         step_catalog_id: sample_step # Reference to step in catalog
         enabled: true
@@ -55,12 +54,14 @@ pipelines:
         retries: 3
         timeout: 600
         services: [] # References to service instances
+        condition:
         fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           key1: "custom_value1"
           key2: "custom_value2"
 
+      ## STEP 2: Document Type Identifier
       - name: "document_type_identifier_1"
         step_catalog_id: document_type_identifier
         enabled: true
@@ -69,11 +70,13 @@ pipelines:
         retries: 3
         timeout: 600
         services: [] # References to service instances
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
         settings:
           identification_methods: "file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
     
+      ## STEP 3: PDF Text Extractor
       - name: pdf_text_extractor_1
         step_catalog_id: pdf_text_extractor
         enabled: true
@@ -82,6 +85,7 @@ pipelines:
         retries: 3
         timeout: 600
         services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
+        condition:
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
@@ -108,6 +112,7 @@ pipelines:
           frequency_penalty: 0.0
           presence_penalty: 0.0
 
+      ## STEP 4: Custom AI Prompt
       - name: custom_ai_prompt_1
         step_catalog_id: custom_ai_prompt
         enabled: true
@@ -116,6 +121,7 @@ pipelines:
         retries: 3
         timeout: 600
         services: [primary_ai_inference_service] # References to service instances
+        condition:
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
@@ -130,6 +136,7 @@ pipelines:
           frequency_penalty: 0.0
           presence_penalty: 0.0
 
+      ## STEP 5: AI Search Index Writer
       - name: ai_search_index_writer_1
         step_catalog_id: ai_search_index_writer
         enabled: true
@@ -138,6 +145,7 @@ pipelines:
         retries: 3
         timeout: 600
         services: [primary_ai_search_service] # References to service instances
+        condition:
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:

@@ -36,7 +36,7 @@ step_catalog:
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
   ########################################################
-  # Document type identification step
+  # Document type identification Step
   - id: document_type_identifier
     name: "Document Type Identifier"
     description: "Identifies the type of documents based on various methods"
@@ -56,6 +56,13 @@ step_catalog:
         description: "Methods to use for document type identification. Comma separated list. Possible values: magic_bytes, file_extension"
         default: "magic_bytes, file_extension"
         ui_component: "input"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "file-question-mark"
+      color: "#F59E0B"
+      description_short: "Identifies document types based on file properties."
+      description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
 
   ########################################################
   # PDF text extraction step          
@@ -166,7 +173,7 @@ step_catalog:
         multipleOf: 0.1
 
     ui_metadata:
-      icon: "brain"
+      icon: "file-text"
       color: "#10B981"
       description_short: "Extracts text from PDF document pages into markdown."
       description_long: "Extracts text from PDF document pages into PNG image files and then uses Azure AI Inference Service to convert them to markdown."
@@ -223,12 +230,13 @@ step_catalog:
         ui_component: "textarea"
       
     ui_metadata:
-      icon: "database"
+      icon: "text-search"
       color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
   ########################################################
+  # Custom AI Prompt step
   - id: custom_ai_prompt
     name: "Custom AI Prompt Step"
     description: "Custom step to execute AI prompts with dynamic configuration"
@@ -314,7 +322,7 @@ step_catalog:
         multipleOf: 0.1
       
     ui_metadata:
-      icon: "database"
+      icon: "brain"
       color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."

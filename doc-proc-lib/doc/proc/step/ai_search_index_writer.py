@@ -1,4 +1,3 @@
-from typing import List
 import logging
 import base64
 
@@ -91,7 +90,6 @@ class AISearchIndexWriterStep(StepBase):
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary.")
                     
                 # Process each document
-                # This will extend the document with extracted text and images for each page/chunk
                 await self.process_document(document=document, 
                                             context=context, 
                                             ai_search_service=ai_search_service)

@@ -50,7 +50,7 @@ class PipelineExecutionContext:
         """Get a service by name from the execution context."""
         if not hasattr(self, 'services') or not isinstance(self.services, list):
             return None
-        
+
         return next((service['instance'] for service in self.services if service['name'] == service_name), None)
 
 
@@ -102,7 +102,6 @@ class Pipeline:
         if self.service_catalog and not isinstance(self.service_catalog, list) and not len(self.service_catalog) > 0:
             raise PipelineConfigError("Services configuration must be a non-empty list if provided")
 
-        self.execution_context: PipelineExecutionContext = None
         self.condition_evaluator = SecureConditionEvaluator()  # Initialize condition evaluator
         self.services: List[ServiceBase] = []
         self.pipeline_step_instances: List[StepBase] = []

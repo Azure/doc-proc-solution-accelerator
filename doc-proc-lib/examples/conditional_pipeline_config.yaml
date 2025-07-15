@@ -88,7 +88,7 @@ pipelines:
       # Step 8: Extract metadata from documents with specific tags
       - name: extract_legal_metadata
         step_catalog_id: legal_metadata_extractor
-        condition: "'legal' in tags or 'contract' in tags or file_name contains 'contract'"
+        condition: "metadata.tags contains 'legal' or metadata.tags contains 'contract' or file_name contains 'contract'"
         settings:
           extract_parties: true
           extract_dates: true
@@ -97,7 +97,7 @@ pipelines:
       # Step 9: Generate summaries for important documents
       - name: generate_summary
         step_catalog_id: document_summarizer
-        condition: "'important' in tags or document_type.confidence > 0.9"
+        condition: "metadata.tags contains 'important' or document_type.confidence > 0.9"
         services: [primary_ai_inference_service]
         settings:
           ai_model_inference_service: "primary_ai_inference_service"
@@ -127,7 +127,7 @@ pipelines:
       # Step 11: Archive documents to different locations based on type
       - name: archive_legal_documents
         step_catalog_id: document_archiver
-        condition: "'legal' in tags or 'contract' in tags"
+        condition: "metadata.tags contains 'legal' or metadata.tags contains 'contract'"
         settings:
           archive_location: "legal_archive"
           retention_period: "7_years"
@@ -136,7 +136,7 @@ pipelines:
       # Step 12: Send notifications for processed important documents
       - name: notify_important_documents
         step_catalog_id: notification_sender
-        condition: "'important' in tags and document_type.confidence > 0.8"
+        condition: "metadata.tags contains 'important' and document_type.confidence > 0.8"
         settings:
           notification_type: "email"
           recipients: ["admin@company.com", "processing@company.com"]

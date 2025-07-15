@@ -79,8 +79,8 @@ class TestSecureConditionEvaluator:
         condition = "document_type.category in ['word', 'excel']"
         result = evaluate_condition(condition, self.test_data)
         assert result is False
-        
-        condition = "'important' in tags"
+
+        condition = "tags contains 'important'"
         result = evaluate_condition(condition, self.test_data)
         assert result is True
     

@@ -26,12 +26,6 @@ class CustomAIPromptStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        # get chunks data iterator field from settings
-        self.chunks_iterator_field = self.settings.get("chunks_iterator_field", "data.chunks_data")
-        if not self.chunks_iterator_field:
-            logger.error("Chunks iterator field not found in settings.")
-            raise ValueError("Chunks iterator field not found in settings.")
-
         # Set default values for settings if not provided
         self.chunk_field_to_apply_prompt_on = self.settings.get("chunk_field_to_apply_prompt_on", "markdown_text")
         if not self.chunk_field_to_apply_prompt_on:

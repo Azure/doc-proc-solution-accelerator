@@ -18,9 +18,9 @@ class AzureAIInferenceService(ServiceBase):
     def __init__(self, name: str, type: str, settings:dict, **kwargs):
         super().__init__(name=name, type=type, settings=settings, **kwargs)
 
-        self.endpoint = settings.get('endpoint')
-        self.credential_type = settings.get('credential_type')
-        self.credential_key = ''
+        self.endpoint = settings.get('endpoint', '').strip()
+        self.credential_type = settings.get('credential_type', '').strip()
+        self.api_key = ''
 
         # Validate endpoint
         if not self.endpoint:
@@ -32,7 +32,7 @@ class AzureAIInferenceService(ServiceBase):
             if not self.endpoint:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
-            raise ValueError("Settings key 'endpoint' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+            self.endpoint = self.endpoint
 
 
         # Validate credential type
@@ -45,12 +45,13 @@ class AzureAIInferenceService(ServiceBase):
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
-            raise ValueError("Settings key 'credential_type' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+            self.credential_type = self.credential_type
+            #raise ValueError("Settings key 'credential_type' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
 
 
         # Validate API key based on credential type
         if self.credential_type == 'azure_key_credential':
-            self.api_key = settings.get('api_key')
+            self.api_key = settings.get('api_key', '').strip()
 
             if not self.api_key:
                 raise ValueError("Settings key 'api_key' is required for azure_key_credential")
@@ -62,11 +63,10 @@ class AzureAIInferenceService(ServiceBase):
                 if not self.api_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             else:
-                raise ValueError("Settings key 'api_key' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+                self.api_key = self.api_key
 
         elif self.credential_type == 'default_azure_credential':
-            self.api_key = ''
-        
+            self.api_key = ''        
         else:
             raise ValueError(f"Unsupported credential type: {self.credential_type}. Supported types are 'azure_key_credential' and 'default_azure_credential'.")
 
@@ -96,7 +96,7 @@ class AzureAIInferenceService(ServiceBase):
         try:
             
             # Attempt to get model info to verify connection
-            response = self.chat_completions_client.complete(messages=[
+            response = await self.chat_completions_client.complete(messages=[
                 SystemMessage("Reply with YES")
             ])
 
@@ -107,7 +107,6 @@ class AzureAIInferenceService(ServiceBase):
         except Exception as e:
             raise ServiceExecutionError(f"Failed to connect to Azure AI Inference Service: {str(e)}")
 
-        return False
 
     def run_chat_completion(self, messages: List[ChatRequestMessage],
                                    max_completion_tokens: int,

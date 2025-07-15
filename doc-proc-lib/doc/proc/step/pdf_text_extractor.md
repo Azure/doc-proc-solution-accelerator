@@ -145,7 +145,7 @@ The step expects input data in the following structure:
 - **Parameter**: `system_prompt`
 - **Type**: String
 - **Description**: Instructions for the AI system
-- **Required**: No
+- **Required**: Yes
 - **Default**: `You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown.`
 - **UI Component**: Textarea
 
@@ -153,7 +153,7 @@ The step expects input data in the following structure:
 - **Parameter**: `user_prompt`
 - **Type**: String
 - **Description**: Template for user prompts sent to AI
-- **Required**: No
+- **Required**: Yes
 - **Default**: Complex template with structured output format
 - **UI Component**: Textarea
 

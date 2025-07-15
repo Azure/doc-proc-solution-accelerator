@@ -164,7 +164,7 @@ Field mappings define how data from your document chunks is mapped to fields in 
 
 ### Common Field Mappings
 
-| Document Field | Index Field | Description |
+| Document Chunk Field | Index Field | Description |
 |---|---|---|
 | `page_id` | `id` | Unique identifier for the document chunk |
 | `input_file_path` | `file_name` | Original file path or name |
@@ -182,8 +182,8 @@ You can create custom mappings based on your specific document structure:
 {
   "custom_field_1": "index_field_1",
   "custom_field_2": "index_field_2",
-  "metadata.author": "author",
-  "metadata.created_date": "creation_date"
+  "author": "author",
+  "created_date": "creation_date"
 }
 ```
 

@@ -165,7 +165,10 @@ class SecureConditionEvaluator:
             condition_string = condition_string[1:-1].strip()
         
         # Try to match different operators
-        for op in ComparisonOperator:
+        # Sort operators by length (descending) to match longer operators first (e.g., >= before >)
+        operators_by_length = sorted(ComparisonOperator, key=lambda op: len(op.value), reverse=True)
+        
+        for op in operators_by_length:
             if op in [ComparisonOperator.IS_EMPTY, ComparisonOperator.IS_NOT_EMPTY]:
                 # Special case for unary operators
                 if op.value in condition_string:

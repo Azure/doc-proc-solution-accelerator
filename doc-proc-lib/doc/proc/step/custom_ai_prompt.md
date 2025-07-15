@@ -114,7 +114,7 @@ The step expects input data in the following structure:
 - **Parameter**: `chunk_field_to_apply_prompt_on`
 - **Type**: String
 - **Description**: The field key in document.chunks.chunk which the AI prompt will be applied to
-- **Required**: No
+- **Required**: Yes
 - **Default**: `markdown_text`
 - **UI Component**: Input
 
@@ -122,7 +122,7 @@ The step expects input data in the following structure:
 - **Parameter**: `output_field_name`
 - **Type**: String
 - **Description**: Field name in document.chunks.chunk to store the AI response
-- **Required**: No
+- **Required**: Yes
 - **Default**: `custom_ai_prompt_output`
 - **UI Component**: Input
 
@@ -132,7 +132,7 @@ The step expects input data in the following structure:
 - **Parameter**: `system_prompt`
 - **Type**: String
 - **Description**: Instructions for the AI system that define its role and behavior
-- **Required**: No
+- **Required**: Yes
 - **Default**: `You are an AI assistant.`
 - **UI Component**: Textarea
 
@@ -140,7 +140,7 @@ The step expects input data in the following structure:
 - **Parameter**: `user_prompt`
 - **Type**: String
 - **Description**: Template for the custom user prompts sent to AI
-- **Required**: No
+- **Required**: Yes
 - **Default**: `This is a custom AI prompt step. Please process the input accordingly.\nInput: {chunk_content}`
 - **UI Component**: Textarea
 

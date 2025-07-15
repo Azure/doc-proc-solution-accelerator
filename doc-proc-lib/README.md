@@ -23,6 +23,8 @@ A flexible, modular document processing pipeline library built with Python that 
 - [Built-in Services](#built-in-services)
 - [Built-in Steps](#built-in-steps)
 - [Creating Custom Components](#creating-custom-components)
+  - [Custom Service](#custom-service)
+  - [Custom Step](#custom-step)
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
 
@@ -46,33 +48,33 @@ The library supports:
 ## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Service Catalog │    │  Step Catalog   │    │Pipeline Config  │
-│                 │    │                 │    │                 │
-│ - Azure Blob    │    │ - DOC to MD     │    │ - Service       │
-│ - Azure AI      │    │ - MD to Index   │    │   Instances     │
-│ - AI SEARCH     │    │ - Custom Steps  │    │ - Pipeline      │
-│ - COSMOS        │    │                 │    │   Definition    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌────────────────────────┐
+│ Service Catalog │    │  Step Catalog   │    │   Pipeline Config      │
+│                 │    │                 │    │                        │
+│ - Azure Blob    │    │ - DOC to MD     │    │ - Service Instances    │
+│ - Azure AI      │    │ - MD to Index   │    │ - Step Instances       │
+│ - AI SEARCH     │    │ - Custom Steps  │    │ - Pipeline Definitions │
+│ - COSMOS        │    │                 │    │                        │
+└─────────────────┘    └─────────────────┘    └────────────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                  │
-                    ┌─────────────────┐
-                    │    Pipeline     │
-                    │   Orchestrator  │
-                    │                 │
-                    │ ┌─────────────┐ │
-                    │ │   Step 1    │ │
-                    │ └─────────────┘ │
-                    │        │        │
-                    │ ┌─────────────┐ │
-                    │ │   Step 2    │ │
-                    │ └─────────────┘ │
-                    │        │        │
-                    │ ┌─────────────┐ │
-                    │ │   Step N    │ │
-                    │ └─────────────┘ │
-                    └─────────────────┘
+                        ┌─────────────────┐
+                        │    Pipeline     │
+                        │   Orchestrator  │
+                        │                 │
+                        │ ┌─────────────┐ │
+                        │ │   Step 1    │ │
+                        │ └─────────────┘ │
+                        │        │        │
+                        │ ┌─────────────┐ │
+                        │ │   Step 2    │ │
+                        │ └─────────────┘ │
+                        │        │        │
+                        │ ┌─────────────┐ │
+                        │ │   Step N    │ │
+                        │ └─────────────┘ │
+                        └─────────────────┘
 ```
 
 ## Installation
@@ -122,7 +124,7 @@ async def main():
     # Run pipeline
     input_data = StepInputOutput(
         summary_data={},
-        data={"input_pdf_file": "/path/to/document.pdf"}
+        data={ "documents": [{"file_path": "/path/to/file.pdf"}] }
     )
     
     result = await pipeline.run(input_data=input_data)
@@ -185,8 +187,8 @@ services_catalog:
     
     # UI metadata for frontend display
     ui_metadata:
-      icon: "database"
-      color: "#0078D4"
+      icon: "container"    # Icon to represent the service in UI
+      color: "#0078D4"     # Color for the service in UI
       description_short: "Azure Blob Storage for documents"
       description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
 ```
@@ -216,12 +218,6 @@ step_catalog:
     category: "Sample".                              # Logical grouping
     version: "1.0"                                   # Version
     
-    # Error handling configuration
-    fail_pipeline_on_error: false                    # Stop pipeline on error
-    retry_on_failure: false                          # Retry failed steps
-    retries: 0                                       # Number of retries
-    timeout: 600                                     # Timeout in seconds
-    
     # Configuration schema
     settings_schema:
       setting_1:
@@ -250,10 +246,8 @@ step_catalog:
 
 **Key Features:**
 - **Modularity**: Reusable processing units
-- **Error Handling**: Configurable retry and failure policies
 - **Validation**: Input/output schema validation
-- **Timeouts**: Step-level timeout configuration
-- **Dependencies**: Service dependency specification
+- **UI Metadata**: For dynamic UI generation of step configuration
 
 ### Pipeline Configuration
 
@@ -297,7 +291,13 @@ pipelines:
       - name: extract_and_process_pdf        # Step instance name
         step_catalog_id: pdf_text_extractor  # Reference to catalog
         enabled: true                        # Enable/disable step
-        services: [primary_blob_storage, ai_inference_service]  # Required services
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [ai_inference_service]  # Required services
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
         settings:                           # Step-specific settings
           png_output_folder: "./output/png"
           num_pages: 10
@@ -311,7 +311,13 @@ pipelines:
       - name: write_to_search_index
         step_catalog_id: ai_search_index_writer
         enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
         services: [ai_search_service]
+        fail_step_on_document_error: false # Fail the step if document processing fails
+        debug_mode: false
         settings:
           index_name: "documents_index"
           chunks_iterator_field: "data.chunks_data"
@@ -321,8 +327,7 @@ pipelines:
               "input_file_path": "file_name",
               "page_num": "page_num",
               "markdown": "markdown",
-              "summary": "summary",
-              "page_image_base64": "page_image"
+              "summary": "summary"
             }
     
     # Execution order
@@ -355,7 +360,7 @@ Service Catalog (Template)     →     Service Instance (Configured)
                                               ↓
 Step Catalog (Template)        →     Pipeline Step (Configured)
      ↓                                        ↓
-"pdf_to_png"                   →     "extract_pdf_pages"
+"pdf_text_extractor"           →     "extract_and_process_pdf"
                                               ↓
                                       Pipeline Execution
 ```
@@ -396,7 +401,7 @@ class CustomService(ServiceBase):
         # Test service connectivity
         return True
     
-    async def process_document(self, document_data):
+    async def service_function(self, param1):
         # Service-specific processing
         pass
 ```
@@ -437,20 +442,13 @@ async def process_document():
     # Process a single document
     input_data = StepInputOutput(
         summary_data={},
-        data={
-            "input_pdf_file": "/path/to/document.pdf",
-            "output_format": "markdown"
-        }
+        data={ "documents": [{"file_path": "/path/to/file.pdf"}] }
     )
     
     result = await pipeline.run(input_data=input_data)
     
-    # Access results
-    markdown_content = result.data.get("markdown_content")
-    summary = result.summary_data
-    
-    print(f"Processing complete. Summary: {summary}")
-    return markdown_content
+    print(f"Processing complete. Result: {result}")
+    return result
 
 asyncio.run(process_document())
 ```
@@ -460,29 +458,24 @@ asyncio.run(process_document())
 ```python
 async def batch_process_documents(file_list):
     pipeline = await create_pipeline()
-    results = []
+    result = None
     
+    documents = []
+    # prepare input data
     for pdf_file in file_list:
-        input_data = StepInputOutput(
-            summary_data={"batch_id": "batch_001"},
-            data={"input_pdf_file": pdf_file}
-        )
+      documents.append({
+        "file_path": pdf_file
+      })
+
+
+    input_data = StepInputOutput(
+        summary_data={"batch_id": "batch_001"},
+        data={"documents": documents}
+    )
         
-        try:
-            result = await pipeline.run(input_data=input_data)
-            results.append({
-                "file": pdf_file,
-                "status": "success",
-                "data": result.data
-            })
-        except Exception as e:
-            results.append({
-                "file": pdf_file,
-                "status": "error",
-                "error": str(e)
-            })
+    result = await pipeline.run(input_data=input_data)
     
-    return results
+    return result
 ```
 
 ### Example 3: Custom Step with Service Integration
@@ -588,8 +581,8 @@ class MyCustomService(ServiceBase):
         # Implement connection test
         return True
     
-    async def process_data(self, data):
-        # Implement custom processing
+    async def my_custom_function(self, data):
+        # Implement custom function
         return processed_data
 ```
 
@@ -612,21 +605,26 @@ services_catalog:
         required: true
 ```
 
-View the [Service documentation](SERVICE_README.md) for more details on how to create and use services.
+View the [Service documentation](./doc/proc/service/SERVICE_README.md) for more details on how to create and use services.
 
 ### Custom Step
 
 1. **Create step class:**
 ```python
 # doc/proc/step/my_custom_step.py
-from doc.proc.step.step_base import StepBase, StepInputOutput
+
+from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 class MyCustomStep(StepBase):
-    async def run(self, input_data: StepInputOutput, 
-                  context, **kwargs) -> StepInputOutput:
-        
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
+
         # Get step settings
         setting1 = self.settings.get("setting1", "default_value")
+
+    async def run(self, input_data: StepInputOutput, 
+                  context, **kwargs) -> StepInputOutput:
         
         # Get services if needed
         service = context.get_service("my_service_instance")
@@ -660,6 +658,10 @@ step_catalog:
     module_name: my_custom_step
     module_path: ./doc/proc/step/my_custom_step.py
     class_name: MyCustomStep
+    tags: [sample, development]
+    category: "Development"
+    version: "1.0"
+
     settings_schema:
       setting1:
         type: string
@@ -674,11 +676,17 @@ steps:
     step_catalog_id: my_custom_step
     enabled: true
     services: [my_service_instance]
+    condition: ""
+    fail_pipeline_on_error: false
+    retry_on_failure: false
+    fail_step_on_document_error: false
+    debug_mode: false
+
     settings:
       setting1: "custom_value"
 ```
 
-#### View the [Step documentation](STEP_README.md) for more details on how to create steps and use them in pipelines.
+#### View the [Step documentation](./doc/proc/step/STEP_README.md) for more details on how to create steps and use them in pipelines.
 
 
 ## Environment Variables

@@ -27,15 +27,17 @@ The document processing system uses a modular step-based architecture where each
 - **Error Handling**: Built-in retry mechanisms and error propagation
 - **Type Safety**: Pydantic-based validation for all configurations
 - **Service Integration**: Support for external services (Azure AI, Storage, etc.)
+- **Conditional Execution**: Steps can have conditions that define when the step runs based on document property
 
 ## Step Architecture
 
 ### Core Components
 
 1. **StepBase**: Abstract base class that all steps must inherit from
-2. **StepConfig**: Configuration class for step definitions
+2. **StepInstanceConfig**: Pydantic model for step instance configuration
 3. **StepInputOutput**: Data structure for step input/output
 4. **Step Catalog**: YAML file containing reusable step definitions
+5. **StepExecutionError**: Custom exception for step execution errors
 
 ### Step Lifecycle
 
@@ -44,9 +46,10 @@ Pipeline Start → Step Input → Step Execution → Step Output → Next Step
 ```
 
 Each step receives:
-- Input data from the previous step
-- Configuration settings
-- Pipeline execution context
+- Input data from the previous step (via StepInputOutput)
+- Configuration settings (via StepInstanceConfig)
+- Pipeline execution context (for accessing services and logging)
+
 
 ## Creating a Custom Step
 
@@ -55,43 +58,41 @@ Each step receives:
 Create a new Python file in the `doc/proc/step/` directory:
 
 ```python
-from typing import List
-from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepInputOutput
+from typing import TYPE_CHECKING
+from doc.proc.step.step_base import StepBase, StepInputOutput, StepInstanceConfig
+
+if TYPE_CHECKING:
+    from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 
 class MyCustomStep(StepBase):
     
-    def __init__(self, id: str, name: str, enabled: bool, 
-                 description: str = None, tags: List[str] = None, 
-                 settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, 
-                        description=description, tags=tags, 
-                        settings=settings, **kwargs)
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
 
-    async def run(self, input_data: StepInputOutput, 
+    async def run(self, step_input: StepInputOutput, 
                   context: "PipelineExecutionContext", 
                   **kwargs) -> StepInputOutput:
         """
         Implement your step logic here.
         
         Args:
-            input_data: Data from the previous step
+            step_input: Data from the previous step
             context: Pipeline execution context
             **kwargs: Additional runtime parameters
             
         Returns:
             StepInputOutput: Processed data for the next step
         """
-        # Access settings
+        # Access settings from instance config
         my_setting = self.settings.get("my_setting", "default_value")
         
         # Process the input data
-        processed_data = self.process_data(input_data.data, my_setting)
+        processed_data = self.process_data(step_input.data, my_setting)
         
         # Return updated output
         return StepInputOutput(
-            summary_data={**input_data.summary_data, "step_completed": True},
-            data={**input_data.data, **processed_data}
+            summary_data={**step_input.summary_data, "step_completed": True},
+            data={**step_input.data, **processed_data}
         )
     
     def process_data(self, data: dict, setting: str) -> dict:
@@ -116,10 +117,6 @@ step_catalog:
     tags: [custom, processing]
     category: "Custom Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
     
     settings_schema:
       my_setting:
@@ -153,10 +150,6 @@ step_catalog:
 - **tags**: List of tags for categorization
 - **category**: Category for grouping steps
 - **version**: Step version
-- **fail_pipeline_on_error**: Whether to fail pipeline on step error (default: true)
-- **retry_on_failure**: Whether to retry on failure (default: true)
-- **retries**: Number of retry attempts (default: 3)
-- **timeout**: Step timeout in seconds (default: 600)
 - **settings_schema**: Schema for step configuration parameters
 - **ui_metadata**: UI display information
 
@@ -178,12 +171,6 @@ step_catalog:
     tags: [tag1, tag2, tag3]  # Optional tags for filtering
     category: "Category Name"  # Optional category
     version: "1.0"  # Optional version
-    
-    # Execution behavior
-    fail_pipeline_on_error: true  # Stop pipeline on error
-    retry_on_failure: true        # Retry on failure
-    retries: 3                    # Number of retry attempts
-    timeout: 600                  # Timeout in seconds
     
     # Configuration schema
     settings_schema:
@@ -290,99 +277,19 @@ ui_metadata:
 
 ## Built-in Steps
 
-### Sample Step
+### Individual Step Documentation
 
-**ID**: `sample_step`
-**Purpose**: Development and testing template
-**Category**: Development
+The following table provides links to detailed documentation for each individual step:
 
-```yaml
-settings_schema:
-  key1:
-    type: string
-    title: "Custom Key 1"
-    default: "value1"
-  key2:
-    type: string
-    title: "Custom Key 2"
-    default: "value2"
-```
+| Step Name | Description | Documentation |
+|-----------|-------------|---------------|
+| PDF Text Extractor | Extracts text and metadata from PDF documents using AI-powered OCR and image analysis | [pdf_text_extractor](./pdf_text_extractor.md) |
+| Document Type Identifier | Automatically identifies and categorizes document types using magic bytes detection and file extension analysis | [document_type_identifier](./document_type_identifier.md) |
+| Custom AI Prompt | Applies custom AI prompts to document content for specialized analysis, transformation, and enhancement | [custom_ai_prompt](./custom_ai_prompt.md) |
+| AI Search Index Writer | Writes processed document data to Azure AI Search indexes with configurable field mappings | [ai_search_index_writer](./ai_search_index_writer.md) |
+| PowerPoint Text Extractor | Extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx format) | [pptx_text_extractor](./pptx_text_extractor.md) |
+| Word Text Extractor | Extracts text content, tables, and images from Microsoft Word documents (.docx format) | [word_text_extractor](./word_text_extractor.md) |
 
-### PDF Text Extractor
-
-**ID**: `pdf_text_extractor`
-**Purpose**: Extract text from PDF documents using AI (combines PDF to PNG conversion and AI text extraction)
-**Category**: Document Processing
-
-**Key Settings**:
-- `storage_service`: Azure Blob Storage service reference
-- `ai_model_inference_service`: Azure AI Inference service reference
-- `png_output_folder`: Output directory for PNG files
-- `num_pages`: Maximum pages to convert (0 = all)
-- `dpi`: Output resolution (72-600)
-- `image_format`: Output format (PNG, JPEG, TIFF)
-- `prompts`: System and user prompts for AI processing
-  - `system`: AI system instructions
-  - `user`: Template for user prompts
-- `max_completion_tokens`: Maximum tokens to generate
-- `temperature`: Response randomness (0.0-2.0)
-- `top_p`: Response diversity (0.0-1.0)
-- `frequency_penalty`: Reduces repetition in AI responses
-- `presence_penalty`: Encourages AI to talk about new topics
-
-**Example Configuration**:
-```yaml
-steps:
-  - name: extract_pdf_text
-    step_catalog_id: pdf_text_extractor
-    services: [primary_blob_storage, primary_ai_inference_service]
-    settings:
-      png_output_folder: "./output/png"
-      num_pages: 10
-      dpi: 300
-      image_format: "PNG"
-      prompts:
-        system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-        user: "Extract the text from the following image into markdown and provide descriptions of images..."
-      max_completion_tokens: 4000
-      temperature: 1.0
-      top_p: 1.0
-      frequency_penalty: 0.0
-      presence_penalty: 0.0
-```
-
-### AI Search Index Writer
-
-**ID**: `ai_search_index_writer`
-**Purpose**: Write processed document data to Azure AI Search index
-**Category**: AI Processing
-
-**Key Settings**:
-- `ai_search_service`: Azure AI Search service reference
-- `storage_service`: Azure Blob Storage service reference
-- `index_name`: Name of the Azure AI Search index to write to
-- `chunks_iterator_field`: Field in StepInputOutput to iterate over chunks
-- `index_field_mappings`: JSON mapping of document fields to index fields
-
-**Example Configuration**:
-```yaml
-steps:
-  - name: write_to_search_index
-    step_catalog_id: ai_search_index_writer
-    services: [primary_ai_search_service]
-    settings:
-      index_name: "documents_index"
-      chunks_iterator_field: "data.chunks_data"
-      index_field_mappings: |
-        {
-          "page_id": "id",
-          "input_file_path": "file_name",
-          "page_num": "page_num",
-          "markdown": "markdown",
-          "summary": "summary",
-          "page_image_base64": "page_image"
-        }
-```
 
 ## Best Practices
 
@@ -405,14 +312,14 @@ steps:
 ### Error Handling
 
 ```python
-async def run(self, input_data: StepInputOutput, 
+async def run(self, step_input: StepInputOutput, 
               context: "PipelineExecutionContext", 
               **kwargs) -> StepInputOutput:
     try:
         # Step logic here
-        result = self.process_data(input_data.data)
+        result = self.process_data(step_input.data)
         return StepInputOutput(
-            summary_data=input_data.summary_data,
+            summary_data=step_input.summary_data,
             data=result
         )
     except Exception as e:
@@ -431,7 +338,7 @@ import os
 from pathlib import Path
 
 class FileProcessorStep(StepBase):
-    async def run(self, input_data: StepInputOutput, 
+    async def run(self, step_input: StepInputOutput, 
                   context: "PipelineExecutionContext", 
                   **kwargs) -> StepInputOutput:
         
@@ -446,11 +353,11 @@ class FileProcessorStep(StepBase):
         
         return StepInputOutput(
             summary_data={
-                **input_data.summary_data,
+                **step_input.summary_data,
                 "files_processed": len(processed_files)
             },
             data={
-                **input_data.data,
+                **step_input.data,
                 "processed_files": processed_files
             }
         )
@@ -462,7 +369,7 @@ class FileProcessorStep(StepBase):
 import aiohttp
 
 class APIIntegrationStep(StepBase):
-    async def run(self, input_data: StepInputOutput, 
+    async def run(self, step_input: StepInputOutput, 
                   context: "PipelineExecutionContext", 
                   **kwargs) -> StepInputOutput:
         
@@ -473,13 +380,13 @@ class APIIntegrationStep(StepBase):
             headers = {"Authorization": f"Bearer {api_key}"}
             
             async with session.post(api_endpoint, 
-                                  json=input_data.data, 
+                                  json=step_input.data, 
                                   headers=headers) as response:
                 
                 if response.status == 200:
                     result = await response.json()
                     return StepInputOutput(
-                        summary_data=input_data.summary_data,
+                        summary_data=step_input.summary_data,
                         data=result
                     )
                 else:

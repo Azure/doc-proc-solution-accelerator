@@ -64,7 +64,7 @@ services_catalog:
 
     # UI metadata for display purposes
     ui_metadata:
-      icon: "settings"       # Icon to represent the service in UI
+      icon: "flask-round"    # Icon to represent the service in UI
       color: "#CCCCCC"       # Color for the service in UI
       description_short: "A sample service" # Short description for quick reference
       description_long: "This is a sample service configuration used for demonstration and documentation purposes."  # Long description for detailed view
@@ -111,7 +111,7 @@ services_catalog:
         
     # UI metadata
     ui_metadata:
-      icon: "database"
+      icon: "container"
       color: "#0078D4"
       description_short: "Azure Blob Storage for document storage"
       description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
