@@ -4,8 +4,9 @@ import os
 import re
 import logging
 from typing import List
+import io
 
-import pymupdf
+from docx import Document
 from azure.ai.inference.models import (
         SystemMessage,
         UserMessage,
@@ -16,22 +17,23 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
 
-logger = logging.getLogger("doc.proc.step.pdf_text_extractor") # need to specify the logger name as this module is loaded dynamically
+logger = logging.getLogger("doc.proc.step.word_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
-class PDFTextExtractorStep(StepBase):
+class WordTextExtractorStep(StepBase):
 
-    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
-        super().__init__(instance_config=instance_config, **kwargs)
-        
+    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
+        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
+
         # Initialize settings with default values if not provided
         if not self.settings:
             self.settings = {}
 
         self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
-        self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
+        self.extract_images = self.settings.get("extract_images", True)
+        self.extract_tables = self.settings.get("extract_tables", True)
 
         # get prompts from settings
         self.prompts = self.settings.get("prompts", {})
@@ -56,14 +58,14 @@ class PDFTextExtractorStep(StepBase):
         self.presence_penalty = self.settings.get("presence_penalty", 0.0)
 
         if self.debug_mode:
-            logger.debug(f"Initialized PDFTextExtractorStep with settings: {self.settings} " \
-                         f"PNG output folder: {self.png_output_folder}, Pages to convert: {self.pages_to_convert} " \
+            logger.debug(f"Initialized WordTextExtractorStep with settings: {self.settings} " \
+                         f"PNG output folder: {self.png_output_folder}, Extract images: {self.extract_images}, Extract tables: {self.extract_tables} " \
                          f"System prompt: {self.system_prompt}, User prompt: {self.user_prompt} " \
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
-        # Implement your PDF to PNG conversion logic
+        # Implement your Word document text extraction logic
 
         # Check if input_data has the required data structure
         if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
@@ -100,7 +102,7 @@ class PDFTextExtractorStep(StepBase):
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
                     
                 # Process each document
-                # This will extend the document with extracted text and images for each page/chunk
+                # This will extend the document with extracted text and images for each section/chunk
                 await self.process_document(document=document, 
                                             context=context, 
                                             ai_model_inference_service=ai_model_inference_service)
@@ -150,105 +152,210 @@ class PDFTextExtractorStep(StepBase):
 
     async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
-        Process a single document to extract text and images.
+        Process a single Word document to extract text and images.
         
         :param document: Document dictionary containing file path and other metadata.
         :param context: PipelineExecutionContext instance.
         :param ai_model_inference_service: AI Model Inference Service instance for processing images.
         :raises StepExecutionError: If the document processing fails.
         :raises ValueError: If the document does not contain a valid file path.
-        :raises FileNotFoundError: If the PDF file does not exist at the specified path.
+        :raises FileNotFoundError: If the Word file does not exist at the specified path.
         :return: None.
         """
 
-        pdf_file_path = document.get("file_path")
-        if not pdf_file_path:
+        word_file_path = document.get("file_path")
+        if not word_file_path:
             # do nothing
-            logger.error("No input PDF file path found in input data.")
-            raise ValueError("No input PDF file path found in input data. Please check the input data and try again.")
+            logger.error("No input Word file path found in input data.")
+            raise ValueError("No input Word file path found in input data. Please check the input data and try again.")
 
-        # Check if the PDF file exists
-        if not os.path.exists(pdf_file_path):
+        # Check if the Word file exists
+        if not os.path.exists(word_file_path):
             # do nothing
-            logger.error(f"PDF file not found: {pdf_file_path}.")
-            raise FileNotFoundError(f"PDF file not found: {pdf_file_path}. Please check the file path and try again.")
+            logger.error(f"Word file not found: {word_file_path}.")
+            raise FileNotFoundError(f"Word file not found: {word_file_path}. Please check the file path and try again.")
 
+        # Check if the file is a Word document
+        if not word_file_path.lower().endswith(('.docx', '.doc')):
+            logger.error(f"Invalid file format: {word_file_path}. Expected a Word document (.docx or .doc).")
+            raise ValueError(f"Invalid file format: {word_file_path}. Expected a Word document (.docx or .doc).")
 
-        # STEP 1: Convert PDF to PNG
-        logger.debug(f"Converting PDF file {pdf_file_path} to PNG images...")
-        chunks_data = self.convert_pdf_to_png(pdf_file_path)
+        # STEP 1: Extract text content from Word document
+        logger.debug(f"Extracting text from Word file {word_file_path}...")
+        chunks_data = self.extract_word_content(word_file_path)
 
-        # Step 2: Convert PNG files to Markdown using AI Model Inference Service
-        logger.debug(f"Converting {len(chunks_data)} PNG files to Markdown...")
-
-        for chunk in chunks_data:
-
-            if 'png' not in chunk:
-                logger.warning(f"PNG file path not found in chunk data: {chunk}. Skipping conversion.")
-                continue
-                    
-            # Check if the PNG file exists
-            if not os.path.exists(chunk['png']):
-                logger.warning(f"PNG file not found: {chunk['png']}. Skipping conversion.")
-                continue
-
-            try:    
-                # # Convert the PNG to base64
-                # png_base64 = self.convert_png_to_base64(chunk['png'])                
-                # chunk['page_image_base64'] = png_base64
-                # Call the AI Model Inference Service chat completion method with the PNG file
-
-                markdown = self.convert_png_to_markdown(chunk['png'], ai_model_inference_service)
-                chunk['markdown'] = markdown
-
-                # Extract text sections from the markdown
-                if markdown:
-                    chunk['markdown_text'] = self.extract_text_section(markdown)
-                    chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
-                    # chunk['markdown_code_blocks'] = self.extract_code_sections(markdown)
-
-            except Exception as e:
-                logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
-                continue
+        # Step 2: Process extracted images using AI Model Inference Service if available
+        if self.extract_images:
+            logger.debug(f"Processing extracted images from Word document...")
+            await self.process_extracted_images(chunks_data, ai_model_inference_service)
 
         # Update the document with the processed chunks data
         document['chunks'] = chunks_data
 
     
-    def convert_pdf_to_png(self, pdf_file_path: str) -> List[dict]:
+    def extract_word_content(self, word_file_path: str) -> List[dict]:
         """
-        Convert PDF pages to PNG images.
+        Extract text content from Word document.
         
-        :param pdf_file_path: Path to the input PDF file.
-        :return: List of dictionaries containing page number and PNG file path.
+        :param word_file_path: Path to the input Word file.
+        :return: List of dictionaries containing extracted content.
         """
         
-        png_output_folder = self.png_output_folder
         # Create output folder if it doesn't exist
+        png_output_folder = self.png_output_folder
         os.makedirs(png_output_folder, exist_ok=True)
 
-        doc = pymupdf.open(pdf_file_path)
+        # Open the Word document
+        try:
+            doc = Document(word_file_path)
+        except Exception as e:
+            logger.error(f"Error opening Word document {word_file_path}: {e}")
+            raise StepExecutionError(f"Error opening Word document {word_file_path}: {e}")
 
-        if self.pages_to_convert == -1 or self.pages_to_convert > len(doc):
-            self.pages_to_convert = len(doc)
-
-        # Prepare a list to store the paths of the saved PNG files
+        # Prepare a list to store the extracted content
         chunks_data = []
+        chunk_counter = 1
 
-        # Iterate through pages and save as PNG
-        for page_num in range(0, self.pages_to_convert):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            png_file_path = f'{png_output_folder}/page_{page_num+1}.png'
-            pix.save(png_file_path)
+        # Extract paragraphs
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():  # Skip empty paragraphs
+                chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_{chunk_counter}")
+                
+                chunk_data = {
+                    'input_file_path': word_file_path,
+                    'chunk_id': chunk_id,
+                    'chunk_type': 'paragraph',
+                    'chunk_num': chunk_counter,
+                    'text': paragraph.text.strip(),
+                    'raw_text': paragraph.text.strip()
+                }
+                
+                chunks_data.append(chunk_data)
+                chunk_counter += 1
 
-            # generate a unique identifier for the page by hashing the file path and page number
-            page_id = self.generate_sha1_hash(f"{os.path.basename(pdf_file_path)}_page_{page_num+1}")
+        # Extract tables if enabled
+        if self.extract_tables:
+            for table_idx, table in enumerate(doc.tables):
+                table_text = self.extract_table_text(table)
+                if table_text.strip():
+                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_table_{table_idx + 1}")
+                    
+                    chunk_data = {
+                        'input_file_path': word_file_path,
+                        'chunk_id': chunk_id,
+                        'chunk_type': 'table',
+                        'chunk_num': chunk_counter,
+                        'text': table_text.strip(),
+                        'raw_text': table_text.strip()
+                    }
+                    
+                    chunks_data.append(chunk_data)
+                    chunk_counter += 1
 
-            # Append the page number and PNG file path to the list
-            chunks_data.append({'input_file_path': pdf_file_path, 'page_id': page_id, 'page_num': page_num+1, 'png': png_file_path})
+        # Extract images if enabled
+        if self.extract_images:
+            try:
+                self.extract_images_from_document(doc, word_file_path, chunks_data, chunk_counter)
+            except Exception as e:
+                logger.warning(f"Error extracting images from Word document {word_file_path}: {e}")
 
         return chunks_data
+
+
+    def extract_table_text(self, table) -> str:
+        """
+        Extract text from a Word table.
+        
+        :param table: Word table object.
+        :return: Extracted table text.
+        """
+        table_text = []
+        for row in table.rows:
+            row_text = []
+            for cell in row.cells:
+                cell_text = cell.text.strip()
+                row_text.append(cell_text)
+            table_text.append(" | ".join(row_text))
+        
+        return "\n".join(table_text)
+
+
+    def extract_images_from_document(self, doc, word_file_path: str, chunks_data: List[dict], chunk_counter: int):
+        """
+        Extract images from Word document and save them as PNG files.
+        
+        :param doc: Word document object.
+        :param word_file_path: Path to the Word file.
+        :param chunks_data: List to append image chunk data.
+        :param chunk_counter: Current chunk counter.
+        """
+        png_output_folder = self.png_output_folder
+        
+        # Access the document's relationships to find images
+        for rel in doc.part.rels.values():
+            if "image" in rel.target_ref:
+                try:
+                    # Get the image data
+                    image_data = rel.target_part.blob
+                    
+                    # Generate filename
+                    image_filename = f"image_{chunk_counter}.png"
+                    image_path = os.path.join(png_output_folder, image_filename)
+                    
+                    # Save the image
+                    with open(image_path, 'wb') as img_file:
+                        img_file.write(image_data)
+                    
+                    # Create chunk data for the image
+                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_image_{chunk_counter}")
+                    
+                    chunk_data = {
+                        'input_file_path': word_file_path,
+                        'chunk_id': chunk_id,
+                        'chunk_type': 'image',
+                        'chunk_num': chunk_counter,
+                        'png': image_path,
+                        'text': '',
+                        'raw_text': ''
+                    }
+                    
+                    chunks_data.append(chunk_data)
+                    chunk_counter += 1
+                    
+                except Exception as e:
+                    logger.warning(f"Error extracting image from Word document: {e}")
+                    continue
+
+
+    async def process_extracted_images(self, chunks_data: List[dict], ai_model_inference_service):
+        """
+        Process extracted images using AI Model Inference Service.
+        
+        :param chunks_data: List of chunk data containing image paths.
+        :param ai_model_inference_service: AI Model Inference Service instance.
+        """
+        for chunk in chunks_data:
+            if chunk.get('chunk_type') == 'image' and 'png' in chunk:
+                
+                # Check if the PNG file exists
+                if not os.path.exists(chunk['png']):
+                    logger.warning(f"PNG file not found: {chunk['png']}. Skipping conversion.")
+                    continue
+
+                try:
+                    # Call the AI Model Inference Service to process the image
+                    markdown = self.convert_png_to_markdown(chunk['png'], ai_model_inference_service)
+                    chunk['markdown'] = markdown
+
+                    # Extract text sections from the markdown
+                    if markdown:
+                        chunk['markdown_text'] = self.extract_text_section(markdown)
+                        chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
+                        chunk['text'] = chunk['markdown_text']
+
+                except Exception as e:
+                    logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
+                    continue
 
 
     def generate_sha1_hash(self, input_string):
@@ -310,7 +417,7 @@ class PDFTextExtractorStep(StepBase):
         return response.choices[0].message.content
 
 
-    def extract_text_section(self, markdown:str):
+    def extract_text_section(self, markdown: str):
         """
         Extract text section from the markdown content.
         
@@ -321,7 +428,7 @@ class PDFTextExtractorStep(StepBase):
         # Split the markdown by the separator '==Extracted-Text=='
         # and remove any leading/trailing whitespace from each line
         if not markdown:
-            return []
+            return ""
 
         pattern = r'==Extracted-Text==\s*(.*?)\s*==End-Extracted-Text=='
         match = re.search(pattern, markdown, re.DOTALL)
@@ -340,7 +447,6 @@ class PDFTextExtractorStep(StepBase):
         :return: Extracted image sections.
         """
         # Use a regular expression to find image descriptions
-        image_pattern = r'!\[.*?\]\((.*?)\)'
         pattern = r'==Image-Descriptions==\s*(.*?)\s*==End-Image-Descriptions=='
         match = re.search(pattern, markdown, re.DOTALL)
         if match:

@@ -53,6 +53,120 @@ const mockSteps: StepDefinition[] = [
     created: "2024-02-01T08:30:00Z",
     updated: "2024-02-05T16:45:00Z"
   },
+  {
+    id: "18",
+    name: "OneDrive Connector",
+    description: "Ingest documents from Microsoft OneDrive",
+    type: "connector",
+    module: "onedrive-connector",
+    version: "1.2.0",
+    defaultConfig: {
+      clientId: "",
+      tenantId: "",
+      folderPath: "",
+      syncDeleted: false
+    },
+    created: "2024-02-15T09:30:00Z",
+    updated: "2024-02-20T14:15:00Z"
+  },
+  {
+    id: "19",
+    name: "Google Drive Connector",
+    description: "Ingest documents from Google Drive",
+    type: "connector",
+    module: "google-drive-connector",
+    version: "1.1.5",
+    defaultConfig: {
+      serviceAccountKey: "",
+      folderId: "",
+      includeSharedFiles: true
+    },
+    created: "2024-02-18T11:00:00Z",
+    updated: "2024-02-25T16:30:00Z"
+  },
+  {
+    id: "20",
+    name: "Dropbox Connector",
+    description: "Ingest documents from Dropbox",
+    type: "connector",
+    module: "dropbox-connector",
+    version: "1.0.8",
+    defaultConfig: {
+      accessToken: "",
+      folderPath: "",
+      recursive: true
+    },
+    created: "2024-02-20T13:45:00Z",
+    updated: "2024-02-28T10:20:00Z"
+  },
+  {
+    id: "21",
+    name: "Email Attachment Connector",
+    description: "Extract and ingest attachments from email messages",
+    type: "connector",
+    module: "email-attachment-connector",
+    version: "1.3.2",
+    defaultConfig: {
+      imapServer: "",
+      username: "",
+      password: "",
+      folderName: "INBOX",
+      fileTypes: ["pdf", "docx", "xlsx"]
+    },
+    created: "2024-02-22T14:20:00Z",
+    updated: "2024-03-05T09:45:00Z"
+  },
+  
+  // Document Analysis and Format Detection
+  {
+    id: "22",
+    name: "Document Format Identifier",
+    description: "Identify and classify document formats and file types",
+    type: "extractor",
+    module: "document-format-identifier",
+    version: "2.0.0",
+    defaultConfig: {
+      enableMimeDetection: true,
+      enableContentAnalysis: true,
+      supportedFormats: ["pdf", "docx", "xlsx", "pptx", "txt", "rtf", "html"],
+      extractMetadata: true
+    },
+    created: "2024-02-25T10:15:00Z",
+    updated: "2024-03-01T15:30:00Z"
+  },
+  {
+    id: "23",
+    name: "Document Structure Analyzer",
+    description: "Analyze document structure, headers, sections, and layout",
+    type: "extractor",
+    module: "document-structure-analyzer",
+    version: "1.4.0",
+    defaultConfig: {
+      detectHeaders: true,
+      extractTOC: true,
+      identifyFootnotes: true,
+      parseTableStructure: true
+    },
+    created: "2024-02-28T09:30:00Z",
+    updated: "2024-03-08T14:45:00Z"
+  },
+  {
+    id: "24",
+    name: "Metadata Extractor",
+    description: "Extract comprehensive metadata from documents",
+    type: "extractor",
+    module: "metadata-extractor",
+    version: "1.6.1",
+    defaultConfig: {
+      extractAuthor: true,
+      extractCreationDate: true,
+      extractModificationDate: true,
+      extractKeywords: true,
+      extractProperties: true
+    },
+    created: "2024-03-01T11:20:00Z",
+    updated: "2024-03-10T16:15:00Z"
+  },
   
   // Text Extraction Steps
   {
@@ -99,6 +213,71 @@ const mockSteps: StepDefinition[] = [
     },
     created: "2024-01-05T11:30:00Z",
     updated: "2024-01-22T13:40:00Z"
+  },
+  {
+    id: "25",
+    name: "Word Document Extractor",
+    description: "Extract text and formatting from Microsoft Word documents",
+    type: "extractor",
+    module: "word-document-extractor",
+    version: "1.8.0",
+    defaultConfig: {
+      preserveFormatting: true,
+      extractComments: false,
+      extractTrackChanges: false,
+      includeHeaders: true,
+      includeFooters: true
+    },
+    created: "2024-03-02T13:15:00Z",
+    updated: "2024-03-12T10:45:00Z"
+  },
+  {
+    id: "26",
+    name: "Excel Data Extractor",
+    description: "Extract data and formulas from Excel spreadsheets",
+    type: "extractor",
+    module: "excel-data-extractor",
+    version: "1.5.3",
+    defaultConfig: {
+      extractFormulas: true,
+      includeHiddenSheets: false,
+      preserveFormatting: true,
+      extractCharts: false
+    },
+    created: "2024-03-05T14:30:00Z",
+    updated: "2024-03-15T11:20:00Z"
+  },
+  {
+    id: "27",
+    name: "PowerPoint Content Extractor",
+    description: "Extract text and content from PowerPoint presentations",
+    type: "extractor",
+    module: "powerpoint-extractor",
+    version: "1.3.0",
+    defaultConfig: {
+      extractSpeakerNotes: true,
+      extractSlideText: true,
+      preserveSlideOrder: true,
+      includeAnimations: false
+    },
+    created: "2024-03-08T15:45:00Z",
+    updated: "2024-03-18T09:30:00Z"
+  },
+  {
+    id: "28",
+    name: "HTML Content Extractor",
+    description: "Extract clean text content from HTML documents",
+    type: "extractor",
+    module: "html-content-extractor",
+    version: "2.1.0",
+    defaultConfig: {
+      removeScripts: true,
+      removeStyles: true,
+      preserveLinks: true,
+      extractMetaTags: true
+    },
+    created: "2024-03-10T12:00:00Z",
+    updated: "2024-03-20T16:15:00Z"
   },
 
   // NLP and Entity Extraction Steps
@@ -162,6 +341,55 @@ const mockSteps: StepDefinition[] = [
     created: "2024-01-22T15:45:00Z",
     updated: "2024-02-10T11:25:00Z"
   },
+  {
+    id: "29",
+    name: "Language Detector",
+    description: "Detect the language of text content in documents",
+    type: "extractor",
+    module: "language-detector",
+    version: "1.2.5",
+    defaultConfig: {
+      confidence: 0.8,
+      supportedLanguages: ["en", "es", "fr", "de", "it", "pt", "zh", "ja"],
+      detectMultipleLanguages: true
+    },
+    created: "2024-03-12T10:30:00Z",
+    updated: "2024-03-22T14:45:00Z"
+  },
+  {
+    id: "30",
+    name: "PII Detection",
+    description: "Detect personally identifiable information in documents",
+    type: "extractor",
+    module: "pii-detector",
+    version: "2.0.3",
+    defaultConfig: {
+      detectSSN: true,
+      detectCreditCards: true,
+      detectPhoneNumbers: true,
+      detectEmails: true,
+      detectAddresses: true,
+      redactPII: false
+    },
+    created: "2024-03-15T13:20:00Z",
+    updated: "2024-03-25T11:10:00Z"
+  },
+  {
+    id: "31",
+    name: "Contract Clause Extractor",
+    description: "Extract specific clauses and terms from legal contracts",
+    type: "extractor",
+    module: "contract-clause-extractor",
+    version: "1.1.0",
+    defaultConfig: {
+      clauseTypes: ["termination", "payment", "liability", "confidentiality"],
+      extractDates: true,
+      extractParties: true,
+      confidence: 0.85
+    },
+    created: "2024-03-18T09:15:00Z",
+    updated: "2024-03-28T15:30:00Z"
+  },
 
   // AI-Based Processing Steps
   {
@@ -212,6 +440,53 @@ const mockSteps: StepDefinition[] = [
     created: "2024-02-05T14:20:00Z",
     updated: "2024-02-15T12:35:00Z"
   },
+  {
+    id: "32",
+    name: "Document Q&A Assistant",
+    description: "Answer questions about document content using AI",
+    type: "ai-prompt",
+    module: "document-qa-assistant",
+    version: "1.0.2",
+    defaultConfig: {
+      model: "gpt-4",
+      contextWindow: 4000,
+      temperature: 0.1,
+      enableFollowUp: true
+    },
+    created: "2024-03-20T14:45:00Z",
+    updated: "2024-03-30T10:20:00Z"
+  },
+  {
+    id: "33",
+    name: "Document Translator",
+    description: "Translate document content to different languages using AI",
+    type: "ai-prompt",
+    module: "document-translator",
+    version: "1.3.0",
+    defaultConfig: {
+      targetLanguages: ["es", "fr", "de", "it"],
+      preserveFormatting: true,
+      model: "gpt-4",
+      qualityCheck: true
+    },
+    created: "2024-03-22T11:30:00Z",
+    updated: "2024-04-01T16:45:00Z"
+  },
+  {
+    id: "34",
+    name: "Content Compliance Checker",
+    description: "Check document content for compliance with regulations",
+    type: "ai-prompt",
+    module: "compliance-checker",
+    version: "1.1.5",
+    defaultConfig: {
+      regulations: ["GDPR", "HIPAA", "SOX", "PCI-DSS"],
+      severityLevels: ["low", "medium", "high", "critical"],
+      generateReport: true
+    },
+    created: "2024-03-25T13:15:00Z",
+    updated: "2024-04-05T09:30:00Z"
+  },
 
   // Image Processing Steps
   {
@@ -244,6 +519,70 @@ const mockSteps: StepDefinition[] = [
     },
     created: "2024-02-10T10:45:00Z",
     updated: "2024-02-18T14:25:00Z"
+  },
+  {
+    id: "35",
+    name: "Table Structure Extractor",
+    description: "Extract structured data from tables in images and PDFs",
+    type: "image-extractor",
+    module: "table-structure-extractor",
+    version: "1.4.2",
+    defaultConfig: {
+      preserveHeaders: true,
+      detectBorders: true,
+      outputFormat: "csv",
+      confidence: 0.9
+    },
+    created: "2024-03-28T10:20:00Z",
+    updated: "2024-04-08T14:35:00Z"
+  },
+  {
+    id: "36",
+    name: "Signature Detector",
+    description: "Detect and extract signatures from document images",
+    type: "image-extractor",
+    module: "signature-detector",
+    version: "1.2.1",
+    defaultConfig: {
+      confidence: 0.85,
+      extractCoordinates: true,
+      validateSignature: false,
+      outputBoundingBox: true
+    },
+    created: "2024-03-30T15:45:00Z",
+    updated: "2024-04-10T11:20:00Z"
+  },
+  {
+    id: "37",
+    name: "Stamp and Seal Detector",
+    description: "Detect official stamps and seals in documents",
+    type: "image-extractor",
+    module: "stamp-seal-detector",
+    version: "1.0.8",
+    defaultConfig: {
+      detectCircularStamps: true,
+      detectRectangularStamps: true,
+      extractText: true,
+      confidence: 0.8
+    },
+    created: "2024-04-02T12:30:00Z",
+    updated: "2024-04-12T16:15:00Z"
+  },
+  {
+    id: "38",
+    name: "Handwriting Recognition",
+    description: "Extract text from handwritten content in documents",
+    type: "image-extractor",
+    module: "handwriting-recognition",
+    version: "2.0.0",
+    defaultConfig: {
+      language: "en",
+      confidence: 0.7,
+      preserveLayout: true,
+      detectSignatures: false
+    },
+    created: "2024-04-05T09:45:00Z",
+    updated: "2024-04-15T13:30:00Z"
   },
 
   // Output Steps
@@ -278,6 +617,71 @@ const mockSteps: StepDefinition[] = [
     },
     created: "2024-01-30T16:10:00Z",
     updated: "2024-02-12T13:55:00Z"
+  },
+  {
+    id: "39",
+    name: "SQL Database Writer",
+    description: "Store processed data in SQL Server or Azure SQL Database",
+    type: "output",
+    module: "sql-database-writer",
+    version: "1.5.0",
+    defaultConfig: {
+      connectionString: "",
+      tableName: "ProcessedDocuments",
+      createTable: true,
+      batchSize: 100
+    },
+    created: "2024-04-08T11:15:00Z",
+    updated: "2024-04-18T14:30:00Z"
+  },
+  {
+    id: "40",
+    name: "JSON File Exporter",
+    description: "Export processed data as JSON files to storage",
+    type: "output",
+    module: "json-file-exporter",
+    version: "1.2.3",
+    defaultConfig: {
+      outputPath: "",
+      prettyPrint: true,
+      includeMetadata: true,
+      compression: false
+    },
+    created: "2024-04-10T13:45:00Z",
+    updated: "2024-04-20T10:20:00Z"
+  },
+  {
+    id: "41",
+    name: "SharePoint List Writer",
+    description: "Write processed data to SharePoint lists",
+    type: "output",
+    module: "sharepoint-list-writer",
+    version: "1.1.2",
+    defaultConfig: {
+      siteUrl: "",
+      listName: "",
+      fieldMappings: {},
+      createFields: false
+    },
+    created: "2024-04-12T15:20:00Z",
+    updated: "2024-04-22T12:45:00Z"
+  },
+  {
+    id: "42",
+    name: "Webhook Notifier",
+    description: "Send processing results to external webhooks",
+    type: "output",
+    module: "webhook-notifier",
+    version: "1.0.5",
+    defaultConfig: {
+      webhookUrl: "",
+      httpMethod: "POST",
+      headers: {},
+      retryAttempts: 3,
+      timeout: 30000
+    },
+    created: "2024-04-15T10:30:00Z",
+    updated: "2024-04-25T16:15:00Z"
   }
 ];
 

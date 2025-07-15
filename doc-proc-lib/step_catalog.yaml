@@ -1,6 +1,9 @@
 # step_catalog.yaml - Reusable step definitions
 
 step_catalog:
+
+  ########################################################
+  # Sample step for development and testing purposes
   - id: sample_step
     name: "Sample Development Step"
     description: "Sample step for development and testing"
@@ -11,10 +14,6 @@ step_catalog:
     tags: [sample, development]
     category: "Development"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
 
     # Settings schema for UI generation and validation
     settings_schema:
@@ -36,7 +35,37 @@ step_catalog:
       description_short: "A sample step used for development and testing purposes."
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
-          
+  ########################################################
+  # Document type identification Step
+  - id: document_type_identifier
+    name: "Document Type Identifier"
+    description: "Identifies the type of documents based on various methods"
+    type: script
+    module_name: document_type_identifier
+    module_path: ./doc/proc/step/document_type_identifier.py
+    class_name: DocumentTypeIdentifierStep
+    tags: [document, identification, classification]
+    category: "Processing"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      identification_methods:
+        type: string
+        title: "Identification Methods"
+        description: "Methods to use for document type identification. Comma separated list. Possible values: magic_bytes, file_extension"
+        default: "magic_bytes, file_extension"
+        ui_component: "input"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "file-question-mark"
+      color: "#F59E0B"
+      description_short: "Identifies document types based on file properties."
+      description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
+
+  ########################################################
+  # PDF text extraction step          
   - id: pdf_text_extractor
     name: "PDF Text Extractor"
     description: "Extract text and metadata from PDF documents"
@@ -47,10 +76,6 @@ step_catalog:
     tags: [pdf, text, extraction, azure_blob]
     category: "Document Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: true
-    retries: 3
-    timeout: 600
         
     # Settings schema for UI generation and validation
     settings_schema:
@@ -78,10 +103,10 @@ step_catalog:
       num_pages:
         type: integer
         title: "Number of Pages"
-        description: "Maximum number of pages to convert (0 = all pages)"
-        default: 10
-        min: 0
-        max: 1000
+        description: "Maximum number of pages to convert (-1 = all pages)"
+        default: -1
+        min: -1
+        max: 200
       dpi:
         type: integer
         title: "DPI Resolution"
@@ -105,7 +130,7 @@ step_catalog:
         type: string
         title: "User Prompt Template"
         description: "Template for user prompts sent to AI"
-        default: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}"
+        default: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:\n==Extracted-Text==\n{Insert extracted text as markdown here}==End-Extracted-Text==\n\n==Image-Descriptions==\n{Insert image descriptions as markdown here}==End-Image-Descriptions=="
         ui_component: "textarea"
       max_completion_tokens:
         type: integer
@@ -148,12 +173,13 @@ step_catalog:
         multipleOf: 0.1
 
     ui_metadata:
-      icon: "image"
+      icon: "file-text"
       color: "#10B981"
       description_short: "Extracts text from PDF document pages into markdown."
       description_long: "Extracts text from PDF document pages into PNG image files and then uses Azure AI Inference Service to convert them to markdown."
 
-
+  ########################################################
+  # AI Search Index Writer step
   - id: ai_search_index_writer
     name: "AI Search Index Writer"
     description: "Writes AI-generated summaries and metadata to search index"
@@ -164,10 +190,6 @@ step_catalog:
     tags: [ai, search, index, azure_search]
     category: "AI Processing"
     version: "1.0"
-    fail_pipeline_on_error: true
-    retry_on_failure: false
-    retries: 3
-    timeout: 600
     
     # Settings schema for UI generation and validation
     settings_schema:
@@ -191,12 +213,6 @@ step_catalog:
         description: "Name of the Azure AI Search index to write to"
         default: "pdf-index"
         ui_component: "input"
-      chunks_iterator_field:
-        type: string
-        title: "Chunks Iterator Field"
-        description: "Field in the StepInputOutput to iterate over chunks"
-        default: "data.chunks_data"
-        ui_component: "input"
       index_field_mappings:
         type: string
         title: "Index Field Mappings"
@@ -206,14 +222,107 @@ step_catalog:
                     "page_id": "id",
                     "input_file_path": "file_name",
                     "page_num": "page_num",
-                    "markdown": "markdown",
-                    "summary": "summary",
-                    "page_image_base64": "page_image"
+                    "markdown": "page_markdown",
+                    "markdown_text": "markdown_text",
+                    "markdown_image_descriptions": "image_descriptions",
+                    "summary": "summary"
                   }
         ui_component: "textarea"
       
     ui_metadata:
-      icon: "database"
+      icon: "text-search"
+      color: "#8B5CF6"
+      description_short: "Writes AI-generated summaries and metadata to search index."
+      description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
+
+  ########################################################
+  # Custom AI Prompt step
+  - id: custom_ai_prompt
+    name: "Custom AI Prompt Step"
+    description: "Custom step to execute AI prompts with dynamic configuration"
+    type: script
+    module_name: custom_ai_prompt
+    module_path: ./doc/proc/step/custom_ai_prompt.py
+    class_name: CustomAIPromptStep
+    tags: [ai, prompt, custom]
+    category: "AI Processing"
+    version: "1.0"
+        
+    # Settings schema for UI generation and validation
+    settings_schema:
+      ai_model_inference_service:
+        type: string
+        title: "AI Inference Service"
+        description: "Reference to the AI service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_inference"
+      chunk_field_to_apply_prompt_on:
+        type: string
+        title: "Field to Apply Prompt On"
+        description: "The field key in document.chunks.chunk which the AI prompt will be applied to"
+        default: "markdown_text"
+        ui_component: "input"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document.chunks.chunk to store the AI response"
+        default: "custom_ai_prompt_output"
+        ui_component: "input"
+      system_prompt:
+        type: string
+        title: "System Prompt"
+        description: "Instructions for the AI system"
+        default: "You are an AI assistant."
+        ui_component: "textarea"
+      user_prompt:
+        type: string
+        title: "User Prompt Template"
+        description: "Template for the custom user prompts sent to AI"
+        default: "This is a custom AI prompt step. Please process the input accordingly.\nInput: {chunk_content}"
+        ui_component: "textarea"
+      max_completion_tokens:
+        type: integer
+        title: "Max Completion Tokens"
+        description: "Maximum number of tokens to generate"
+        default: 4000
+        min: 100
+        max: 8000
+      temperature:
+        type: number
+        title: "Temperature"
+        description: "Controls randomness in AI responses (0.0 = deterministic, 2.0 = very random)"
+        default: 1.0
+        min: 0.0
+        max: 2.0
+        multipleOf: 0.1
+      top_p:
+        type: number
+        title: "Top P"
+        description: "Controls diversity of AI responses"
+        default: 0.4
+        min: 0.0
+        max: 1.0
+        multipleOf: 0.1
+      frequency_penalty:
+        type: number
+        title: "Frequency Penalty"
+        description: "Reduces repetition in AI responses"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+      presence_penalty:
+        type: number
+        title: "Presence Penalty"
+        description: "Encourages AI to talk about new topics"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+      
+    ui_metadata:
+      icon: "brain"
       color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."

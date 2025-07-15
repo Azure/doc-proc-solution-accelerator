@@ -152,16 +152,22 @@ async def main():
         pipeline = await load_pipeline(pipeline_config=first_pipeline, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
 
         # Run the pipeline
-        input_data = StepInputOutput(summary_data={}, data={ "input_pdf_file": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf" })
+        input_data = StepInputOutput(summary_data={}, data={ "documents": generate_documents() })
+        
         result = await pipeline.run(input_data=input_data)
+        
         logger.info(f"Pipeline '{pipeline.name}' executed successfully.")
-        logger.debug(f"Result: {result}")
+        logger.info(f"Pipeline result: {result}")
 
     except Exception as e:
         logger.error(f"Error executing pipeline: {e}.")
         logger.error("Pipeline execution failed. Please check the logs for more details.")
+
       
-   
+def generate_documents():
+    """Generate a list of documents to process."""
+    # This is a placeholder function. In a real application, this would fetch documents from a source.
+    return [{"file_path": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf"}]
 
 
 if __name__ == "__main__":
