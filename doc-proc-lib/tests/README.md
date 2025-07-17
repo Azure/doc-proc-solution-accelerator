@@ -24,6 +24,7 @@ tests/
 ├── pipeline/                      # Tests for pipeline components
 │   ├── __init__.py
 │   └── test_pipeline_base.py     # Pipeline base classes tests
+|   └── test_pipeline_config.py   # Pipeline config classes tests
 └── utils/                         # Tests for utility functions
     ├── __init__.py
     ├── test_import_module.py      # Module import utility tests

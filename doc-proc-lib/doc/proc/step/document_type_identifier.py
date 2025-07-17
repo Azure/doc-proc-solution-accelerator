@@ -63,19 +63,28 @@ class DocumentTypeIdentifierStep(StepBase):
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
-
         _stats = {
-            "total_documents": len(documents),
+            "total_documents": 0,
             "successful_documents": 0,
             "failed_documents": 0
         }
 
+        # get documents from input data
+        documents = input_data.data.get("documents", [])
+        if not documents or not isinstance(documents, list):
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+            # do nothing if no documents are found
+            return StepInputOutput(summary_data={
+                                        **input_data.summary_data, f"{self.name}_stats": _stats
+                                   },
+                                   data={
+                                       **input_data.data
+                                   })
+
         # Iterate through each document in the input data
         logger.info(f"Processing {len(documents)} documents...")
+
+        _stats["total_documents"] = len(documents)
 
         final_documents_list = []
 
@@ -208,6 +217,10 @@ class DocumentTypeIdentifierStep(StepBase):
             file_path = document.get("file_path", "")
             if not file_path:
                 return {"error": "No file path available", "confidence": 0.0, "method": "file_extension"}
+
+            # Check if file exists
+            if not Path(file_path).is_file():
+                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "file_extension"}
 
             # Extract extension
             file_path = Path(file_path)

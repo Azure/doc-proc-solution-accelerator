@@ -167,7 +167,7 @@ class TestPDFTextExtractorStep:
         assert "Invalid input data" in str(exc_info.value)
     
     @pytest.mark.asyncio
-    async def test_pdf_step_no_documents(self, pdf_step_config, mock_pipeline_context):
+    async def test_pdf_step_no_documents(self, pdf_step_config, mock_ai_inference_service):
         """Test PDFTextExtractorStep with no documents."""
         step = PDFTextExtractorStep(pdf_step_config)
         
@@ -176,12 +176,16 @@ class TestPDFTextExtractorStep:
             data={}  # No documents
         )
         
-        with pytest.raises(ValueError) as exc_info:
-            await step.run(step_input, mock_pipeline_context)
-        assert "No documents list found in input data" in str(exc_info.value)
-    
+        mock_context = MagicMock()
+        mock_context.get_service.return_value = mock_ai_inference_service
+
+        result = await step.run(step_input, mock_context)
+        assert result.summary_data[f"{step.name}_stats"]["total_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["failed_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["successful_documents"] == 0
+
     @pytest.mark.asyncio
-    async def test_pdf_step_documents_not_list(self, pdf_step_config, mock_pipeline_context):
+    async def test_pdf_step_documents_not_list(self, pdf_step_config, mock_ai_inference_service):
         """Test PDFTextExtractorStep when documents is not a list."""
         step = PDFTextExtractorStep(pdf_step_config)
         
@@ -190,10 +194,14 @@ class TestPDFTextExtractorStep:
             data={"documents": "not_a_list"}
         )
         
-        with pytest.raises(ValueError) as exc_info:
-            await step.run(step_input, mock_pipeline_context)
-        assert "No documents list found in input data" in str(exc_info.value)
-    
+        mock_context = MagicMock()
+        mock_context.get_service.return_value = mock_ai_inference_service
+
+        result = await step.run(step_input, mock_context)
+        assert result.summary_data[f"{step.name}_stats"]["total_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["failed_documents"] == 0
+        assert result.summary_data[f"{step.name}_stats"]["successful_documents"] == 0
+
     @pytest.mark.asyncio
     async def test_pdf_step_no_ai_service(self, pdf_step_config, pdf_document_input):
         """Test PDFTextExtractorStep when AI service is not available."""

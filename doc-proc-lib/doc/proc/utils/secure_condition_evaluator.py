@@ -81,6 +81,13 @@ class SecureConditionEvaluator:
     # Pattern for valid field names (alphanumeric, underscore, hyphen)
     VALID_FIELD_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_-]*$')
     
+    # Dangerous patterns that should be rejected for security
+    DANGEROUS_PATTERNS = [
+        '__class__', '__name__', '__module__', '__dict__', '__doc__', '__bases__',
+        '__subclasses__', '__mro__', '__globals__', '__locals__', '__builtins__',
+        '__import__'
+    ]
+    
     def __init__(self):
         """Initialize the secure condition evaluator."""
         self._compiled_regex_cache = {}
@@ -109,6 +116,9 @@ class SecureConditionEvaluator:
         
         # Remove extra whitespace
         condition_string = condition_string.strip()
+        
+        # Security validation: check for dangerous patterns in the condition string
+        self._validate_condition_security(condition_string)
         
         # For now, implement a simple parser that handles basic conditions
         # This could be extended to support more complex expressions
@@ -203,6 +213,11 @@ class SecureConditionEvaluator:
         if not field_path:
             raise ConditionEvaluationError("Field path cannot be empty")
         
+        # Check for dangerous patterns first
+        for dangerous_pattern in self.DANGEROUS_PATTERNS:
+            if dangerous_pattern in field_path:
+                raise ConditionEvaluationError(f"Dangerous pattern detected in field path: {dangerous_pattern}")
+        
         # Split by dots and validate each part
         parts = field_path.split('.')
         if len(parts) > self.MAX_FIELD_DEPTH:
@@ -221,6 +236,11 @@ class SecureConditionEvaluator:
                 if field_name and not self.VALID_FIELD_PATTERN.match(field_name):
                     raise ConditionEvaluationError(f"Invalid field name: {field_name}")
                 
+                # Check for dangerous patterns in field name
+                for dangerous_pattern in self.DANGEROUS_PATTERNS:
+                    if dangerous_pattern in field_name:
+                        raise ConditionEvaluationError(f"Dangerous pattern detected in field name: {dangerous_pattern}")
+                
                 # Validate index (must be integer or quoted string)
                 if not (index_part.isdigit() or 
                         (index_part.startswith('"') and index_part.endswith('"')) or
@@ -229,6 +249,11 @@ class SecureConditionEvaluator:
             else:
                 if not self.VALID_FIELD_PATTERN.match(part):
                     raise ConditionEvaluationError(f"Invalid field name: {part}")
+                    
+                # Check for dangerous patterns in individual parts
+                for dangerous_pattern in self.DANGEROUS_PATTERNS:
+                    if dangerous_pattern in part:
+                        raise ConditionEvaluationError(f"Dangerous pattern detected in field name: {dangerous_pattern}")
     
     def _parse_value(self, value_str: str) -> Any:
         """
@@ -475,6 +500,35 @@ class SecureConditionEvaluator:
             errors.append(f"Unexpected error: {str(e)}")
         
         return errors
+    
+    def _validate_condition_security(self, condition_string: str):
+        """
+        Validate that a condition string doesn't contain dangerous patterns.
+        
+        Args:
+            condition_string: The condition string to validate
+            
+        Raises:
+            ConditionEvaluationError: If dangerous patterns are detected
+        """
+        # Check for semicolons which could be used for command injection
+        if ';' in condition_string:
+            raise ConditionEvaluationError("Semicolons are not allowed in condition strings")
+        
+        # Check for dangerous function calls
+        dangerous_functions = [
+            'eval(', 'exec(', 'compile(', '__import__(', 'open(', 'file(', 
+            'input(', 'raw_input(', 'globals(', 'locals(', 'vars(', 'dir(',
+            'getattr(', 'setattr(', 'hasattr(', 'delattr('
+        ]
+        for func in dangerous_functions:
+            if func in condition_string:
+                raise ConditionEvaluationError(f"Dangerous function call detected: {func}")
+        
+        # Check for other dangerous patterns
+        for dangerous_pattern in self.DANGEROUS_PATTERNS:
+            if dangerous_pattern in condition_string:
+                raise ConditionEvaluationError(f"Dangerous pattern detected: {dangerous_pattern}")
 
 
 # Convenience functions for common use cases

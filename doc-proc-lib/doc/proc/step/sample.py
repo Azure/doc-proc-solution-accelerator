@@ -17,16 +17,19 @@ class SampleStep(StepBase):
         # Implement your document step logic here
         logger.debug(f"Running SampleStep: {self.name} with input data: {input_data}")
         
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
-
         _stats = {
-            "total_documents": len(documents),
-            "successful_sample_runs": 0,
-            "failed_sample_runs": 0,
+            "total_documents": 0,
+            "successful_documents": 0,
+            "failed_documents": 0,
         }
 
+        documents = input_data.data.get("documents", [])
+        if not documents or not isinstance(documents, list):
+            logger.warning("No documents found in input data.")
+            return StepInputOutput(summary_data={f"{self.name}_stats": _stats}, data={"documents": []})
+        
+        _stats["total_documents"] = len(documents)
+        
         sample_data = {
             "sample_key": "sample_value",
             "sample_summary": "This is a sample summary",
@@ -44,12 +47,12 @@ class SampleStep(StepBase):
                 
                 document["sample_data"] = sample_data  # Add sample data to the document
 
-                _stats["successful_sample_runs"] += 1
+                _stats["successful_documents"] += 1
                 logger.info(f"Successfully processed document: {document}")
 
             except Exception as e:
                 logger.error(f"Error processing document {document}: {e}")
-                _stats["failed_sample_runs"] += 1
+                _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception

@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from datetime import datetime
 import os
+import traceback
 from typing import List, Literal, Optional
 from pydantic import BaseModel
 import logging
@@ -379,13 +380,13 @@ class Pipeline:
                     raise TypeError(f"Output data from step {step.name} must be an instance of StepInputOutput")
                 
             except Exception as e:
-                logger.error(f"Error executing step {step.name}: {str(e)}")
+                logger.error(f"Error executing step {step.name}: {str(e)}, traceback: {traceback.print_exc() if hasattr(e, '__traceback__') else None}")
 
                 step_result.result = "Failed"
                 step_result.reason = f"Error executing step: {str(e)}"
                 step_result.error = str(e)
                 step_result.error_message = str(e)
-                step_result.error_traceback = e.__traceback__ if hasattr(e, '__traceback__') else None
+                step_result.error_traceback = traceback.print_exc() if hasattr(e, '__traceback__') else None
                 step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                 pipeline_execution_result.step_execution_results.append(step_result)
 

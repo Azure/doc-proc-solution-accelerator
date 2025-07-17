@@ -76,7 +76,7 @@ pipelines:
         settings:
           identification_methods: "file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
     
-      ## STEP 3: PDF Text Extractor
+      ## STEP 3.1: PDF Text Extractor
       - name: pdf_text_extractor_1
         step_catalog_id: pdf_text_extractor
         enabled: true
@@ -95,6 +95,45 @@ pipelines:
           image_format: "PNG"
           prompts:
             system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+            user: |
+              Extract the text from the following image into markdown and provide descriptions of images. 
+              Always format the markdown as follows to distinguish the text extracted from image descriptions:
+              
+              ==Extracted-Text==
+              {Insert extracted text as markdown here}
+              ==End-Extracted-Text==
+
+              ==Image-Descriptions==
+              {Insert image descriptions as markdown here}
+              ==End-Image-Descriptions==
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 1.0
+          frequency_penalty: 0.0
+          presence_penalty: 0.0
+
+      ## STEP 3.2: PPTX Text Extractor
+      - name: pptx_text_extractor_1
+        step_catalog_id: pptx_text_extractor
+        enabled: false
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [primary_ai_inference_service] # References to service instances
+        condition:
+        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: true # Enable debug mode for this step
+        settings:
+          png_output_folder: "./output/png"
+          num_slides: 3 # Maximum number of slides to convert (-1 = all slides)
+          extract_images: true # Whether to extract images from slides
+          extract_shapes: true # Whether to extract shapes from slides
+          extract_tables: true # Whether to extract tables from slides
+          dpi: 300
+          image_format: "PNG"
+          prompts:
+            system: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
             user: |
               Extract the text from the following image into markdown and provide descriptions of images. 
               Always format the markdown as follows to distinguish the text extracted from image descriptions:
@@ -163,8 +202,8 @@ pipelines:
     ##########################################################
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
-    execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    
+    execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, pptx_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
+
     ##########################################################
     # PIPELINE SETTINGS
     # Global settings for the pipeline execution

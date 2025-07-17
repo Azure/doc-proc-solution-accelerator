@@ -69,12 +69,7 @@ class PDFTextExtractorStep(StepBase):
         if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-        
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
-        
+
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:
@@ -82,10 +77,25 @@ class PDFTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         _stats = {
-            "total_documents": len(documents),
+            "total_documents": 0,
             "successful_documents": 0,
             "failed_documents": 0,
         }
+
+        # get documents from input data
+        documents = input_data.data.get("documents", [])
+        if not documents or not isinstance(documents, list):
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+            return StepInputOutput(summary_data=
+                                    {
+                                        **input_data.summary_data, f"{self.name}_stats": _stats
+                                    }, 
+                               data=
+                                    {
+                                        **input_data.data
+                                    })
+        
+        _stats["total_documents"] = len(documents)
 
         # Iterate through each document in the input data
         logger.info(f"Processing {len(documents)} documents...")
@@ -111,12 +121,12 @@ class PDFTextExtractorStep(StepBase):
                     logger.debug(f"Successfully processed document: {document}")
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=

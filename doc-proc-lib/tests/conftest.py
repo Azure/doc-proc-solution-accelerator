@@ -85,7 +85,6 @@ def mock_pipeline_context(mock_service):
     """Fixture for creating a mock pipeline execution context."""
     context = MagicMock(spec=PipelineExecutionContext)
     context.get_service = MagicMock(return_value=mock_service)
-    context.services = {"test_service": mock_service}
     context.pipeline_name = "test_pipeline"
     context.execution_id = "test_execution_123"
     return context
@@ -215,8 +214,7 @@ def mock_ai_search_service():
     service.type = "azure_ai_search"
     
     # Mock search operations
-    service.index_document = AsyncMock(return_value={"status": "success"})
-    service.search = AsyncMock(return_value={"results": []})
+    service.write_documents = AsyncMock(return_value={"status": "success"})
     service.test_connection = AsyncMock(return_value=True)
     
     return service
