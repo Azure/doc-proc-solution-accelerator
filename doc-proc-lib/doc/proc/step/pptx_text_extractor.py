@@ -6,8 +6,7 @@ import logging
 from typing import List
 import io
 
-from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+
 from azure.ai.inference.models import (
         SystemMessage,
         UserMessage,
@@ -18,16 +17,16 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 logger = logging.getLogger("doc.proc.step.pptx_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
 class PowerPointTextExtractorStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
-
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
+        
         # Initialize settings with default values if not provided
         if not self.settings:
             self.settings = {}
@@ -76,11 +75,6 @@ class PowerPointTextExtractorStep(StepBase):
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
-        
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:
@@ -88,10 +82,27 @@ class PowerPointTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         _stats = {
-            "total_documents": len(documents),
+            "total_documents": 0,
             "successful_documents": 0,
             "failed_documents": 0,
         }
+
+        # get documents from input data
+        documents = input_data.data.get("documents", [])
+        logger.debug(f"Found {documents} documents in input data.")
+
+        if not documents or not isinstance(documents, list):
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+            return StepInputOutput(summary_data=
+                                    {
+                                        **input_data.summary_data, f"{self.name}_stats": _stats
+                                    }, 
+                               data=
+                                    {
+                                        **input_data.data
+                                    })
+        logger.debug(f"Found {documents} documents in input data.")
+        _stats["total_documents"] = len(documents)
 
         # Iterate through each document in the input data
         logger.info(f"Processing {len(documents)} documents...")
@@ -117,12 +128,12 @@ class PowerPointTextExtractorStep(StepBase):
                     logger.debug(f"Successfully processed document: {document}")
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
@@ -205,6 +216,9 @@ class PowerPointTextExtractorStep(StepBase):
         :return: List of dictionaries containing extracted content.
         """
         
+        from pptx import Presentation
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+
         # Create output folder if it doesn't exist
         png_output_folder = self.png_output_folder
         os.makedirs(png_output_folder, exist_ok=True)
@@ -306,7 +320,7 @@ class PowerPointTextExtractorStep(StepBase):
         tables = []
         
         for shape in slide.shapes:
-            if shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+            if shape.shape_type == MSO_SHAPE_TYPE.TABLE: # type: ignore
                 table_text = self.extract_table_text(shape.table)
                 if table_text.strip():
                     tables.append(table_text)
@@ -348,7 +362,7 @@ class PowerPointTextExtractorStep(StepBase):
         image_counter = 1
         
         for shape in slide.shapes:
-            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE: # type: ignore
                 try:
                     # Get the image data
                     image_data = shape.image.blob

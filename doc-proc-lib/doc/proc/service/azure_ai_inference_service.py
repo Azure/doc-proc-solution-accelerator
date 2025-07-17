@@ -96,7 +96,7 @@ class AzureAIInferenceService(ServiceBase):
         try:
             
             # Attempt to get model info to verify connection
-            response = await self.chat_completions_client.complete(messages=[
+            response = self.chat_completions_client.complete(messages=[
                 SystemMessage("Reply with YES")
             ])
 

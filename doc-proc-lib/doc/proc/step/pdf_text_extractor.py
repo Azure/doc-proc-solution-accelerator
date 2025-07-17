@@ -85,7 +85,7 @@ class PDFTextExtractorStep(StepBase):
         # get documents from input data
         documents = input_data.data.get("documents", [])
         if not documents or not isinstance(documents, list):
-            logger.error(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
             return StepInputOutput(summary_data=
                                     {
                                         **input_data.summary_data, f"{self.name}_stats": _stats
@@ -121,12 +121,12 @@ class PDFTextExtractorStep(StepBase):
                     logger.debug(f"Successfully processed document: {document}")
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
