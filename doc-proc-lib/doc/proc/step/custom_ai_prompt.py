@@ -121,12 +121,12 @@ class CustomAIPromptStep(StepBase):
                     logger.debug(f"Successfully processed document: {document}")
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
@@ -167,8 +167,8 @@ class CustomAIPromptStep(StepBase):
         # get the chunks from the document
         chunks = document.get("chunks", [])
         if not chunks:
-            logger.error(f"No chunks found in document: {document}.")
-            raise StepExecutionError(f"No chunks found in document: {document}.")
+            logger.warning(f"No chunks found in document.")
+            raise StepExecutionError(f"No chunks found in document.")
 
         logger.debug(f"Processing {len(chunks)} chunks.")
 

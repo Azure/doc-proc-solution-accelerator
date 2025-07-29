@@ -78,7 +78,7 @@ async def load_step_catalog_config(step_catalog_yaml_file: str) -> StepConfig:
         return step_catalog
 
     except Exception as e:
-        logger.error(f"Error loading service catalog: {e}")
+        logger.error(f"Error loading step catalog: {e}")
 
 
 async def load_pipeline_config(pipeline_config_yaml_file: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "PipelineConfig":
@@ -167,7 +167,10 @@ async def main():
 def generate_documents():
     """Generate a list of documents to process."""
     # This is a placeholder function. In a real application, this would fetch documents from a source.
-    return [{"file_path": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf"}]
+    return [
+            {"file_path": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf"},
+            {"file_path": "/Users/nadeemis/temp/QIA Factory Project.pptx"}
+        ]
 
 
 if __name__ == "__main__":

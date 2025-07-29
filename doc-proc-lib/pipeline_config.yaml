@@ -32,7 +32,7 @@ service_instances:
 
 ########################################################
 # PIPELINES
-# Pipeline definitions - references to steps catalog with custom settings
+# Pipeline definitions - references to step catalog with custom settings
 pipelines:
 
   ###########################################################
@@ -72,9 +72,9 @@ pipelines:
         services: [] # References to service instances
         condition:
         fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: false # Enable debug mode for this step
+        debug_mode: true # Enable debug mode for this step
         settings:
-          identification_methods: "file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
+          identification_methods: "magic_bytes, file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
     
       ## STEP 3.1: PDF Text Extractor
       - name: pdf_text_extractor_1
@@ -85,12 +85,12 @@ pipelines:
         retries: 3
         timeout: 600
         services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
-        condition:
+        condition: document_type == "pdf" # Only run this step if the document type is PDF
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           png_output_folder: "./output/png"
-          num_pages: 3 # Maximum number of pages to convert (-1 = all pages)
+          num_pages: 1 # Maximum number of pages to convert (-1 = all pages)
           dpi: 300
           image_format: "PNG"
           prompts:
@@ -123,7 +123,7 @@ pipelines:
         services: [primary_ai_inference_service] # References to service instances
         condition:
         fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
           png_output_folder: "./output/png"
           num_slides: 3 # Maximum number of slides to convert (-1 = all slides)
@@ -161,7 +161,7 @@ pipelines:
         timeout: 600
         services: [primary_ai_inference_service] # References to service instances
         condition:
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           chunk_field_to_apply_prompt_on: markdown_text

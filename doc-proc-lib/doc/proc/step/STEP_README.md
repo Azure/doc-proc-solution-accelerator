@@ -289,6 +289,7 @@ The following table provides links to detailed documentation for each individual
 | AI Search Index Writer | Writes processed document data to Azure AI Search indexes with configurable field mappings | [ai_search_index_writer](./ai_search_index_writer.md) |
 | PowerPoint Text Extractor | Extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx format) | [pptx_text_extractor](./pptx_text_extractor.md) |
 | Word Text Extractor | Extracts text content, tables, and images from Microsoft Word documents (.docx format) | [word_text_extractor](./word_text_extractor.md) |
+| Excel Text Extractor | Extracts text content, images, and charts from Microsoft Excel spreadsheets (.xlsx, .xls, .xlsm, .xlsb formats) | [excel_text_extractor](./excel_text_extractor.md) |
 
 
 ## Best Practices

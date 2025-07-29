@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from doc.proc.step.document_type_identifier import (
     DocumentTypeIdentifierStep, 
-    DocumentCategory, 
+    DocumentType, 
     IdentificationMethod
 )
 from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
@@ -219,13 +219,13 @@ class TestDocumentCategory:
         ]
         
         for category in expected_categories:
-            assert hasattr(DocumentCategory, category.upper())
+            assert hasattr(DocumentType, category.upper())
     
     def test_document_category_values(self):
         """Test document category enum values."""
-        assert DocumentCategory.PDF.value == "pdf"
-        assert DocumentCategory.OFFICE_DOCUMENT.value == "office_document"
-        assert DocumentCategory.UNKNOWN.value == "unknown"
+        assert DocumentType.PDF.value == "pdf"
+        assert DocumentType.OFFICE_DOCUMENT.value == "office_document"
+        assert DocumentType.UNKNOWN.value == "unknown"
 
 
 class TestIdentificationMethod:

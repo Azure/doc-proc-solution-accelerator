@@ -216,8 +216,12 @@ class PowerPointTextExtractorStep(StepBase):
         :return: List of dictionaries containing extracted content.
         """
         
-        from pptx import Presentation
-        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        try:
+            from pptx import Presentation
+            from pptx.enum.shapes import MSO_SHAPE_TYPE
+        except ImportError as e:
+            logger.error("pptx module is required for PowerPoint document processing. Please install it using 'pip install python-pptx'.")
+            raise StepExecutionError("pptx module is required for PowerPoint document processing. Please install it using 'pip install python-pptx'.")
 
         # Create output folder if it doesn't exist
         png_output_folder = self.png_output_folder
