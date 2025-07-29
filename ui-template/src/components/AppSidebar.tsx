@@ -93,7 +93,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b px-6 py-4">
         <div className="flex items-center space-x-2">
           <Settings className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold">DocProcessor</span>
+          <span className="text-lg font-semibold">Doc-Proc</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -116,7 +116,7 @@ export function AppSidebar() {
         </SidebarGroup>
         
         <SidebarGroup>
-          <SidebarGroupLabel>Processing</SidebarGroupLabel>
+          <SidebarGroupLabel>Configure</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {processingItems.map((item) => (

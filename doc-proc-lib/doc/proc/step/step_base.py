@@ -1,12 +1,15 @@
 from __future__ import annotations
 from abc import abstractmethod
 import pydantic
+import logging
 from typing import List, Optional, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
     # Avoid circular import issues by using string type hints
     from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
+
+logger = logging.getLogger("doc.proc.step.step_base")
 
 class StepInstanceConfig(pydantic.BaseModel):
     step_catalog_id: str  # Reference to step id in the step catalog
@@ -80,6 +83,13 @@ class StepBase:
         self.condition = instance_config.condition  # Condition string to evaluate before running the step
         self.params = kwargs
 
+        # Initialize condition evaluator if condition is provided
+        if self.condition:
+            from doc.proc.utils.secure_condition_evaluator import SecureConditionEvaluator
+            self.condition_evaluator = SecureConditionEvaluator()
+        else:
+            self.condition_evaluator = None
+
 
     @abstractmethod
     async def run(self, step_input: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
@@ -92,6 +102,83 @@ class StepBase:
         """
         # from pipeline.pipeline_base import PipelineExecutionContext  # Uncomment if runtime access is needed
         raise NotImplementedError("Subclasses must implement this method.")
+
+
+    def evaluate_document_condition(self, document: dict, step_input: StepInputOutput) -> bool:
+        """
+        Evaluate a step's condition against a specific document.
+        
+        Args:
+            document: The document to evaluate the condition against
+            step_input: The current input data for the step
+            
+        Returns:
+            bool: True if the condition is met or no condition is set, False otherwise
+            
+        Raises:
+            Exception: If condition evaluation fails
+        """
+        if not self.condition or not self.condition_evaluator:
+            return True  # No condition means always process
+        
+        try:
+            logger.debug(f"Evaluating condition for step {self.name} on document: {self.condition}")
+            
+            # Create evaluation context with document data
+            evaluation_data = {}
+            
+            # Add document data to evaluation context
+            if document:
+                evaluation_data.update(document)
+            
+            # Add step input data to evaluation context
+            if step_input.data:
+                evaluation_data.update(step_input.data)
+            
+            # Add summary data to evaluation context
+            if step_input.summary_data:
+                evaluation_data.update(step_input.summary_data)
+            
+            # Evaluate the condition
+            condition_group = self.condition_evaluator.parse_condition_string(self.condition)
+            result = self.condition_evaluator.evaluate(condition_group, evaluation_data)
+            
+            logger.debug(f"Condition evaluation result for step {self.name} on document: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error evaluating condition for step {self.name} on document: {e}")
+            raise Exception(f"Failed to evaluate condition '{self.condition}': {str(e)}")
+
+
+    def filter_documents_by_condition(self, documents: List[dict], step_input: StepInputOutput) -> List[dict]:
+        """
+        Filter documents based on the step's condition.
+        
+        Args:
+            documents: List of documents to filter
+            step_input: The current input data for the step
+            
+        Returns:
+            List[dict]: Filtered list of documents that meet the condition
+        """
+        if not self.condition:
+            return documents  # No condition means process all documents
+        
+        filtered_documents = []
+        for document in documents:
+            try:
+                if self.evaluate_document_condition(document, step_input):
+                    filtered_documents.append(document)
+                else:
+                    logger.debug(f"Document skipped due to condition not met: {self.condition}")
+            except Exception as e:
+                logger.warning(f"Error evaluating condition for document, skipping: {e}")
+                # Continue processing other documents even if one fails condition evaluation
+                continue
+        
+        logger.info(f"Step {self.name}: {len(filtered_documents)} out of {len(documents)} documents meet the condition")
+        return filtered_documents
 
 
     def __str__(self):

@@ -64,6 +64,7 @@ step_catalog:
       description_short: "Identifies document types based on file properties."
       description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
 
+
   ########################################################
   # PDF text extraction step          
   - id: pdf_text_extractor
@@ -177,6 +178,7 @@ step_catalog:
       color: "#10B981"
       description_short: "Extracts text from PDF document pages into markdown."
       description_long: "Extracts text from PDF document pages into PNG image files and then uses Azure AI Inference Service to convert them to markdown."
+
 
   ########################################################
   # PPTX text extraction step
@@ -301,6 +303,74 @@ step_catalog:
       description_long: "Extracts text, tables, shapes from PPTX document slides and uses Azure AI Inference Service to convert them to markdown."
 
 
+########################################################
+  # Excel text extraction step
+  - id: excel_text_extractor
+    name: "Excel Text Extractor"
+    description: "Extract text and metadata from Excel spreadsheets"
+    type: script
+    module_name: excel_text_extractor
+    module_path: ./doc/proc/step/excel_text_extractor.py
+    class_name: ExcelTextExtractorStep
+    tags: [excel, text, extraction, spreadsheet]
+    category: "Document Processing"
+    version: "1.0"
+        
+    # Settings schema for UI generation and validation
+    settings_schema:
+      ai_model_inference_service:
+        type: string
+        title: "AI Inference Service"
+        description: "Reference to the AI service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_inference"
+      png_output_folder:
+        type: string
+        title: "PNG Output Folder"
+        description: "Directory path where PNG files will be saved"
+        default: "./output/png"
+        required: true
+        pattern: "^\\.\\/.*"
+      extract_images:
+        type: boolean
+        title: "Extract Images"
+        description: "Whether to extract images from sheets"
+        default: true
+        ui_component: "checkbox"
+      extract_charts:
+        type: boolean
+        title: "Extract Charts"
+        description: "Whether to extract charts from sheets"
+        default: true
+        ui_component: "checkbox"
+      max_rows_per_sheet:
+        type: integer
+        title: "Max Rows per Sheet"
+        description: "Maximum number of rows to process per sheet (-1 = all rows)"
+        default: -1
+        min: -1
+        max: 10000
+      max_columns_per_sheet:
+        type: integer
+        title: "Max Columns per Sheet"
+        description: "Maximum number of columns to process per sheet (-1 = all columns)"
+        default: -1
+        min: -1
+        max: 500
+      sheets_to_process:
+        type: string
+        title: "Sheets to Process"
+        description: "Comma separated list of sheet names to process (empty = all sheets)"
+        default: ""
+      
+    ui_metadata:
+      icon: "table"
+      color: "#059669"
+      description_short: "Extracts text from Excel spreadsheet sheets into markdown."
+      description_long: "Extracts text, images, and charts from Excel spreadsheet sheets and uses Azure AI Inference Service to convert them to markdown."
+
+
   ########################################################
   # AI Search Index Writer step
   - id: ai_search_index_writer
@@ -357,6 +427,7 @@ step_catalog:
       color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
+
 
   ########################################################
   # Custom AI Prompt step
@@ -449,3 +520,151 @@ step_catalog:
       color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
+
+
+  ########################################################
+  # Entity Extractor step
+  - id: entity_extractor
+    name: "Entity Extractor Step"
+    description: "Extract named entities and relationships from document content"
+    type: script
+    module_name: entity_extractor
+    module_path: ./doc/proc/step/entity_extractor.py
+    class_name: EntityExtractorStep
+    tags: [ai, nlp, entities, relationships, ner]
+    category: "AI Processing"
+    version: "1.0"
+        
+    # Settings schema for UI generation and validation
+    settings_schema:
+      ai_model_inference_service:
+        type: string
+        title: "AI Inference Service"
+        description: "Reference to the AI service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_inference"
+      chunk_field_to_extract_entities_from:
+        type: string
+        title: "Field to Extract Entities From"
+        description: "The field key in document.chunks.chunk from which entities will be extracted"
+        default: "text"
+        ui_component: "input"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document.chunks.chunk to store the extracted entities"
+        default: "extracted_entities"
+        ui_component: "input"
+      extract_people:
+        type: boolean
+        title: "Extract People"
+        description: "Extract person entities (names of individuals)"
+        default: true
+        ui_component: "checkbox"
+      extract_places:
+        type: boolean
+        title: "Extract Places"
+        description: "Extract place entities (geographical locations, cities, countries)"
+        default: true
+        ui_component: "checkbox"
+      extract_locations:
+        type: boolean
+        title: "Extract Locations"
+        description: "Extract location entities (addresses, buildings, facilities)"
+        default: true
+        ui_component: "checkbox"
+      extract_organizations:
+        type: boolean
+        title: "Extract Organizations"
+        description: "Extract organization entities (companies, institutions)"
+        default: true
+        ui_component: "checkbox"
+      extract_relationships:
+        type: boolean
+        title: "Extract Relationships"
+        description: "Extract relationships between entities"
+        default: true
+        ui_component: "checkbox"
+      custom_entity_types:
+        type: string
+        title: "Custom Entity Types"
+        description: "Comma separated list of custom entity types to extract (e.g., PRODUCT, TECHNOLOGY)"
+        default: ""
+        ui_component: "input"
+      output_format:
+        type: string
+        title: "Output Format"
+        description: "Format for the output data"
+        default: "structured"
+        enum: ["structured", "json"]
+        ui_component: "select"
+      include_confidence:
+        type: boolean
+        title: "Include Confidence Scores"
+        description: "Include confidence scores in the output"
+        default: true
+        ui_component: "checkbox"
+      include_context:
+        type: boolean
+        title: "Include Context"
+        description: "Include surrounding text context for entities"
+        default: true
+        ui_component: "checkbox"
+      system_prompt:
+        type: string
+        title: "System Prompt"
+        description: "Instructions for the AI system for entity extraction"
+        default: ""
+        ui_component: "textarea"
+      user_prompt:
+        type: string
+        title: "User Prompt Template"
+        description: "Template for user prompts sent to AI"
+        default: ""
+        ui_component: "textarea"
+      max_completion_tokens:
+        type: integer
+        title: "Max Completion Tokens"
+        description: "Maximum number of tokens to generate"
+        default: 4000
+        min: 100
+        max: 8000
+      temperature:
+        type: number
+        title: "Temperature"
+        description: "Controls randomness in AI responses (0.0 = deterministic, 2.0 = very random)"
+        default: 0.1
+        min: 0.0
+        max: 2.0
+        multipleOf: 0.01
+      top_p:
+        type: number
+        title: "Top P"
+        description: "Controls diversity of AI responses"
+        default: 1.0
+        min: 0.0
+        max: 1.0
+        multipleOf: 0.1
+      frequency_penalty:
+        type: number
+        title: "Frequency Penalty"
+        description: "Reduces repetition in AI responses"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+      presence_penalty:
+        type: number
+        title: "Presence Penalty"
+        description: "Encourages AI to talk about new topics"
+        default: 0.0
+        min: -2.0
+        max: 2.0
+        multipleOf: 0.1
+
+    ui_metadata:
+      icon: "list-tree"
+      color: "#10B981"
+      description_short: "Extracts named entities and relationships from text."
+      description_long: "Uses AI to identify and extract people, places, organizations, and custom entities along with their relationships from document content."

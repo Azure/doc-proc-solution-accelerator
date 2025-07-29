@@ -80,6 +80,7 @@ class PDFTextExtractorStep(StepBase):
             "total_documents": 0,
             "successful_documents": 0,
             "failed_documents": 0,
+            "skipped_documents": 0,
         }
 
         # get documents from input data
@@ -95,9 +96,9 @@ class PDFTextExtractorStep(StepBase):
                                         **input_data.data
                                     })
         
-        _stats["total_documents"] = len(documents)
+        _stats["total_documents"] = len(documents)        
 
-        # Iterate through each document in the input data
+        # Iterate through each filtered document in the input data
         logger.info(f"Processing {len(documents)} documents...")
             
         for document in documents:
@@ -108,7 +109,15 @@ class PDFTextExtractorStep(StepBase):
                 # Check if the document is a dictionary and has the 'file_path' key
                 if not isinstance(document, dict) or 'file_path' not in document:
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
-                    
+                
+                # Evaluate condition if present
+                if self.condition:
+                    condition_met = self.evaluate_document_condition(document, input_data)
+                    if not condition_met:
+                        _stats["skipped_documents"] += 1
+                        logger.debug(f"Document skipped due to condition not met: {self.condition}")
+                        continue
+            
                 # Process each document
                 # This will extend the document with extracted text and images for each page/chunk
                 await self.process_document(document=document, 

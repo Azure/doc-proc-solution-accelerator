@@ -11,7 +11,7 @@ const AppLayout = () => {
         <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 items-center px-4">
             <SidebarTrigger className="mr-4" />
-            <h1 className="text-xl font-semibold">Document Processing System</h1>
+            <h1 className="text-xl font-semibold">Doc-Proc Solution Accelerator</h1>
           </div>
         </header>
         <div className="flex-1 p-6">
