@@ -176,6 +176,58 @@ services_catalog:
       description_long: "Azure AI Inference service for natural language processing, document analysis, and content generation."
 
 
+  # Azure Document Intelligence Service for advanced document analysis
+  - id: azure_document_intelligence_service_01
+    name: "Azure Document Intelligence Service"
+    description: "Azure Document Intelligence service for advanced document analysis and content extraction"
+    type: azure_document_intelligence
+    module_name: azure_document_intelligence_service
+    module_path: ./doc/proc/service/azure_document_intelligence_service.py
+    class_name: AzureDocumentIntelligenceService
+    test_connection: true
+    category: "AI Services"
+    version: "1.0"
+    tags: [azure, ai, document, intelligence, forms, content, understanding]
+
+    settings_schema:
+      endpoint:
+        type: string
+        title: "Service Endpoint"
+        description: "Endpoint URL for the Azure Document Intelligence Service"
+        required: true
+        pattern: "^https://.*"
+        env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT"
+        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT}
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE"
+        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key:
+        type: string
+        title: "API Key"
+        description: "API key for Azure Document Intelligence Service authentication"
+        required: false
+        sensitive: true
+        env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY"
+        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY}
+      model_id:
+        type: string
+        title: "Model ID"
+        description: "ID of the AI model to use. Can be any model supported by Azure Document Intelligence, either prebuilt or custom."
+        default: "prebuilt-layout"
+        enum: ["prebuilt-layout", "prebuilt-read", 'prebuilt-read', 'prebuilt-businessCard', 'prebuilt-idDocument', 'prebuilt-invoice', 'prebuilt-receipt', 'prebuilt-tax.us.w2', 'prebuilt-healthInsuranceCard.us']
+    
+    ui_metadata:
+      icon: "brain-circuit"
+      color: "#8B5CF6"
+      description_short: "Azure AI Document Intelligence for document processing"
+      description_long: "Azure AI Document Intelligence service for natural language processing, document analysis, and content extraction."
+
+
   # Azure AI Search Service for indexing and searching documents
   - id: azure_ai_search_service_01
     name: "Azure AI Search Service"
@@ -286,3 +338,61 @@ services_catalog:
       color: "#00BCF2"
       description_short: "Azure Cosmos DB for document metadata"
       description_long: "Azure Cosmos DB service for storing document metadata, processing results, and application state."
+
+
+  # Azure Content Understanding Service for advanced document analysis
+  - id: azure_content_understanding_service_01
+    name: "Azure Content Understanding Service"
+    description: "Azure Content Understanding service for advanced document analysis and content extraction"
+    type: azure_content_understanding
+    module_name: azure_content_understanding_service
+    module_path: ./doc/proc/service/azure_content_understanding_service.py
+    class_name: AzureContentUnderstandingService
+    test_connection: true
+    category: "AI Services"
+    version: "1.0"
+    tags: [azure, ai, document, intelligence, forms, content, understanding]
+
+    settings_schema:
+      endpoint:
+        type: string
+        title: "Service Endpoint"
+        description: "Endpoint URL for the Azure Content Understanding Service"
+        required: true
+        pattern: "^https://.*"
+        env_var: "AZURE_CONTENT_UNDERSTANDING_SERVICE_ENDPOINT"
+        default: ${AZURE_CONTENT_UNDERSTANDING_SERVICE_ENDPOINT}
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "AZURE_CONTENT_UNDERSTANDING_SERVICE_CREDENTIAL_TYPE"
+        default: ${AZURE_CONTENT_UNDERSTANDING_SERVICE_CREDENTIAL_TYPE}
+      api_key:
+        type: string
+        title: "API Key"
+        description: "API key for Azure Content Understanding Service authentication"
+        required: false
+        sensitive: true
+        env_var: "AZURE_CONTENT_UNDERSTANDING_SERVICE_API_KEY"
+        default: ${AZURE_CONTENT_UNDERSTANDING_SERVICE_API_KEY}
+      api_version:
+        type: string
+        title: "API Version"
+        description: "API version to use for the service"
+        default: "2023-07-31"
+        enum: ["2023-07-31", "2022-08-31", "2021-09-30-preview"]
+      model_id:
+        type: string
+        title: "Default Model ID"
+        description: "Default model ID to use for document analysis"
+        default: "prebuilt-layout"
+        enum: ["prebuilt-layout", "prebuilt-document", "prebuilt-read", "prebuilt-businessCard", "prebuilt-idDocument", "prebuilt-invoice", "prebuilt-receipt", "prebuilt-tax.us.w2", "prebuilt-healthInsuranceCard.us"]
+
+    ui_metadata:
+      icon: "document-text"
+      color: "#FF6900"
+      description_short: "Azure Content Understanding for document analysis"
+      description_long: "Azure Content Understanding service for extracting text, tables, key-value pairs, and structured content from various document formats including PDFs, images, and Office documents."

@@ -113,12 +113,12 @@ class AISearchIndexWriterStep(StepBase):
                     logger.debug(f"Successfully processed document: {document}")
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
@@ -163,8 +163,8 @@ class AISearchIndexWriterStep(StepBase):
             chunks = document.get("chunks", None)
 
             if not chunks:
-                logger.error(f"No chunks found in document: {document}.")
-                raise StepExecutionError(f"No chunks found in document: {document}. Please check the document structure and try again.")
+                logger.error(f"No chunks found in document.")
+                raise StepExecutionError(f"No chunks found in document. Please check the document structure and try again.")
 
             # generate the documents to be indexed
             index_documents = []

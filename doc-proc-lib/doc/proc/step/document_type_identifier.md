@@ -290,12 +290,10 @@ The step produces enhanced document data with type identification:
           "mime_type": "application/pdf",
           "confidence": 0.9025,
           "best_method": "magic_bytes",
-          "category": "pdf",
-          "subtype": "pdf",
           "all_methods": {
             "magic_bytes": {
               "mime_type": "application/pdf",
-              "type": "PDF document",
+              "type": "pdf",
               "confidence": 0.95,
               "method": "magic_bytes"
             },
@@ -303,8 +301,6 @@ The step produces enhanced document data with type identification:
               "extension": ".pdf",
               "type": "pdf",
               "mime_type": "application/pdf",
-              "subtype": "pdf",
-              "category": "pdf",
               "confidence": 0.9,
               "method": "file_extension"
             }
@@ -511,7 +507,7 @@ pipeline:
     # Process Office Documents
     - name: process_office_docs
       step_catalog_id: office_document_processor
-      condition: "document_type.category in ['office_document', 'spreadsheet', 'presentation']"
+      condition: "document_type.primary_type in ['office_document', 'excel_spreadsheet', 'powerpoint_presentation']"
       settings:
         extract_text: true
         preserve_formatting: true
@@ -527,7 +523,7 @@ pipeline:
     # Process Images
     - name: process_images
       step_catalog_id: image_text_extractor
-      condition: "document_type.category == 'image'"
+      condition: "document_type.primary_type == 'image'"
       settings:
         ocr_engine: "azure_computer_vision"
         language: "auto"

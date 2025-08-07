@@ -3,16 +3,6 @@ import re
 import logging
 from typing import List
 import hashlib
-import base64
-
-from azure.ai.inference.models import (
-        SystemMessage,
-        UserMessage,
-        TextContentItem,
-        ImageContentItem,
-        ImageUrl,
-        ImageDetailLevel,
-    )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
@@ -30,8 +20,8 @@ class ExcelTextExtractorStep(StepBase):
             self.settings = {}
 
         self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
-        self.extract_images = self.settings.get("extract_images", True)
-        self.extract_charts = self.settings.get("extract_charts", True)
+        self.extract_images = self.settings.get("extract_images", False)  # Default to False if not specified
+        self.extract_charts = self.settings.get("extract_charts", False)  # Default to False if not specified
         self.max_rows_per_sheet = self.settings.get("max_rows_per_sheet", -1)  # -1 means all rows
         self.max_columns_per_sheet = self.settings.get("max_columns_per_sheet", -1)  # -1 means all columns
         self.sheets_to_process = self.settings.get("sheets_to_process", [])  # Empty list means all sheets
@@ -54,13 +44,12 @@ class ExcelTextExtractorStep(StepBase):
         _stats = {
             "total_documents": 0,
             "successful_documents": 0,
+            "skipped_documents": 0,
             "failed_documents": 0,
         }
 
         # get documents from input data
         documents = input_data.data.get("documents", [])
-        logger.debug(f"Found {len(documents)} documents in input data.")
-
         if not documents or not isinstance(documents, list):
             logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
             return StepInputOutput(summary_data=
@@ -73,7 +62,7 @@ class ExcelTextExtractorStep(StepBase):
                                     })
         
         _stats["total_documents"] = len(documents)
-
+        
         # Iterate through each document in the input data
         logger.info(f"Processing {len(documents)} documents...")
             
@@ -85,7 +74,15 @@ class ExcelTextExtractorStep(StepBase):
                 # Check if the document is a dictionary and has the 'file_path' key
                 if not isinstance(document, dict) or 'file_path' not in document:
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
-                    
+                
+                # Evaluate condition if present
+                if self.condition:
+                    condition_met = self.evaluate_document_condition(document, input_data)
+                    if not condition_met:
+                        _stats["skipped_documents"] += 1
+                        logger.info(f"Document skipped due to condition not met: {self.condition}")
+                        continue
+                
                 # Process each document
                 # This will extend the document with extracted text and images for each sheet/chunk
                 await self.process_document(document=document, 
@@ -95,6 +92,8 @@ class ExcelTextExtractorStep(StepBase):
 
                 if self.debug_mode:
                     logger.debug(f"Successfully processed document: {document}")
+                else:
+                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
 
             except Exception as e:
                 logger.error(f"Error processing document {document}: {e}")
@@ -104,6 +103,8 @@ class ExcelTextExtractorStep(StepBase):
                     # If the step is configured to fail on document error, raise an exception
                     raise StepExecutionError(f"Failed to process document: {e}")
 
+        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+        
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
                                     {
@@ -208,8 +209,8 @@ class ExcelTextExtractorStep(StepBase):
                     "chunk_index": chunk_counter,
                     "chunk_type": "sheet",
                     "sheet_name": sheet_name,
-                    "text_content": sheet_text,
-                    "source_file": excel_file_path
+                    "text": sheet_text,
+                    "input_file_path": excel_file_path
                 }
                 
                 chunks_data.append(chunk)
@@ -293,7 +294,7 @@ class ExcelTextExtractorStep(StepBase):
                         "chunk_type": "image",
                         "sheet_name": sheet_name,
                         "image_path": image_path,
-                        "source_file": excel_file_path
+                        "input_file_path": excel_file_path
                     }
                     
                     image_chunks.append(chunk)
@@ -318,8 +319,8 @@ class ExcelTextExtractorStep(StepBase):
                         "chunk_index": chunk_counter + image_counter - 1,
                         "chunk_type": "chart",
                         "sheet_name": sheet_name,
-                        "text_content": chart_text,
-                        "source_file": excel_file_path
+                        "text": chart_text,
+                        "input_file_path": excel_file_path
                     }
                     
                     image_chunks.append(chunk)

@@ -35,7 +35,7 @@ def setup_logging(logger: logging.Logger):
             message = super().format(record)
             return f"{color}{message}{Style.RESET_ALL}"
 
-    formatter = ColorFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = ColorFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)')
     handler.setFormatter(formatter)
     logger.handlers.clear()
     logger.addHandler(handler)
@@ -168,8 +168,9 @@ def generate_documents():
     """Generate a list of documents to process."""
     # This is a placeholder function. In a real application, this would fetch documents from a source.
     return [
-            {"file_path": "/Users/nadeemis/temp/Emirates Group Annual Report 2024-2025.pdf"},
-            {"file_path": "/Users/nadeemis/temp/QIA Factory Project.pptx"}
+            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.pdf"},
+            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Presentation.pptx"},
+            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.docx"}
         ]
 
 

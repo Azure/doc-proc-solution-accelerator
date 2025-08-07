@@ -10,7 +10,6 @@ logger = logging.getLogger("doc.proc.step.document_type_identifier")
 
 
 class DocumentType(Enum):
-    WORD_DOCUMENT = "word"
     PDF = "pdf"
     IMAGE = "image"
     AUDIO = "audio"
@@ -23,6 +22,7 @@ class DocumentType(Enum):
     OPENOFFICE_PRESENTATION = "openoffice_presentation"
     STRUCTURED_DOCUMENT = "structured_document"
     DATA_DOCUMENT = "data_document"
+    WORD_DOCUMENT = "word_document"
     EXCEL_SPREADSHEET = "excel_spreadsheet"
     POWERPOINT_PRESENTATION = "powerpoint_presentation"
     EMAIL = "email"
@@ -72,7 +72,8 @@ class DocumentTypeIdentifierStep(StepBase):
         _stats = {
             "total_documents": 0,
             "successful_documents": 0,
-            "failed_documents": 0
+            "skipped_documents": 0,
+            "failed_documents": 0,
         }
 
         # get documents from input data
@@ -88,9 +89,10 @@ class DocumentTypeIdentifierStep(StepBase):
                                    })
 
         # Iterate through each document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
-
+        
         _stats["total_documents"] = len(documents)
+
+        logger.info(f"Processing {len(documents)} documents...")
 
         final_documents_list = []
 
@@ -115,18 +117,24 @@ class DocumentTypeIdentifierStep(StepBase):
                 }
 
                 _stats["successful_documents"] += 1
+                
+                if self.debug_mode:
+                    logger.debug(f"Successfully processed document: {result_document}")
+                else:
+                    logger.info(f"Successfully processed document: {result_document.get('file_path', 'unknown')}")
 
                 final_documents_list.append(result_document)
 
             except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
+                logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
 
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+                    raise StepExecutionError(f"Failed to process document: {e}")
 
-
+        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+        
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data = {**input_data.summary_data, f"{self.name}_stats": _stats}, 
                                data={**input_data.data, "documents": final_documents_list})
@@ -147,8 +155,8 @@ class DocumentTypeIdentifierStep(StepBase):
             return identification_result
                 
         except Exception as e:
-                logger.error(f"Document type identification failed for {document.get('id', 'unknown')}: {str(e)}")
-                raise ValueError(f"Document type identification failed: {str(e)}")
+            logger.error(f"Document type identification failed for {document.get('file_path', 'unknown')}: {str(e)}")
+            raise ValueError(f"Document type identification failed: {str(e)}")
 
 
     async def identify_document_type(self, document: dict, 
@@ -206,6 +214,13 @@ class DocumentTypeIdentifierStep(StepBase):
 
             # Map file type to DocumentType if needed
             file_type = self.map_magic_bytes_to_document_type(file_type)
+            
+            if file_type == DocumentType.UNKNOWN.value:
+                return {
+                    "error": "Unknown file type",
+                    "confidence": 0.0,
+                    "method": "magic_bytes"
+                }
 
             return {
                 "mime_type": mime_type,

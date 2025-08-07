@@ -4,9 +4,7 @@ import os
 import re
 import logging
 from typing import List
-import io
 
-from docx import Document
 from azure.ai.inference.models import (
         SystemMessage,
         UserMessage,
@@ -17,15 +15,15 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput
+from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
 logger = logging.getLogger("doc.proc.step.word_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
 class WordTextExtractorStep(StepBase):
 
-    def __init__(self, id: str, name: str, enabled: bool, description: str = None, tags: List[str] = None, fail_step_on_document_error: bool = False, debug_mode: bool = False, services: List[str] = None, settings: dict = None, **kwargs):
-        super().__init__(id=id, name=name, enabled=enabled, description=description, tags=tags, fail_step_on_document_error=fail_step_on_document_error, debug_mode=debug_mode, services=services, settings=settings, **kwargs)
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
 
         # Initialize settings with default values if not provided
         if not self.settings:
@@ -33,7 +31,9 @@ class WordTextExtractorStep(StepBase):
 
         self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
         self.extract_images = self.settings.get("extract_images", True)
+        self.extract_image_descriptions = self.settings.get("extract_image_descriptions", True)
         self.extract_tables = self.settings.get("extract_tables", True)
+        self.max_chunk_size = self.settings.get("max_chunk_size", 4000)
 
         # get prompts from settings
         self.prompts = self.settings.get("prompts", {})
@@ -60,6 +60,7 @@ class WordTextExtractorStep(StepBase):
         if self.debug_mode:
             logger.debug(f"Initialized WordTextExtractorStep with settings: {self.settings} " \
                          f"PNG output folder: {self.png_output_folder}, Extract images: {self.extract_images}, Extract tables: {self.extract_tables} " \
+                         f"Max chunk size: {self.max_chunk_size} " \
                          f"System prompt: {self.system_prompt}, User prompt: {self.user_prompt} " \
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
@@ -72,10 +73,6 @@ class WordTextExtractorStep(StepBase):
             logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            raise ValueError(f"No documents list found in input data.")
         
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
@@ -84,12 +81,28 @@ class WordTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         _stats = {
-            "total_documents": len(documents),
+            "total_documents": 0,
             "successful_documents": 0,
+            "skipped_documents": 0,
             "failed_documents": 0,
         }
 
-        # Iterate through each document in the input data
+        # get documents from input data
+        documents = input_data.data.get("documents", [])
+        if not documents or not isinstance(documents, list):
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+            return StepInputOutput(summary_data=
+                                    {
+                                        **input_data.summary_data, f"{self.name}_stats": _stats
+                                    }, 
+                               data=
+                                    {
+                                        **input_data.data
+                                    })
+        
+        _stats["total_documents"] = len(documents)
+        
+        # Iterate through each filtered document in the input data
         logger.info(f"Processing {len(documents)} documents...")
             
         for document in documents:
@@ -100,6 +113,14 @@ class WordTextExtractorStep(StepBase):
                 # Check if the document is a dictionary and has the 'file_path' key
                 if not isinstance(document, dict) or 'file_path' not in document:
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
+                
+                # Evaluate condition if present
+                if self.condition:
+                    condition_met = self.evaluate_document_condition(document, input_data)
+                    if not condition_met:
+                        _stats["skipped_documents"] += 1
+                        logger.info(f"Document skipped due to condition not met: {self.condition}")
+                        continue
                     
                 # Process each document
                 # This will extend the document with extracted text and images for each section/chunk
@@ -111,6 +132,8 @@ class WordTextExtractorStep(StepBase):
 
                 if self.debug_mode:
                     logger.debug(f"Successfully processed document: {document}")
+                else:
+                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
 
             except Exception as e:
                 logger.error(f"Error processing document {document}: {e}")
@@ -119,7 +142,9 @@ class WordTextExtractorStep(StepBase):
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
                     raise StepExecutionError(f"Failed to process document {document}: {e}")
-
+        
+        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+        
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
                                     {
@@ -201,13 +226,19 @@ class WordTextExtractorStep(StepBase):
         :return: List of dictionaries containing extracted content.
         """
         
+        try:
+            from docx import Document
+        except ImportError as e:
+            logger.error("docx module is required for Word document processing. Please install it using 'pip install python-docx'.")
+            raise StepExecutionError("docx module is required for Word document processing. Please install it using 'pip install python-docx'.")
+
         # Create output folder if it doesn't exist
         png_output_folder = self.png_output_folder
         os.makedirs(png_output_folder, exist_ok=True)
 
         # Open the Word document
         try:
-            doc = Document(word_file_path)
+            word_doc = Document(word_file_path)
         except Exception as e:
             logger.error(f"Error opening Word document {word_file_path}: {e}")
             raise StepExecutionError(f"Error opening Word document {word_file_path}: {e}")
@@ -216,26 +247,61 @@ class WordTextExtractorStep(StepBase):
         chunks_data = []
         chunk_counter = 1
 
-        # Extract paragraphs
-        for paragraph in doc.paragraphs:
+        # Extract paragraphs and merge them into chunks
+        current_chunk_text = []
+        current_chunk_size = 0
+        
+        for paragraph in word_doc.paragraphs:
             if paragraph.text.strip():  # Skip empty paragraphs
-                chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_{chunk_counter}")
+                paragraph_text = paragraph.text.strip()
+                paragraph_size = len(paragraph_text)
                 
-                chunk_data = {
-                    'input_file_path': word_file_path,
-                    'chunk_id': chunk_id,
-                    'chunk_type': 'paragraph',
-                    'chunk_num': chunk_counter,
-                    'text': paragraph.text.strip(),
-                    'raw_text': paragraph.text.strip()
-                }
-                
-                chunks_data.append(chunk_data)
-                chunk_counter += 1
+                # Check if adding this paragraph would exceed the max chunk size
+                if current_chunk_size + paragraph_size + 1 > self.max_chunk_size and current_chunk_text:
+                    # Create a chunk with the current accumulated paragraphs
+                    chunk_text = '\n'.join(current_chunk_text)
+                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
+                    
+                    chunk_data = {
+                        'input_file_path': word_file_path,
+                        'chunk_id': chunk_id,
+                        'chunk_type': 'paragraph',
+                        'chunk_num': chunk_counter,
+                        'text': chunk_text,
+                        'raw_text': chunk_text
+                    }
+                    
+                    chunks_data.append(chunk_data)
+                    chunk_counter += 1
+                    
+                    # Start a new chunk with the current paragraph
+                    current_chunk_text = [paragraph_text]
+                    current_chunk_size = paragraph_size
+                else:
+                    # Add paragraph to the current chunk
+                    current_chunk_text.append(paragraph_text)
+                    current_chunk_size += paragraph_size + 1  # +1 for the newline character
+        
+        # Add any remaining paragraphs as the final chunk
+        if current_chunk_text:
+            chunk_text = '\n'.join(current_chunk_text)
+            chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
+            
+            chunk_data = {
+                'input_file_path': word_file_path,
+                'chunk_id': chunk_id,
+                'chunk_type': 'paragraph',
+                'chunk_num': chunk_counter,
+                'text': chunk_text,
+                'raw_text': chunk_text
+            }
+            
+            chunks_data.append(chunk_data)
+            chunk_counter += 1
 
         # Extract tables if enabled
         if self.extract_tables:
-            for table_idx, table in enumerate(doc.tables):
+            for table_idx, table in enumerate(word_doc.tables):
                 table_text = self.extract_table_text(table)
                 if table_text.strip():
                     chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_table_{table_idx + 1}")
@@ -255,7 +321,7 @@ class WordTextExtractorStep(StepBase):
         # Extract images if enabled
         if self.extract_images:
             try:
-                self.extract_images_from_document(doc, word_file_path, chunks_data, chunk_counter)
+                self.extract_images_from_document(word_doc, word_file_path, chunks_data, chunk_counter)
             except Exception as e:
                 logger.warning(f"Error extracting images from Word document {word_file_path}: {e}")
 
@@ -350,8 +416,12 @@ class WordTextExtractorStep(StepBase):
                     # Extract text sections from the markdown
                     if markdown:
                         chunk['markdown_text'] = self.extract_text_section(markdown)
-                        chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
-                        chunk['text'] = chunk['markdown_text']
+                        
+                        if self.extract_image_descriptions:
+                            chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
+                            chunk['text'] = chunk.get('markdown_text', '') + chunk.get('markdown_image_descriptions', '')  # Append to existing text if any
+                        else:
+                            chunk['text'] = chunk.get('markdown_text', '')
 
                 except Exception as e:
                     logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
