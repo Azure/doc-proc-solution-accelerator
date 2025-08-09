@@ -283,13 +283,15 @@ The following table provides links to detailed documentation for each individual
 
 | Step Name | Description | Documentation |
 |-----------|-------------|---------------|
-| PDF Text Extractor | Extracts text and metadata from PDF documents using AI-powered OCR and image analysis | [pdf_text_extractor](./pdf_text_extractor.md) |
+| Sample Development Step | A development and testing step that processes documents with configurable key-value pairs | [sample](./sample.py) |
 | Document Type Identifier | Automatically identifies and categorizes document types using magic bytes detection and file extension analysis | [document_type_identifier](./document_type_identifier.md) |
+| PDF Text Extractor | Extracts text and metadata from PDF documents using AI-powered OCR and image analysis | [pdf_text_extractor](./pdf_text_extractor.md) |
+| Word Text Extractor | Extracts text content, tables, and images from Microsoft Word documents (.docx format) with intelligent chunking | [word_text_extractor](./word_text_extractor.md) |
+| PowerPoint Text Extractor | Extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx format) | [pptx_text_extractor](./pptx_text_extractor.md) |
+| Excel Text Extractor | Extracts text content, images, and charts from Microsoft Excel spreadsheets (.xlsx, .xls, .xlsm, .xlsb formats) | [excel_text_extractor](./excel_text_extractor.md) |
 | Custom AI Prompt | Applies custom AI prompts to document content for specialized analysis, transformation, and enhancement | [custom_ai_prompt](./custom_ai_prompt.md) |
 | AI Search Index Writer | Writes processed document data to Azure AI Search indexes with configurable field mappings | [ai_search_index_writer](./ai_search_index_writer.md) |
-| PowerPoint Text Extractor | Extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx format) | [pptx_text_extractor](./pptx_text_extractor.md) |
-| Word Text Extractor | Extracts text content, tables, and images from Microsoft Word documents (.docx format) | [word_text_extractor](./word_text_extractor.md) |
-| Excel Text Extractor | Extracts text content, images, and charts from Microsoft Excel spreadsheets (.xlsx, .xls, .xlsm, .xlsb formats) | [excel_text_extractor](./excel_text_extractor.md) |
+| Entity Extractor | Extracts named entities and relationships from document content using AI-powered NLP for advanced text analysis | [entity_extractor](./entity_extractor.md) |
 
 
 ## Best Practices
@@ -331,6 +333,415 @@ async def run(self, step_input: StepInputOutput,
 ```
 
 ## Examples
+
+This section provides comprehensive examples showing how to configure and use various steps in the document processing pipeline.
+
+### Complete Pipeline Configuration Example
+
+Here's a complete example showing how to configure multiple steps in a pipeline:
+
+```yaml
+# pipeline_config.yaml - Complete pipeline example
+service_instances:
+  - name: primary_blob_storage
+    service_catalog_id: azure_storage_01
+    settings:
+      account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
+      credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
+      credential_key: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+
+  - name: primary_ai_inference_service
+    service_catalog_id: azure_ai_inference_service_01
+    settings:
+      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+
+pipelines:
+  - name: document_processing_pipeline
+    description: 'Complete document processing pipeline with conditional steps'
+    version: '1.0'
+    
+    steps:
+      # Step 1: Identify document types
+      - name: document_type_identifier_1
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+      
+      # Step 2: Process PDF documents
+      - name: pdf_text_extractor_1
+        step_catalog_id: pdf_text_extractor
+        enabled: true
+        services: [primary_blob_storage, primary_ai_inference_service]
+        condition: "document_type.primary_type == 'pdf'"
+        settings:
+          png_output_folder: "./output/png"
+          num_pages: -1
+          prompts:
+            system: "Extract text from PDF pages as markdown"
+            user: "Convert this page image to markdown text"
+          max_completion_tokens: 4000
+      
+      # Step 3: Process Word documents
+      - name: word_text_extractor_1
+        step_catalog_id: word_text_extractor
+        enabled: true
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'word_document'"
+        settings:
+          png_output_folder: "./output/png"
+          extract_images: true
+          extract_tables: true
+          max_chunk_size: 4000
+      
+      # Step 4: Extract entities from all documents
+      - name: entity_extractor_1
+        step_catalog_id: entity_extractor
+        enabled: true
+        services: [primary_ai_inference_service]
+        settings:
+          chunk_field_to_extract_entities_from: "text"
+          output_field_name: "extracted_entities"
+          extract_people: true
+          extract_organizations: true
+          extract_locations: true
+          extract_relationships: true
+    
+    execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, entity_extractor_1]
+```
+
+### Individual Step Configuration Examples
+
+#### 1. Document Type Identifier Configuration
+
+```yaml
+- name: document_type_identifier_main
+  step_catalog_id: document_type_identifier
+  enabled: true
+  fail_pipeline_on_error: true
+  settings:
+    identification_methods: "magic_bytes, file_extension"
+```
+
+#### 2. PDF Text Extractor Configuration
+
+```yaml
+- name: pdf_extractor_advanced
+  step_catalog_id: pdf_text_extractor
+  enabled: true
+  services: [azure_blob_storage, azure_ai_service]
+  condition: "document_type.primary_type == 'pdf'"
+  settings:
+    png_output_folder: "./output/pdf_images"
+    num_pages: 10  # Process first 10 pages only
+    prompts:
+      system: "You are an expert at extracting text from document images."
+      user: |
+        Extract all text from this document page image. 
+        Format as markdown and include image descriptions.
+        
+        ==Extracted-Text==
+        {text content here}
+        ==End-Extracted-Text==
+        
+        ==Image-Descriptions==
+        {image descriptions here}
+        ==End-Image-Descriptions==
+    max_completion_tokens: 8000
+    temperature: 0.1
+    top_p: 0.9
+```
+
+#### 3. Word Document Processing Configuration
+
+```yaml
+- name: word_processor_detailed
+  step_catalog_id: word_text_extractor
+  enabled: true
+  services: [azure_ai_service]
+  condition: "document_type.primary_type == 'word_document'"
+  fail_step_on_document_error: false
+  debug_mode: true
+  settings:
+    png_output_folder: "./output/word_images"
+    extract_images: true
+    extract_image_descriptions: true
+    extract_tables: true
+    max_chunk_size: 2000  # Smaller chunks for better processing
+    prompts:
+      system: "Extract text and describe images from Word document images."
+      user: "Convert this image to markdown, preserving formatting and describing any images."
+    max_completion_tokens: 4000
+    temperature: 0.3
+```
+
+#### 4. Entity Extraction Configuration
+
+```yaml
+- name: comprehensive_entity_extractor
+  step_catalog_id: entity_extractor
+  enabled: true
+  services: [azure_ai_service]
+  settings:
+    chunk_field_to_extract_entities_from: "markdown_text"
+    output_field_name: "comprehensive_entities"
+    extract_people: true
+    extract_places: true
+    extract_locations: true
+    extract_organizations: true
+    extract_relationships: true
+    custom_entity_types: "contracts, dates, financial_amounts, legal_terms"
+    output_format: "structured"
+    include_confidence: true
+    include_context: true
+    prompts:
+      system: "Extract entities and relationships with high precision."
+      user: |
+        Analyze the following text and extract:
+        1. People (names, titles, roles)
+        2. Organizations (companies, institutions)
+        3. Locations (cities, countries, addresses)
+        4. Custom entities: {custom_entity_types}
+        5. Relationships between entities
+        
+        Text: {chunk_content}
+```
+
+#### 5. Custom AI Prompt Configuration
+
+```yaml
+- name: document_summarizer
+  step_catalog_id: custom_ai_prompt
+  enabled: true
+  services: [azure_ai_service]
+  settings:
+    chunk_field_to_apply_prompt_on: "text"
+    output_field_name: "document_summary"
+    prompts:
+      system: "You are an expert document summarizer."
+      user: |
+        Summarize the following document content in 3-5 sentences.
+        Focus on key facts, main topics, and important conclusions.
+        
+        Document content: {chunk_content}
+    max_completion_tokens: 500
+    temperature: 0.3
+```
+
+#### 6. AI Search Index Writer Configuration
+
+```yaml
+- name: search_indexer
+  step_catalog_id: ai_search_index_writer
+  enabled: true
+  services: [azure_ai_search_service]
+  settings:
+    index_name: "processed_documents"
+    index_field_mappings: |
+      {
+        "chunk_id": "id",
+        "input_file_path": "source_file",
+        "text": "content",
+        "markdown_text": "markdown_content",
+        "extracted_entities": "entities",
+        "document_summary": "summary",
+        "chunk_type": "content_type"
+      }
+```
+
+### Advanced Configuration Examples
+
+#### Conditional Processing Based on Document Properties
+
+```yaml
+# Process only large PDF files differently
+- name: large_pdf_processor
+  step_catalog_id: pdf_text_extractor
+  enabled: true
+  condition: "document_type.primary_type == 'pdf' and file_size > 10485760"  # 10MB
+  settings:
+    num_pages: 5  # Limit pages for large files
+    
+# Process small documents with full extraction
+- name: small_doc_processor
+  step_catalog_id: pdf_text_extractor
+  enabled: true
+  condition: "document_type.primary_type == 'pdf' and file_size <= 10485760"
+  settings:
+    num_pages: -1  # Process all pages for smaller files
+```
+
+#### Multi-Service Integration
+
+```yaml
+- name: comprehensive_processor
+  step_catalog_id: word_text_extractor
+  enabled: true
+  services: [azure_ai_service, azure_blob_storage]  # Multiple services
+  settings:
+    extract_images: true
+    extract_tables: true
+    # Service-specific configurations can be handled by the step implementation
+```
+
+### Programming Examples
+
+#### Custom Step Implementation
+
+```python
+from typing import TYPE_CHECKING
+import asyncio
+from doc.proc.step.step_base import StepBase, StepInputOutput, StepInstanceConfig, StepExecutionError
+
+if TYPE_CHECKING:
+    from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
+
+class DocumentAnalyzerStep(StepBase):
+    """
+    Custom step for advanced document analysis
+    """
+    
+    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
+        super().__init__(instance_config=instance_config, **kwargs)
+        
+        # Initialize settings with validation
+        self.analysis_type = self.settings.get("analysis_type", "basic")
+        self.confidence_threshold = self.settings.get("confidence_threshold", 0.8)
+        self.max_concurrent_documents = self.settings.get("max_concurrent_documents", 5)
+        
+    async def run(self, step_input: StepInputOutput, 
+                  context: "PipelineExecutionContext", 
+                  **kwargs) -> StepInputOutput:
+        """
+        Process documents with advanced analysis
+        """
+        
+        documents = step_input.data.get("documents", [])
+        if not documents:
+            return step_input
+            
+        # Process documents concurrently with semaphore
+        semaphore = asyncio.Semaphore(self.max_concurrent_documents)
+        
+        async def process_document(doc):
+            async with semaphore:
+                return await self._analyze_document(doc, context)
+        
+        # Run analysis tasks concurrently
+        tasks = [process_document(doc) for doc in documents]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle results and exceptions
+        successful_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                context.logger.error(f"Failed to process document {i}: {result}")
+                if self.fail_step_on_document_error:
+                    raise StepExecutionError(f"Document analysis failed: {result}")
+            else:
+                successful_results.append(result)
+        
+        # Update documents with analysis results
+        for doc, analysis in zip(documents, successful_results):
+            if analysis:
+                doc.update(analysis)
+        
+        return StepInputOutput(
+            summary_data={
+                **step_input.summary_data,
+                f"{self.name}_processed": len(successful_results),
+                f"{self.name}_failed": len([r for r in results if isinstance(r, Exception)])
+            },
+            data=step_input.data
+        )
+    
+    async def _analyze_document(self, document: dict, context) -> dict:
+        """
+        Perform document analysis based on configuration
+        """
+        try:
+            analysis_result = {
+                "analysis_type": self.analysis_type,
+                "confidence_score": 0.95,  # Example score
+                "analysis_timestamp": context.get_current_timestamp(),
+                "metadata": {
+                    "analyzer_version": "1.0",
+                    "processing_time_ms": 150
+                }
+            }
+            
+            # Perform different analysis based on type
+            if self.analysis_type == "advanced":
+                analysis_result["detailed_metrics"] = await self._perform_advanced_analysis(document)
+            
+            return analysis_result
+            
+        except Exception as e:
+            context.logger.error(f"Analysis failed for document {document.get('file_path', 'unknown')}: {e}")
+            raise StepExecutionError(f"Document analysis error: {e}")
+    
+    async def _perform_advanced_analysis(self, document: dict) -> dict:
+        """
+        Perform advanced document analysis
+        """
+        # Simulate advanced analysis
+        await asyncio.sleep(0.1)  # Simulate processing time
+        
+        return {
+            "complexity_score": 0.75,
+            "content_quality": 0.85,
+            "processing_recommendations": ["extract_tables", "analyze_images"]
+        }
+```
+
+#### Step Catalog Entry for Custom Step
+
+```yaml
+- id: document_analyzer
+  name: "Advanced Document Analyzer"
+  description: "Performs advanced analysis on documents with configurable parameters"
+  type: script
+  module_name: document_analyzer
+  module_path: ./doc/proc/step/document_analyzer.py
+  class_name: DocumentAnalyzerStep
+  tags: [analysis, advanced, custom]
+  category: "Advanced Processing"
+  version: "1.0"
+  
+  settings_schema:
+    analysis_type:
+      type: string
+      title: "Analysis Type"
+      description: "Type of analysis to perform"
+      default: "basic"
+      enum: ["basic", "advanced", "comprehensive"]
+      
+    confidence_threshold:
+      type: number
+      title: "Confidence Threshold"
+      description: "Minimum confidence score for results"
+      default: 0.8
+      min: 0.0
+      max: 1.0
+      multipleOf: 0.1
+      
+    max_concurrent_documents:
+      type: integer
+      title: "Max Concurrent Documents"
+      description: "Maximum number of documents to process simultaneously"
+      default: 5
+      min: 1
+      max: 20
+  
+  ui_metadata:
+    icon: "analytics"
+    color: "#8B5CF6"
+    description_short: "Advanced document analysis with configurable parameters."
+    description_long: "Performs comprehensive document analysis including complexity scoring, content quality assessment, and processing recommendations."
+```
 
 ### File Processing Step
 

@@ -1,16 +1,17 @@
 # PowerPoint Text Extractor Step
 
-The PowerPoint Text Extractor Step is a document processing component that extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx format). It follows the same architectural pattern as the PDF and Word Text Extractor Steps.
+The PowerPoint Text Extractor Step is a document processing component that extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx and .ppt formats). It follows the same architectural pattern as the PDF and Word Text Extractor Steps.
 
 ## Features
 
 - **Slide Text Extraction**: Extracts text from all text shapes in PowerPoint slides
-- **Table Extraction**: Extracts and formats table content from slides
+- **Table Extraction**: Extracts and formats table content from slides using pipe separators
 - **Image Extraction**: Extracts embedded images from slides and processes them with AI
 - **Shape Processing**: Handles various PowerPoint shape types and content
 - **AI-Powered Image Analysis**: Uses Azure AI Model Inference Service to analyze extracted images
 - **Slide-by-Slide Processing**: Organizes content by slide number for better context
 - **Structured Output**: Organizes extracted content into chunks with metadata
+- **Condition-Based Processing**: Supports conditional execution based on document properties
 
 ## Dependencies
 
@@ -23,26 +24,42 @@ pip install python-pptx
 The PowerPoint Text Extractor Step requires the following configuration:
 
 ```yaml
-- id: pptx_extractor_001
-  name: PowerPoint Text Extractor
+- name: pptx_text_extractor_1
+  step_catalog_id: pptx_text_extractor
   enabled: true
-  description: Extract text and images from PowerPoint documents
-  tags: [text-extraction, powerpoint, presentation, document-processing]
-  fail_step_on_document_error: false
-  debug_mode: true
-  services: [azure_ai_inference]
+  fail_pipeline_on_error: true
+  retry_on_failure: false
+  retries: 3
+  timeout: 600
+  services: [primary_ai_inference_service]
+  condition: "document_type.primary_type == 'powerpoint_presentation'"
+  fail_step_on_document_error: true
+  debug_mode: false
   settings:
-    png_output_folder: output_images
+    png_output_folder: "./output/png"
+    num_slides: -1  # -1 means all slides
     extract_images: true
+    extract_image_descriptions: false
     extract_tables: true
     extract_shapes: true
-    num_slides: -1  # -1 means all slides
+    dpi: 300
+    image_format: "PNG"
     prompts:
-      system: "You are a presentation analysis assistant. Extract text and describe images from the provided presentation slide."
-      user: "Please extract all text content and describe any images you see in this presentation slide. Format your response with ==Extracted-Text== and ==End-Extracted-Text== tags around the text, and ==Image-Descriptions== and ==End-Image-Descriptions== tags around image descriptions."
+      system: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
+      user: |
+        Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
+        Always format the markdown as follows to distinguish the text extracted from image descriptions:
+        
+        ==Extracted-Text==
+        {Insert extracted text as markdown here}
+        ==End-Extracted-Text==
+
+        ==Image-Descriptions==
+        {Insert image descriptions as markdown here}
+        ==End-Image-Descriptions==
     max_completion_tokens: 4000
-    temperature: 0.1
-    top_p: 0.9
+    temperature: 1.0
+    top_p: 1.0
     frequency_penalty: 0.0
     presence_penalty: 0.0
 ```
@@ -56,9 +73,9 @@ The step expects input data in the following format:
     "documents": [
         {
             "file_path": "/path/to/presentation.pptx",
-            "file_name": "presentation.pptx",
-            "file_size": 2048,
-            "file_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "document_type": {
+                "primary_type": "powerpoint_presentation" # if type condition is used - see below.
+            }
         }
     ]
 }
@@ -80,11 +97,11 @@ The step adds a `chunks` array to each document with the following structure:
             "text": "Extracted text content",
             "raw_text": "Raw text content",
             "markdown": "AI-generated markdown (for images)",
-            "markdown_text": "Extracted text from AI analysis",
-            "markdown_image_descriptions": "AI-generated image descriptions",
-            "png": "/path/to/extracted/image.png" (for image chunks),
-            "table_index": 1 (for table chunks),
-            "image_index": 1 (for image chunks)
+            "markdown_text": "Extracted text from AI analysis (for images)",
+            "markdown_image_descriptions": "AI-generated image descriptions (for images)",
+            "png": "/path/to/extracted/image.png", # for image chunks only
+            "table_index": 1, # for table chunks only
+            "image_index": 1  # for image chunks only
         }
     ]
 }
@@ -92,88 +109,112 @@ The step adds a `chunks` array to each document with the following structure:
 
 ## Processing Flow
 
-1. **Document Validation**: Validates input PowerPoint document format and existence
-2. **Slide Iteration**: Processes each slide in the presentation
-3. **Text Extraction**: Extracts text from all text shapes in each slide
-4. **Table Extraction**: Extracts and formats table content (if enabled)
-5. **Image Extraction**: Extracts embedded images and saves as PNG files (if enabled)
-6. **AI Processing**: Processes extracted images using Azure AI Model Inference Service
-7. **Structured Output**: Organizes all extracted content into chunks with slide context
+1. **Document Validation**: Validates input PowerPoint document format (.pptx/.ppt) and existence
+2. **Condition Evaluation**: Evaluates condition if specified (e.g., document type check)
+3. **Slide Iteration**: Processes each slide up to the specified limit
+4. **Text Extraction**: Extracts text from all text shapes in each slide
+5. **Table Extraction**: Extracts and formats table content with pipe separators (if enabled)
+6. **Image Extraction**: Extracts embedded images and saves as PNG files (if enabled)
+7. **AI Processing**: Processes extracted images using Azure AI Model Inference Service
+8. **Structured Output**: Organizes all extracted content into chunks with slide context
 
 ## Chunk Types
 
-- **slide_text**: Text content from slide shapes (titles, body text, etc.)
+- **slide_text**: Text content from slide shapes (titles, body text, text boxes, etc.)
 - **table**: Formatted table content with pipe-separated values
-- **image**: Extracted images with AI-generated descriptions and text
+- **image**: Extracted images with AI-generated descriptions and text analysis
 
 ## Shape Processing
 
 The extractor handles various PowerPoint shape types:
 
 - **Text Shapes**: Title placeholders, content placeholders, text boxes
-- **Table Shapes**: Native PowerPoint tables
+- **Table Shapes**: Native PowerPoint tables with cell-by-cell extraction
 - **Picture Shapes**: Embedded images and photos
-- **Group Shapes**: Grouped elements (processed recursively)
+- **All Shape Types**: Any shape with text property is processed for text extraction
 
 ## Settings Configuration
 
 ### Core Settings
-- `png_output_folder`: Directory for saving extracted images
-- `extract_images`: Enable/disable image extraction
-- `extract_tables`: Enable/disable table extraction
-- `extract_shapes`: Enable/disable shape processing
-- `num_slides`: Number of slides to process (-1 for all)
+- `png_output_folder`: Directory for saving extracted images (default: "output_pngs")
+- `extract_images`: Enable/disable image extraction (default: true)
+- `extract_image_descriptions`: Enable/disable AI-generated image descriptions (default: true)
+- `extract_tables`: Enable/disable table extraction (default: true)
+- `extract_shapes`: Enable/disable shape processing (default: false)
+- `num_slides`: Number of slides to process (-1 for all, default: -1)
+- `dpi`: Resolution for image extraction (default: 300)
+- `image_format`: Output format for extracted images (default: "PNG")
 
 ### AI Processing Settings
-- `max_completion_tokens`: Maximum tokens for AI responses
-- `temperature`: AI model temperature (0.0-1.0)
-- `top_p`: AI model top-p sampling
-- `frequency_penalty`: AI model frequency penalty
-- `presence_penalty`: AI model presence penalty
+- `prompts.system`: System prompt for AI image analysis
+- `prompts.user`: User prompt template for AI image analysis
+- `max_completion_tokens`: Maximum tokens for AI responses (default: 4000)
+- `temperature`: AI model temperature 0.0-2.0 (default: 1.0)
+- `top_p`: AI model top-p sampling (default: 1.0)
+- `frequency_penalty`: AI model frequency penalty (default: 0.0)
+- `presence_penalty`: AI model presence penalty (default: 0.0)
 
 ## Error Handling
 
 The step includes comprehensive error handling:
 
-- File existence validation
-- Format validation (PowerPoint document check)
-- Slide processing errors (logged as warnings)
-- Individual shape processing errors (logged as warnings)
-- Optional fail-fast behavior for document errors
+- **File Validation**: Checks file existence and format (.pptx/.ppt)
+- **Document Processing**: Individual document errors are logged and tracked
+- **Slide Processing**: Slide-level errors are logged as warnings and processing continues
+- **Image Processing**: Image extraction errors are logged as warnings
+- **Configurable Failure**: `fail_step_on_document_error` controls whether document errors fail the step
+- **Statistics Tracking**: Maintains counts of successful, failed, and skipped documents
+
+## Statistics Output
+
+The step provides processing statistics in the summary data:
+
+```python
+{
+    "total_documents": 5,
+    "successful_documents": 4,
+    "skipped_documents": 1,
+    "failed_documents": 0
+}
+```
 
 ## Usage Example
 
 ```python
 from doc.proc.step.pptx_text_extractor import PowerPointTextExtractorStep
-from doc.proc.step.step_base import StepInputOutput
+from doc.proc.step.step_base import StepInputOutput, StepInstanceConfig
 
 # Configure the step
-config = {
-    "id": "pptx_extractor_001",
-    "name": "PowerPoint Text Extractor",
-    "enabled": True,
-    "services": ["azure_ai_inference"],
-    "settings": {
-        "png_output_folder": "output_images",
+config = StepInstanceConfig(
+    name="pptx_extractor_1",
+    step_catalog_id="pptx_text_extractor",
+    enabled=True,
+    services=["primary_ai_inference_service"],
+    condition="document_type.primary_type == 'powerpoint_presentation'",
+    settings={
+        "png_output_folder": "./output/png",
         "extract_images": True,
         "extract_tables": True,
         "extract_shapes": True,
         "num_slides": -1,
         "prompts": {
-            "system": "You are a presentation analysis assistant...",
-            "user": "Please extract all text content..."
+            "system": "You are an AI assistant that helps convert images...",
+            "user": "Extract the text from the following image..."
         }
     }
-}
+)
 
 # Create step instance
-pptx_extractor = PowerPointTextExtractorStep(**config)
+pptx_extractor = PowerPointTextExtractorStep(instance_config=config)
 
 # Prepare input data
 input_data = StepInputOutput(
     data={
         "documents": [
-            {"file_path": "/path/to/presentation.pptx"}
+            {
+                "file_path": "/path/to/presentation.pptx",
+                "document_type": {"primary_type": "powerpoint_presentation"}
+            }
         ]
     }
 )
@@ -186,45 +227,54 @@ input_data = StepInputOutput(
 
 | Feature | PDF Extractor | Word Extractor | PowerPoint Extractor |
 |---------|---------------|----------------|---------------------|
-| **Input Format** | PDF files | Word documents (.docx) | PowerPoint presentations (.pptx) |
+| **Input Format** | PDF files | Word documents (.docx) | PowerPoint presentations (.pptx/.ppt) |
 | **Processing Unit** | Pages | Content blocks | Slides |
 | **Text Extraction** | AI-powered from images | Direct text extraction | Direct text extraction |
 | **Table Support** | AI-powered from images | Native table extraction | Native table extraction |
 | **Image Support** | Page images | Embedded images | Slide images |
 | **Structure** | Page-based | Content-based | Slide-based |
-| **Performance** | Slower (AI processing) | Faster (direct extraction) | Faster (direct extraction) |
+| **Performance** | Slower (AI processing) | Faster (direct extraction) | Medium (direct + optional AI) |
 | **Metadata** | Page numbers | Chunk types | Slide numbers + types |
+| **Condition Support** | Yes | Yes | Yes |
 
 ## PowerPoint-Specific Features
 
 ### Slide Context
-- Each chunk includes slide number for context
-- Slide-by-slide processing maintains presentation flow
-- Slide titles and content are extracted separately
+- Each chunk includes slide number for presentation flow context
+- Slide-by-slide processing maintains presentation structure
+- Text, tables, and images are all associated with their source slide
 
 ### Shape Type Recognition
-- Identifies and processes different shape types
-- Handles text boxes, placeholders, and grouped content
-- Preserves slide layout context
+- Identifies and processes different PowerPoint shape types
+- Handles text boxes, placeholders, and native tables
+- Preserves slide layout context through structured extraction
 
 ### Presentation Structure
 - Maintains slide order and hierarchy
-- Extracts titles, subtitles, and body content
-- Handles complex slide layouts
+- Extracts all text content from shapes with text properties
+- Handles complex slide layouts with multiple content types
+
+### Image Processing
+- Extracts images from picture shapes
+- Saves images as PNG files with descriptive names
+- Optional AI analysis for text extraction and image descriptions
+- Configurable image descriptions extraction
 
 ## Performance Considerations
 
-- **Direct Text Access**: Faster than PDF processing (no OCR needed)
-- **Slide-by-Slide**: Processes slides sequentially for memory efficiency
-- **Image Processing**: Optional AI processing for images only
+- **Direct Text Access**: Fast text extraction without OCR
+- **Slide-by-Slide**: Sequential processing for memory efficiency
+- **Optional AI Processing**: Can disable image processing for speed
 - **Configurable Limits**: Can limit number of slides processed
+- **Error Resilience**: Individual slide failures don't stop processing
 
 ## Limitations
 
-- Currently supports `.pptx` format only (not legacy `.ppt` format)
-- Image extraction depends on slide structure and embedded content
+- Supports `.pptx` and `.ppt` formats
+- Image extraction depends on embedded picture shapes
 - Complex animations and transitions are not preserved
-- Slide notes and comments are not extracted (can be added if needed)
+- Slide notes and comments are not extracted
+- Shape relationships and positioning are simplified
 
 ## Future Enhancements
 
@@ -233,11 +283,14 @@ input_data = StepInputOutput(
 - Master slide and template information
 - Enhanced shape relationship detection
 - Speaker notes integration
+- Chart and diagram text extraction
 
 ## Notes
 
-- Generated chunk IDs are SHA1 hashes for consistent identification
+- Generated chunk IDs are SHA1 hashes for consistent identification across runs
 - AI processing is optional but recommended for comprehensive image analysis
-- Table extraction preserves basic structure using pipe separators
-- Shape processing can be disabled for performance optimization
+- Table extraction preserves structure using pipe separators (|)
+- Shape processing extracts text from any shape with a text property
 - Slide context is preserved throughout the extraction process
+- Condition evaluation allows selective processing based on document properties
+- Statistics tracking provides visibility

@@ -1,16 +1,16 @@
 # Excel Text Extractor Step
 
-The Excel Text Extractor Step is a document processing component that extracts text content, images, and charts from Microsoft Excel spreadsheets (.xlsx, .xls, .xlsm, .xlsb formats). It processes each sheet individually and can optionally extract embedded images and charts using AI-powered analysis.
+The Excel Text Extractor Step is a document processing component that extracts text content, images, and charts from Microsoft Excel spreadsheets (.xlsx, .xls, .xlsm, .xlsb formats). It processes each sheet individually and can optionally extract embedded images and charts.
 
 ## Features
 
 - **Multi-Sheet Processing**: Extracts text from all or specified sheets in a workbook
-- **Table/Cell Data Extraction**: Extracts structured data from Excel cells
-- **Image Extraction**: Extracts embedded images from sheets
+- **Table/Cell Data Extraction**: Extracts structured data from Excel cells as tab-separated values
+- **Image Extraction**: Extracts embedded images from sheets and saves them as PNG files
 - **Chart Processing**: Identifies and processes charts (basic text representation)
-- **AI-Powered Image Analysis**: Uses Azure AI Model Inference Service to analyze extracted images
 - **Configurable Limits**: Set maximum rows and columns to process per sheet
 - **Structured Output**: Organizes extracted content into chunks with metadata
+- **Conditional Processing**: Supports conditional execution based on document type
 
 ## Dependencies
 
@@ -23,29 +23,23 @@ pip install openpyxl
 The Excel Text Extractor Step requires the following configuration:
 
 ```yaml
-- id: excel_extractor_001
-  name: Excel Text Extractor
+- name: excel_text_extractor_1
+  step_catalog_id: excel_text_extractor
   enabled: true
-  description: Extract text, images, and charts from Excel spreadsheets
-  tags: [text-extraction, excel, spreadsheet, document-processing]
-  fail_step_on_document_error: false
+  fail_pipeline_on_error: true
+  retry_on_failure: false
+  retries: 3
+  timeout: 600
+  condition: "document_type.primary_type == 'excel_spreadsheet'"
+  fail_step_on_document_error: true
   debug_mode: true
-  services: [azure_ai_inference]
   settings:
-    png_output_folder: output_images
+    png_output_folder: "./output/png"
     extract_images: true
     extract_charts: true
     max_rows_per_sheet: -1  # -1 = all rows
     max_columns_per_sheet: -1  # -1 = all columns
     sheets_to_process: []  # Empty = all sheets
-    prompts:
-      system: "You are a spreadsheet analysis assistant. Extract text and describe images/charts from the provided Excel content."
-      user: "Please extract all text content and describe any images or charts you see in this Excel sheet. Format your response with ==Extracted-Text== and ==End-Extracted-Text== tags around the text, and ==Image-Descriptions== and ==End-Image-Descriptions== tags around image descriptions."
-    max_completion_tokens: 4000
-    temperature: 0.1
-    top_p: 1.0
-    frequency_penalty: 0.0
-    presence_penalty: 0.0
 ```
 
 ## Input Data Structure
@@ -57,12 +51,8 @@ The step expects input data in the following format:
     "documents": [
         {
             "file_path": "/path/to/spreadsheet.xlsx",
-            "file_name": "spreadsheet.xlsx",
-            "file_size": 1048576,
-            "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "document_type": {
-                "primary_type": "excel",
-                "confidence": 0.95
+                "primary_type": "excel_spreadsheet" # if type condition is used
             }
         }
     ]
@@ -85,19 +75,24 @@ The step extends each document with extracted chunks:
                     "chunk_index": 1,
                     "chunk_type": "sheet",
                     "sheet_name": "Sheet1",
-                    "text_content": "Header1\tHeader2\nValue1\tValue2",
-                    "source_file": "/path/to/spreadsheet.xlsx"
+                    "text": "Header1\tHeader2\nValue1\tValue2",
+                    "input_file_path": "/path/to/spreadsheet.xlsx"
                 },
                 {
                     "chunk_id": "def456ghi789...",
                     "chunk_index": 2,
                     "chunk_type": "image",
                     "sheet_name": "Sheet1",
-                    "image_path": "/output/excel_sheet_Sheet1_image_1.png",
-                    "markdown_text": "==Extracted-Text==\nChart showing sales data\n==End-Extracted-Text==",
-                    "extracted_text": "Chart showing sales data",
-                    "extracted_images": "Bar chart with quarterly sales figures",
-                    "source_file": "/path/to/spreadsheet.xlsx"
+                    "image_path": "/output/png/excel_sheet_Sheet1_image_1.png",
+                    "input_file_path": "/path/to/spreadsheet.xlsx"
+                },
+                {
+                    "chunk_id": "ghi789jkl012...",
+                    "chunk_index": 3,
+                    "chunk_type": "chart",
+                    "sheet_name": "Sheet1",
+                    "text": "Chart: Sales Chart\nSeries: 2 data series",
+                    "input_file_path": "/path/to/spreadsheet.xlsx"
                 }
             ]
         }
@@ -110,42 +105,35 @@ The step extends each document with extracted chunks:
 ### Core Settings
 
 - **`png_output_folder`** (string, default: `"output_pngs"`): Directory path where extracted PNG images will be saved
-- **`extract_images`** (boolean, default: `true`): Whether to extract embedded images from sheets
-- **`extract_charts`** (boolean, default: `true`): Whether to extract and process charts from sheets
+- **`extract_images`** (boolean, default: `false`): Whether to extract embedded images from sheets
+- **`extract_charts`** (boolean, default: `false`): Whether to extract and process charts from sheets
 - **`max_rows_per_sheet`** (integer, default: `-1`): Maximum number of rows to process per sheet (-1 = all rows)
 - **`max_columns_per_sheet`** (integer, default: `-1`): Maximum number of columns to process per sheet (-1 = all columns)
 - **`sheets_to_process`** (array, default: `[]`): List of specific sheet names to process (empty = all sheets)
 
 ### AI Processing Settings
 
-- **`prompts`** (object, required): Contains system and user prompts for AI processing
-  - **`system`** (string, required): Instructions for the AI system
-  - **`user`** (string, required): Template for user prompts sent to AI
-- **`max_completion_tokens`** (integer, default: `4000`): Maximum number of tokens to generate
-- **`temperature`** (number, default: `1.0`): Controls randomness in AI responses (0.0-2.0)
-- **`top_p`** (number, default: `1.0`): Controls diversity of AI responses (0.0-1.0)
-- **`frequency_penalty`** (number, default: `0.0`): Reduces repetition in AI responses (-2.0 to 2.0)
-- **`presence_penalty`** (number, default: `0.0`): Encourages AI to talk about new topics (-2.0 to 2.0)
+*Note: AI processing settings are not currently implemented in this step. Images and charts are extracted but not processed with AI.*
 
 ## Chunk Types
 
 The step generates different types of chunks:
 
-1. **Sheet Chunks** (`chunk_type: "sheet"`): Contains the textual content of Excel sheets
-2. **Image Chunks** (`chunk_type: "image"`): Contains extracted images with AI analysis
-3. **Chart Chunks** (`chunk_type: "chart"`): Contains basic text representation of charts
+1. **Sheet Chunks** (`chunk_type: "sheet"`): Contains the textual content of Excel sheets as tab-separated values
+2. **Image Chunks** (`chunk_type: "image"`): Contains extracted images saved as PNG files (no AI analysis currently)
+3. **Chart Chunks** (`chunk_type: "chart"`): Contains basic text representation of charts with title and series information
 
 ## Processing Logic
 
 1. **Document Validation**: Verifies the input file exists and has a valid Excel extension
-2. **Workbook Loading**: Opens the Excel file using openpyxl library
+2. **Workbook Loading**: Opens the Excel file using openpyxl library with `data_only=True` to get calculated values
 3. **Sheet Selection**: Determines which sheets to process based on configuration
 4. **Content Extraction**: For each sheet:
-   - Extracts cell values as tab-separated text
-   - Identifies and extracts embedded images
-   - Processes charts (basic text representation)
-5. **AI Processing**: If images are extracted, uses Azure AI Inference Service to analyze them
-6. **Chunk Generation**: Creates structured chunks with unique IDs and metadata
+   - Extracts cell values as tab-separated text, respecting row/column limits
+   - Identifies and extracts embedded images (saved as PNG files)
+   - Processes charts (extracts basic text representation with title and series count)
+5. **Chunk Generation**: Creates structured chunks with unique SHA-1 IDs and metadata
+6. **Statistics Tracking**: Maintains processing statistics for successful, failed, and skipped documents
 
 ## Supported File Formats
 
@@ -158,30 +146,31 @@ The step generates different types of chunks:
 
 The step handles various error scenarios:
 
-- **File Not Found**: Logs error and marks document as failed
-- **Invalid File Format**: Validates file extension before processing
-- **Corrupted Files**: Catches openpyxl exceptions during file loading
-- **Large Files**: Respects row/column limits to prevent memory issues
+- **File Not Found**: Logs error and raises FileNotFoundError if the Excel file doesn't exist
+- **Invalid File Format**: Validates file extension before processing and raises ValueError for non-Excel files
+- **Corrupted Files**: Catches openpyxl exceptions during file loading and raises StepExecutionError
+- **Large Files**: Respects row/column limits to prevent memory issues with very large spreadsheets
 - **Missing Dependencies**: Provides clear error message if openpyxl is not installed
+- **Image Extraction Failures**: Logs warnings for failed image extractions but continues processing
+- **Chart Processing Failures**: Logs warnings for failed chart processing but continues processing
+- **Conditional Processing**: Supports document-level conditions and properly tracks skipped documents
 
 ## Performance Considerations
 
 - **Memory Usage**: Large spreadsheets can consume significant memory. Use row/column limits for very large files
 - **Processing Time**: Time scales with number of sheets and amount of content
-- **AI API Calls**: Each extracted image results in an AI API call, which may incur costs and latency
+- **Image Processing**: Each extracted image is saved as a PNG file, which may require storage space
+- **No AI Processing**: Current implementation does not use AI services, so no API costs or latency concerns
 
 ## Examples
 
-### Basic Text Extraction
+### Basic Text Extraction Only
 
 ```yaml
 settings:
   extract_images: false
   extract_charts: false
   max_rows_per_sheet: 1000
-  prompts:
-    system: "Extract spreadsheet data"
-    user: "Convert this spreadsheet content to structured text"
 ```
 
 ### Specific Sheets Only
@@ -190,9 +179,6 @@ settings:
 settings:
   sheets_to_process: ["Summary", "Data", "Charts"]
   extract_images: true
-  prompts:
-    system: "Process specific Excel sheets"
-    user: "Extract content from the specified sheets"
 ```
 
 ### Limited Processing for Performance
@@ -207,11 +193,13 @@ settings:
 
 ## Limitations
 
-- **Chart Extraction**: Chart image extraction is complex and currently provides basic text representation
-- **Formula Evaluation**: Only cell values are extracted, not formulas
-- **Formatting**: Cell formatting (colors, fonts, etc.) is not preserved
+- **Chart Extraction**: Chart image extraction is complex and currently provides basic text representation with title and series information
+- **Formula Evaluation**: Only calculated cell values are extracted (using `data_only=True`), not the formulas themselves
+- **Formatting**: Cell formatting (colors, fonts, borders, etc.) is not preserved in the extracted text
 - **Hidden Content**: Hidden sheets or cells may not be processed depending on openpyxl behavior
 - **Password Protection**: Password-protected files are not supported
+- **No AI Processing**: Images and charts are extracted but not analyzed with AI services
+- **Image Format**: All extracted images are saved as PNG files regardless of original format
 
 ## Related Steps
 
@@ -225,9 +213,11 @@ settings:
 ### Common Issues
 
 1. **"openpyxl library is required"**: Install openpyxl using `pip install openpyxl`
-2. **"File is not an Excel document"**: Verify file has correct extension (.xlsx, .xls, etc.)
+2. **"File is not an Excel document"**: Verify file has correct extension (.xlsx, .xls, .xlsm, .xlsb)
 3. **Memory errors with large files**: Set `max_rows_per_sheet` and `max_columns_per_sheet` limits
-4. **Empty output**: Check if sheets contain actual data or if sheet names are specified correctly
+4. **Empty output**: Check if sheets contain actual data or if sheet names are specified correctly in `sheets_to_process`
+5. **Images not extracted**: Verify `extract_images: true` is set and the PNG output folder is writable
+6. **Charts not processed**: Ensure `extract_charts: true` is set and charts exist in the workbook
 
 ### Debug Mode
 
@@ -238,7 +228,8 @@ debug_mode: true
 ```
 
 This will provide detailed information about:
-- File processing status
-- Number of sheets found
-- Content extraction progress
-- AI processing results
+- File processing status and validation results
+- Number of sheets found and processed
+- Content extraction progress for each sheet
+- Image and chart extraction results
+- Processing statistics (successful, failed, skipped documents)

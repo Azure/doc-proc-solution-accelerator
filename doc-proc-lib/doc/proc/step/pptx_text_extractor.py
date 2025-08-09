@@ -4,8 +4,6 @@ import os
 import re
 import logging
 from typing import List
-import io
-
 
 from azure.ai.inference.models import (
         SystemMessage,
@@ -33,8 +31,9 @@ class PowerPointTextExtractorStep(StepBase):
 
         self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
         self.extract_images = self.settings.get("extract_images", True)
+        self.extract_image_descriptions = self.settings.get("extract_image_descriptions", True)
         self.extract_tables = self.settings.get("extract_tables", True)
-        self.extract_shapes = self.settings.get("extract_shapes", True)
+        self.extract_shapes = self.settings.get("extract_shapes", False)
         self.slides_to_convert = self.settings.get("num_slides", -1)  # -1 means all slides
 
         # get prompts from settings
@@ -84,12 +83,12 @@ class PowerPointTextExtractorStep(StepBase):
         _stats = {
             "total_documents": 0,
             "successful_documents": 0,
+            "skipped_documents": 0,
             "failed_documents": 0,
         }
 
         # get documents from input data
         documents = input_data.data.get("documents", [])
-        logger.debug(f"Found {documents} documents in input data.")
 
         if not documents or not isinstance(documents, list):
             logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
@@ -101,7 +100,7 @@ class PowerPointTextExtractorStep(StepBase):
                                     {
                                         **input_data.data
                                     })
-        logger.debug(f"Found {documents} documents in input data.")
+        
         _stats["total_documents"] = len(documents)
 
         # Iterate through each document in the input data
@@ -115,7 +114,15 @@ class PowerPointTextExtractorStep(StepBase):
                 # Check if the document is a dictionary and has the 'file_path' key
                 if not isinstance(document, dict) or 'file_path' not in document:
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
-                    
+                
+                # Evaluate condition if present
+                if self.condition:
+                    condition_met = self.evaluate_document_condition(document, input_data)
+                    if not condition_met:
+                        _stats["skipped_documents"] += 1
+                        logger.info(f"Document skipped due to condition not met: {self.condition}")
+                        continue
+
                 # Process each document
                 # This will extend the document with extracted text and images for each slide/chunk
                 await self.process_document(document=document, 
@@ -126,6 +133,8 @@ class PowerPointTextExtractorStep(StepBase):
 
                 if self.debug_mode:
                     logger.debug(f"Successfully processed document: {document}")
+                else:
+                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
 
             except Exception as e:
                 logger.error(f"Error processing document: {e}")
@@ -135,6 +144,8 @@ class PowerPointTextExtractorStep(StepBase):
                     # If the step is configured to fail on document error, raise an exception
                     raise StepExecutionError(f"Failed to process document: {e}")
 
+        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+        
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
                                     {
@@ -195,8 +206,8 @@ class PowerPointTextExtractorStep(StepBase):
             logger.error(f"Invalid file format: {pptx_file_path}. Expected a PowerPoint document (.pptx or .ppt).")
             raise ValueError(f"Invalid file format: {pptx_file_path}. Expected a PowerPoint document (.pptx or .ppt).")
 
-        # STEP 1: Extract text content from PowerPoint document
-        logger.debug(f"Extracting text from PowerPoint file {pptx_file_path}...")
+        # STEP 1: Extract content from PowerPoint document
+        logger.debug(f"Extracting content from PowerPoint file {pptx_file_path}...")
         chunks_data = self.extract_pptx_content(pptx_file_path)
 
         # Step 2: Process extracted images using AI Model Inference Service if available
@@ -244,7 +255,8 @@ class PowerPointTextExtractorStep(StepBase):
         chunk_counter = 1
 
         # Extract content from each slide
-        for slide_idx, slide in enumerate(presentation.slides[:self.slides_to_convert]):
+        for slide_idx in range(min(self.slides_to_convert, total_slides)):
+            slide = presentation.slides[slide_idx]
             slide_number = slide_idx + 1
             
             # Extract text from slide
@@ -321,10 +333,12 @@ class PowerPointTextExtractorStep(StepBase):
         :param slide: PowerPoint slide object.
         :return: List of extracted table texts.
         """
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+                
         tables = []
         
         for shape in slide.shapes:
-            if shape.shape_type == MSO_SHAPE_TYPE.TABLE: # type: ignore
+            if shape.shape_type == MSO_SHAPE_TYPE.TABLE:
                 table_text = self.extract_table_text(shape.table)
                 if table_text.strip():
                     tables.append(table_text)
@@ -361,6 +375,9 @@ class PowerPointTextExtractorStep(StepBase):
         :param chunk_counter: Current chunk counter.
         :return: List of image chunk data.
         """
+        
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        
         image_chunks = []
         png_output_folder = self.png_output_folder
         image_counter = 1
@@ -427,9 +444,13 @@ class PowerPointTextExtractorStep(StepBase):
                     # Extract text sections from the markdown
                     if markdown:
                         chunk['markdown_text'] = self.extract_text_section(markdown)
-                        chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
-                        chunk['text'] = chunk['markdown_text']
-
+                        
+                        if self.extract_image_descriptions:
+                            chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
+                            chunk['text'] = chunk.get('markdown_text', '') + chunk.get('markdown_image_descriptions', '')  # Append to existing text if any
+                        else:
+                            chunk['text'] = chunk.get('markdown_text', '')
+                            
                 except Exception as e:
                     logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
                     continue

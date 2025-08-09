@@ -65,7 +65,6 @@ Extract structured data from filled forms and applications.
 ### Required Services
 
 1. **Azure AI Inference Service**: A configured Azure AI service for image analysis and text extraction
-2. **Azure Blob Storage Service**: A storage service for file access and PNG output storage
 
 ### Required Dependencies
 
@@ -77,11 +76,14 @@ Extract structured data from filled forms and applications.
 
 The step expects input data in the following structure:
 
-```json
+```python
 {
   "documents": [
     {
-      "file_path": "/path/to/document.pdf"
+      "file_path": "/path/to/document.pdf",
+      "document_type": {
+                "primary_type": "pdf" # if type condition is used - see below.
+            }
     }
   ]
 }
@@ -90,13 +92,6 @@ The step expects input data in the following structure:
 ## Configuration
 
 ### Required Settings
-
-#### Storage Service
-- **Parameter**: `storage_service`
-- **Type**: String
-- **Description**: Reference to the Azure Blob Storage service instance
-- **Required**: Yes
-- **UI Component**: Service Selector (azure_blob)
 
 #### AI Inference Service
 - **Parameter**: `ai_model_inference_service`
@@ -141,21 +136,28 @@ The step expects input data in the following structure:
 
 ### AI Processing Settings
 
+#### Prompts Configuration
+- **Parameter**: `prompts`
+- **Type**: Object
+- **Description**: Contains system and user prompts for AI processing
+- **Required**: Yes
+- **Structure**:
+  - `system`: System-level instructions for the AI
+  - `user`: User prompt template for processing images
+
 #### System Prompt
-- **Parameter**: `system_prompt`
+- **Parameter**: `prompts.system`
 - **Type**: String
 - **Description**: Instructions for the AI system
 - **Required**: Yes
 - **Default**: `You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown.`
-- **UI Component**: Textarea
 
 #### User Prompt Template
-- **Parameter**: `user_prompt`
+- **Parameter**: `prompts.user`
 - **Type**: String
 - **Description**: Template for user prompts sent to AI
 - **Required**: Yes
 - **Default**: Complex template with structured output format
-- **UI Component**: Textarea
 
 #### Max Completion Tokens
 - **Parameter**: `max_completion_tokens`
@@ -179,7 +181,7 @@ The step expects input data in the following structure:
 - **Type**: Number
 - **Description**: Controls diversity of AI responses
 - **Required**: No
-- **Default**: `0.4`
+- **Default**: `1.0`
 - **Range**: `0.0` to `1.0`
 - **Step**: `0.1`
 
@@ -201,16 +203,78 @@ The step expects input data in the following structure:
 - **Range**: `-2.0` to `2.0`
 - **Step**: `0.1`
 
+### Conditional Processing
+
+The step supports conditional execution based on document properties:
+
+#### Condition Parameter
+- **Parameter**: `condition`
+- **Type**: String
+- **Description**: Expression that determines whether to process a document
+- **Required**: No
+- **Default**: None (process all documents)
+
+#### Example Conditions
+
+**Process only PDF documents:**
+```yaml
+condition: "document_type.primary_type == 'pdf'"
+```
+
+**Process documents larger than 1MB:**
+```yaml
+condition: "file_size > 1048576"
+```
+
+**Process documents with specific patterns:**
+```yaml
+condition: "file_name.contains('report')"
+```
+
+When a condition is not met, the document is skipped and counted in the `skipped_documents` statistic.
+
+### Debug Configuration
+
+The step supports debug mode for detailed logging and troubleshooting:
+
+#### Debug Mode
+- **Parameter**: `debug_mode`
+- **Type**: Boolean
+- **Description**: Enable detailed debug logging
+- **Required**: No
+- **Default**: `false`
+
+When enabled, debug mode provides:
+- Detailed processing logs for each document
+- Step initialization parameters
+- Processing time information
+- Detailed error messages and stack traces
+
+#### Failure Handling
+- **Parameter**: `fail_step_on_document_error`
+- **Type**: Boolean
+- **Description**: Whether to fail the entire step if a single document fails
+- **Required**: No
+- **Default**: `false`
+
+When set to `true`, any document processing error will cause the entire step to fail. When `false`, failed documents are logged and counted in statistics, but processing continues.
+
 ### Step Configuration Example
 
 ```yaml
 steps:
   - name: extract_pdf_text
     step_catalog_id: pdf_text_extractor
-    services: [primary_blob_storage, primary_ai_inference_service]
+    enabled: true
+    fail_pipeline_on_error: true
+    retry_on_failure: false
+    retries: 3
+    timeout: 600
+    services: [primary_ai_inference_service]
+    condition: "document_type.primary_type == 'pdf'"
+    fail_step_on_document_error: false
+    debug_mode: false
     settings:
-      storage_service: "primary_blob_storage"
-      ai_model_inference_service: "primary_ai_inference_service"
       png_output_folder: "./output/png"
       num_pages: 10
       dpi: 300
@@ -224,16 +288,18 @@ steps:
           ==Extracted-Text==
           {Insert extracted text as markdown here}
           ==End-Extracted-Text==
-          
+
           ==Image-Descriptions==
           {Insert image descriptions as markdown here}
           ==End-Image-Descriptions==
       max_completion_tokens: 4000
       temperature: 1.0
-      top_p: 0.4
+      top_p: 1.0
       frequency_penalty: 0.0
       presence_penalty: 0.0
 ```
+
+## Service Configuration
 
 ## Service Configuration
 
@@ -247,23 +313,7 @@ services:
     service_catalog_id: azure_ai_inference_service_01
     settings:
       endpoint: "https://your-ai-service.cognitiveservices.azure.com/"
-      api_key: "your-api-key"
-      model_name: "gpt-4-vision-preview"
       api_version: "2024-02-01"
-```
-
-### Azure Blob Storage Service
-
-For file storage and access:
-
-```yaml
-services:
-  - name: primary_blob_storage
-    service_catalog_id: azure_blob_storage_service_01
-    settings:
-      account_name: "your-storage-account"
-      container_name: "documents"
-      # ... other settings
 ```
 
 ## Processing Workflow
@@ -294,12 +344,13 @@ services:
 
 The step produces a structured output with detailed chunks for each page:
 
-```json
+```python
 {
   "summary_data": {
     "pdf_text_extractor_stats": {
       "total_documents": 1,
       "successful_documents": 1,
+      "skipped_documents": 0,
       "failed_documents": 0
     }
   },
@@ -309,13 +360,16 @@ The step produces a structured output with detailed chunks for each page:
         "file_path": "/path/to/document.pdf",
         "chunks": [
           {
-            "page_id": "unique_sha1_hash",
             "input_file_path": "/path/to/document.pdf",
+            "chunk_id": "abc123def456...",
+            "chunk_num": 1,
+            "chunk_type": "page",
             "page_num": 1,
-            "png": "/output/png/page_1.png",
-            "markdown": "Full markdown content with structured sections",
-            "markdown_text": "Plain text extracted from the page",
-            "markdown_image_descriptions": "Descriptions of images found on the page"
+            "png": "./output/png/page_1.png",
+            "markdown": "==Extracted-Text==\n# Document Title\n...\n==End-Extracted-Text==\n\n==Image-Descriptions==\n...\n==End-Image-Descriptions==",
+            "page_text": "# Document Title\n...",
+            "page_image_descriptions": "Description of charts and figures...",
+            "text": "# Document Title\n...Description of charts and figures..."
           }
         ]
       }
@@ -328,13 +382,38 @@ The step produces a structured output with detailed chunks for each page:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `page_id` | String | Unique SHA1 hash identifier for the page |
+| `chunk_id` | String | Unique SHA1 hash identifier for the page |
 | `input_file_path` | String | Original PDF file path |
+| `chunk_num` | Integer | Sequential chunk number within the document |
+| `chunk_type` | String | Type of chunk (always "page" for PDF pages) |
 | `page_num` | Integer | Page number within the document |
 | `png` | String | Path to the generated PNG file |
 | `markdown` | String | Complete markdown content with structured sections |
-| `markdown_text` | String | Plain text extracted from the page |
-| `markdown_image_descriptions` | String | Descriptions of images found on the page |
+| `page_text` | String | Plain text extracted from the page |
+| `page_image_descriptions` | String | Descriptions of images found on the page |
+| `text` | String | Combined text content (page_text + page_image_descriptions) |
+
+## Execution Statistics
+
+The step tracks detailed execution statistics for monitoring and debugging purposes:
+
+### Statistics Fields
+
+| Field | Description |
+|-------|-------------|
+| `total_documents` | Total number of documents processed |
+| `successful_documents` | Number of documents processed successfully |
+| `skipped_documents` | Number of documents skipped due to conditions |
+| `failed_documents` | Number of documents that failed processing |
+
+### Statistics Usage
+
+These statistics are included in the `summary_data` section of the output under the key `{step_name}_stats` (e.g., `pdf_text_extractor_1_stats`). They can be used for:
+
+- **Monitoring**: Track processing success rates
+- **Debugging**: Identify failure patterns
+- **Optimization**: Understand processing bottlenecks
+- **Reporting**: Generate processing summaries
 
 ## Prompt Engineering
 
@@ -524,12 +603,6 @@ pipeline:
   description: "Extract text from PDFs and index in search service"
   
   services:
-    - name: primary_blob_storage
-      service_catalog_id: azure_blob_storage_service_01
-      settings:
-        account_name: "mystorageaccount"
-        container_name: "documents"
-        
     - name: primary_ai_inference_service
       service_catalog_id: azure_ai_inference_service_01
       settings:
@@ -547,7 +620,7 @@ pipeline:
   steps:
     - name: extract_pdf_text
       step_catalog_id: pdf_text_extractor
-      services: [primary_blob_storage, primary_ai_inference_service]
+      services: [primary_ai_inference_service]
       settings:
         png_output_folder: "./output/png"
         num_pages: 20
@@ -578,12 +651,12 @@ pipeline:
         index_name: "documents-index"
         index_field_mappings: |
           {
-            "page_id": "id",
+            "chunk_id": "id",
             "input_file_path": "file_name",
             "page_num": "page_num",
             "markdown": "content",
-            "markdown_text": "text_content",
-            "markdown_image_descriptions": "image_descriptions"
+            "page_text": "text_content",
+            "page_image_descriptions": "image_descriptions"
           }
 ```
 

@@ -79,8 +79,8 @@ class PDFTextExtractorStep(StepBase):
         _stats = {
             "total_documents": 0,
             "successful_documents": 0,
-            "failed_documents": 0,
             "skipped_documents": 0,
+            "failed_documents": 0,
         }
 
         # get documents from input data
@@ -115,7 +115,7 @@ class PDFTextExtractorStep(StepBase):
                     condition_met = self.evaluate_document_condition(document, input_data)
                     if not condition_met:
                         _stats["skipped_documents"] += 1
-                        logger.debug(f"Document skipped due to condition not met: {self.condition}")
+                        logger.info(f"Document skipped due to condition not met: {self.condition}")
                         continue
             
                 # Process each document
@@ -128,6 +128,8 @@ class PDFTextExtractorStep(StepBase):
 
                 if self.debug_mode:
                     logger.debug(f"Successfully processed document: {document}")
+                else:
+                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
 
             except Exception as e:
                 logger.error(f"Error processing document: {e}")
@@ -137,6 +139,8 @@ class PDFTextExtractorStep(StepBase):
                     # If the step is configured to fail on document error, raise an exception
                     raise StepExecutionError(f"Failed to process document: {e}")
 
+        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+        
         # Return the updated StepInputOutput
         return StepInputOutput(summary_data=
                                     {
@@ -222,9 +226,9 @@ class PDFTextExtractorStep(StepBase):
 
                 # Extract text sections from the markdown
                 if markdown:
-                    chunk['markdown_text'] = self.extract_text_section(markdown)
-                    chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
-                    # chunk['markdown_code_blocks'] = self.extract_code_sections(markdown)
+                    chunk['page_text'] = self.extract_text_section(markdown)
+                    chunk['page_image_descriptions'] = self.extract_image_sections(markdown)
+                    chunk['text'] = chunk.get('page_text', '') + chunk.get('page_image_descriptions', '')  # Append to existing text if any
 
             except Exception as e:
                 logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
@@ -265,7 +269,7 @@ class PDFTextExtractorStep(StepBase):
             page_id = self.generate_sha1_hash(f"{os.path.basename(pdf_file_path)}_page_{page_num+1}")
 
             # Append the page number and PNG file path to the list
-            chunks_data.append({'input_file_path': pdf_file_path, 'page_id': page_id, 'page_num': page_num+1, 'png': png_file_path})
+            chunks_data.append({'input_file_path': pdf_file_path, 'chunk_id': page_id, 'chunk_num': page_num+1, 'chunk_type': 'page', 'page_num': page_num+1, 'png': png_file_path})
 
         return chunks_data
 
