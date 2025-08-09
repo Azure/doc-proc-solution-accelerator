@@ -54,13 +54,13 @@ The Azure Document Intelligence Extractor step processes documents using Azure's
 
 The step expects input data in the following structure:
 
-```json
+```python
 {
   "documents": [
     {
       "file_path": "/path/to/document.pdf",
       "document_type": {
-        "primary_type": "pdf" // Optional, for conditional processing
+        "primary_type": "pdf" # Optional, for conditional processing
       }
     }
   ]
@@ -154,7 +154,7 @@ The step expects input data in the following structure:
 
 Each processed document will have a `chunks` array with the following structure:
 
-```json
+```python
 {
   "chunks": [
     {
@@ -162,7 +162,7 @@ Each processed document will have a `chunks` array with the following structure:
       "chunk_id": "sha1_hash_of_content",
       "chunk_type": "page|table|key_value_pairs|document",
       "chunk_num": 1,
-      "page_num": 1, // For page chunks
+      "page_num": 1, # For page chunks
       "text": "Extracted text content",
       "raw_text": "Raw extracted text",
       "structured_content": {
@@ -171,14 +171,14 @@ Each processed document will have a `chunks` array with the following structure:
         "line_count": 12,
         "words": [...],
         "lines": [...]
-      }, // Only for structured output format
+      }, # Only for structured output format
       "confidence": 0.98,
-      "table_data": {...}, // For table chunks
-      "row_count": 5, // For table chunks
-      "column_count": 3, // For table chunks
-      "key_value_data": [...], // For key-value chunks
-      "total_pairs": 10, // For key-value chunks
-      "total_pages": 5 // For document-level chunks
+      "table_data": {...}, # For table chunks
+      "row_count": 5, # For table chunks
+      "column_count": 3, # For table chunks
+      "key_value_data": [...], # For key-value chunks
+      "total_pairs": 10, # For key-value chunks
+      "total_pages": 5 # For document-level chunks
     }
   ]
 }
@@ -188,7 +188,7 @@ Each processed document will have a `chunks` array with the following structure:
 
 The step provides detailed processing statistics:
 
-```json
+```python
 {
   "azure_document_intelligence_extractor_stats": {
     "total_documents": 10,
