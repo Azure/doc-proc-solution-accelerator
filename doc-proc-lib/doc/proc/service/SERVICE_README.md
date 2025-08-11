@@ -165,8 +165,8 @@ sensitive_setting:
   description: "Sensitive authentication key"
   required: true
   sensitive: true                          # Mark as sensitive
-  env_var: "API_KEY_ENV"
-  default: ${API_KEY_ENV}
+  env_var: "APIKEY_ENV"
+  default: ${APIKEY_ENV}
 ```
 
 ## Built-in Services
@@ -260,8 +260,8 @@ async with storage_service:
       title: "API Key"
       required: false
       sensitive: true
-      env_var: "AZURE_AI_API_KEY"
-      default: ${AZURE_AI_API_KEY}
+      env_var: "AZURE_AI_APIKEY"
+      default: ${AZURE_AI_APIKEY}
     
     model_name:
       type: string
@@ -381,8 +381,8 @@ analysis_result = response.choices[0].message.content
       title: "Admin API Key"
       required: true
       sensitive: true
-      env_var: "AZURE_AI_SEARCH_SERVICE_API_KEY"
-      default: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      env_var: "AZURE_AI_SEARCH_SERVICE_APIKEY"
+      default: ${AZURE_AI_SEARCH_SERVICE_APIKEY}
     
     api_version:
       type: string
@@ -431,9 +431,11 @@ Create a new Python file in `doc/proc/service/` directory:
 import logging
 from typing import Dict, Any, Optional
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from dependencies import get_config
 
 logger = logging.getLogger(__name__)
 
+config = get_config()
 
 class MyCustomService(ServiceBase):
     """Custom service for specific integration needs."""
@@ -463,7 +465,7 @@ class MyCustomService(ServiceBase):
         if value.startswith('${') and value.endswith('}'):
             import os
             env_var_name = value[2:-1]
-            env_value = os.getenv(env_var_name)
+            env_value = config.get(env_var_name)
             if not env_value:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set")
             return env_value
@@ -571,8 +573,8 @@ services_catalog:
         description: "Authentication key for the service"
         required: true
         sensitive: true
-        env_var: "MY_CUSTOM_SERVICE_API_KEY"
-        default: ${MY_CUSTOM_SERVICE_API_KEY}
+        env_var: "MY_CUSTOM_SERVICE_APIKEY"
+        default: ${MY_CUSTOM_SERVICE_APIKEY}
       
       timeout:
         type: integer
@@ -616,7 +618,7 @@ service_instances:
     service_catalog_id: my_custom_service_01
     settings:
       api_endpoint: ${MY_CUSTOM_SERVICE_ENDPOINT}
-      api_key: ${MY_CUSTOM_SERVICE_API_KEY}
+      api_key: ${MY_CUSTOM_SERVICE_APIKEY}
       timeout: 60
       retry_count: 5
       enable_logging: true
@@ -755,14 +757,14 @@ Services support automatic environment variable substitution:
 settings_schema:
   api_key:
     type: string
-    env_var: "MY_SERVICE_API_KEY"
-    default: ${MY_SERVICE_API_KEY}    # Automatically substituted
+    env_var: "MY_SERVICE_APIKEY"
+    default: ${MY_SERVICE_APIKEY}    # Automatically substituted
 ```
 
 **Environment File (`.env`)**:
 ```bash
 # Service configuration
-MY_SERVICE_API_KEY=your_actual_api_key_here
+MY_SERVICE_APIKEY=your_actual_api_key_here
 MY_SERVICE_ENDPOINT=https://api.example.com
 MY_SERVICE_TIMEOUT=60
 ```
@@ -843,8 +845,8 @@ settings_schema:
     type: string
     title: "API Key"
     sensitive: true              # Marks as sensitive
-    env_var: "API_KEY"
-    default: ${API_KEY}
+    env_var: "APIKEY"
+    default: ${APIKEY}
   
   connection_string:
     type: string
@@ -877,7 +879,7 @@ class SecureAzureService(ServiceBase):
             self.api_key = self._get_env_setting('api_key', sensitive=True)
             self.credential = AzureKeyCredential(self.api_key)
         elif self.credential_type == 'default_azure_credential':
-            self.credential = DefaultAzureCredential()
+            self.credential = self._get_credentials()
         else:
             raise ValueError(f"Unsupported credential type: {self.credential_type}")
     
@@ -1274,11 +1276,11 @@ class ServiceDebugger:
             'AZURE_STORAGE_ACCOUNT_NAME',
             'AZURE_STORAGE_ACCOUNT_KEY',
             'AZURE_AI_ENDPOINT',
-            'AZURE_AI_API_KEY',
+            'AZURE_AI_APIKEY',
             'AZURE_COSMOS_ENDPOINT',
             'AZURE_COSMOS_KEY',
             'AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME',
-            'AZURE_AI_SEARCH_SERVICE_API_KEY'
+            'AZURE_AI_SEARCH_SERVICE_APIKEY'
         ]
         
         print("Environment Variable Check:")

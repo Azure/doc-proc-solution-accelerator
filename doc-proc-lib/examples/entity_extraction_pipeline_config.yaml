@@ -14,7 +14,7 @@ pipeline_config:
       enabled: true
       settings:
         endpoint: "${AZURE_AI_ENDPOINT}"
-        api_key: "${AZURE_AI_API_KEY}"
+        api_key: "${AZURE_AI_APIKEY}"
         model_name: "gpt-4o"
 
   # Pipeline steps

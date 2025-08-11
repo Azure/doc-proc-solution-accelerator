@@ -9,33 +9,47 @@ service_instances:
   - name: primary_blob_storage
     service_catalog_id: azure_storage_01 # Reference to service in catalog
     settings:
-      account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
-      credential_key: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+      account_name: ${STORAGE_ACCOUNT_NAME}
+      credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      credential_key: ${STORAGE_ACCOUNT_KEY}
 
   - name: primary_ai_inference_service
     service_catalog_id: azure_ai_inference_service_01
     settings:
-      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
-      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
-      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+      endpoint: ${AI_FOUNDRY_ACCOUNT_ENDPOINT}
+      credential_type: ${AI_FOUNDRY_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      api_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
+
+  - name: primary_ai_embedding_service
+    service_catalog_id: azure_ai_embedding_service_01
+    settings:
+      endpoint: ${AI_FOUNDRY_ACCOUNT_ENDPOINT}
+      credential_type: ${AI_FOUNDRY_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      api_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
 
   - name: primary_document_intelligence_service
     service_catalog_id: azure_document_intelligence_service_01
     settings:
-      endpoint: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT}
-      credential_type: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
-      api_key: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY}
+      endpoint: ${AI_FOUNDRY_ACCOUNT_ENDPOINT}
+      credential_type: ${AI_FOUNDRY_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      api_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
 
   - name: primary_ai_search_service
     service_catalog_id: azure_ai_search_service_01
     settings:
-      account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
-      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      account_name: ${SEARCH_SERVICE_NAME}
+      credential_type: ${SEARCH_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      api_key: ${SEARCH_SERVICE_APIKEY}
       api_version: "2025-05-01-preview" # Updated to the latest version
-      index_name: "documents_index" # Name of the search index to use
+      index_name: ${SEARCH_RAG_INDEX_NAME} # Name of the search index to use
 
+source_instances:
+  - name: primary_blob_storage
+    source_catalog_id: azure_storage_01 # Reference to source in catalog
+    settings:
+      account_name: ${STORAGE_ACCOUNT_NAME}
+      credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      credential_key: ${STORAGE_ACCOUNT_KEY}
 
 ########################################################
 # PIPELINES
@@ -47,6 +61,8 @@ pipelines:
   - name: pipeline_1
     description: 'A pipeline to extract, transform, and load documents from Azure Blob Storage to a database'
     version: '1.0'
+    #run every 5 mins
+    schedule: "*/5 * * * *" # Run every 5 minutes
 
     ###########################################################
     # PIPELINE STEP INSTANCES
@@ -68,6 +84,36 @@ pipelines:
           key1: "custom_value1"
           key2: "custom_value2"
 
+      ## STEP 2: Extract Content
+      - name: "content_extractor"
+        step_catalog_id: content_extractor
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          identification_methods: "magic_bytes, file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
+
+      ## STEP 2: Extract Content
+      - name: "content_embed"
+        step_catalog_id: content_embed
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          ai_model_embed_service: primary_ai_embedding_service # Reference to the AI model embed service instance
+      
       ## STEP 2: Document Type Identifier
       - name: "document_type_identifier_1"
         step_catalog_id: document_type_identifier
@@ -279,7 +325,7 @@ pipelines:
       ## STEP 5: AI Search Index Writer
       - name: ai_search_index_writer_1
         step_catalog_id: ai_search_index_writer
-        enabled: false
+        enabled: true
         fail_pipeline_on_error: false
         retry_on_failure: false
         retries: 3
@@ -289,22 +335,39 @@ pipelines:
         fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
-          index_name: "documents_index"
+          index_name: "${SEARCH_RAG_INDEX_NAME}"
           index_field_mappings: | 
-                                  {
-                                    "page_id": "id",
-                                    "input_file_path": "file_name",
-                                    "page_num": "page_num",
-                                    "markdown": "markdown",
-                                    "summary": "summary"
-                                  }
+                    {
+                    "id": "id",
+                    "id": "parent_id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page_num": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "file_path": "filepath",
+                    "url": "url",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "contentVector": "contentVector",
+                    "captionVector": "captionVector"
+                    }
 
       
     ##########################################################
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
     ## execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx]
+    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_embed,ai_search_index_writer_1]
 
     ##########################################################
     # PIPELINE SETTINGS

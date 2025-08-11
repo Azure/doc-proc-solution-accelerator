@@ -101,7 +101,9 @@ class DocumentTypeIdentifierStep(StepBase):
 
                 if self.debug_mode:
                     logger.debug(f"Processing document: {document}")
-                
+
+                document_state = await self.get_state(document)
+
                 document_dict = document if isinstance(document, dict) else {"file_path": document}
                 if not isinstance(document_dict, dict) or "file_path" not in document_dict:
                     raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
@@ -125,6 +127,10 @@ class DocumentTypeIdentifierStep(StepBase):
 
                 final_documents_list.append(result_document)
 
+                if self.name not in document_state['steps']:
+                    document_state['steps'].append(self.name)
+                    document_state['status'] = "processing"
+
             except Exception as e:
                 logger.error(f"Error processing document: {e}")
                 _stats["failed_documents"] += 1
@@ -132,6 +138,8 @@ class DocumentTypeIdentifierStep(StepBase):
                 if self.fail_step_on_document_error:
                     # If the step is configured to fail on document error, raise an exception
                     raise StepExecutionError(f"Failed to process document: {e}")
+
+            await self.save_state(document_state)
 
         logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
         
@@ -195,19 +203,8 @@ class DocumentTypeIdentifierStep(StepBase):
         try:
             logger.debug(f"Identifying document by magic bytes: {document.get('file_path', 'unknown')}")
 
-            file_path = document.get("file_path", "")
-            if not file_path:
-                return {"error": "No file path available", "confidence": 0.0, "method": "magic_bytes"}
-            # Read the file content
-            if not Path(file_path).is_file():
-                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "magic_bytes"}
+            file_content = document.get("content", None)
 
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-
-            if isinstance(file_content, str):
-                file_content = file_content.encode()
-            
             # Use python-magic library for magic bytes detection
             mime_type = magic.from_buffer(file_content, mime=True)
             file_type = magic.from_buffer(file_content)
@@ -275,10 +272,6 @@ class DocumentTypeIdentifierStep(StepBase):
             file_path = document.get("file_path", "")
             if not file_path:
                 return {"error": "No file path available", "confidence": 0.0, "method": "file_extension"}
-
-            # Check if file exists
-            if not Path(file_path).is_file():
-                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "file_extension"}
 
             # Extract extension
             file_path = Path(file_path)

@@ -11,7 +11,6 @@ from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.azure_ai_inference_service") # need to specify the logger name as this module is loaded dynamically
 
-
 class AzureAIInferenceService(ServiceBase):
     """Azure AI Inference service for managing AI inference operations."""
 
@@ -20,7 +19,10 @@ class AzureAIInferenceService(ServiceBase):
 
         self.endpoint = settings.get('endpoint', '').strip()
         self.credential_type = settings.get('credential_type', '').strip()
+        self.model_name = settings.get('model_name', '').strip()
         self.api_key = ''
+
+        self.model = self._get_model(self.model_name)
 
         # Validate endpoint
         if not self.endpoint:
@@ -28,7 +30,11 @@ class AzureAIInferenceService(ServiceBase):
 
         if self.endpoint.startswith('${') and self.endpoint.endswith('}'):
             env_var_name = self.endpoint[2:-1]
-            self.endpoint = os.getenv(env_var_name)
+            self.endpoint = self.config.get(env_var_name)
+
+            if (self.model_name):
+                self.endpoint = f"{self.endpoint}/openai/deployments/{self.model_name}"
+
             if not self.endpoint:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -41,7 +47,7 @@ class AzureAIInferenceService(ServiceBase):
         
         if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
             env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
+            self.credential_type = self.config.get(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -59,7 +65,7 @@ class AzureAIInferenceService(ServiceBase):
             # Read the API key from environment variable
             if self.api_key.startswith('${') and self.api_key.endswith('}'):
                 env_var_name = self.api_key[2:-1]
-                self.api_key = os.getenv(env_var_name)
+                self.api_key = self.config.get(env_var_name)
                 if not self.api_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             else:
@@ -83,9 +89,9 @@ class AzureAIInferenceService(ServiceBase):
             self.chat_completions_client = ChatCompletionsClient(endpoint=self.endpoint, 
                                                                  credential=AzureKeyCredential(self.api_key))
         else:
-            credential = DefaultAzureCredential()
+            self._get_credentials()
             self.chat_completions_client = ChatCompletionsClient(endpoint=self.endpoint, 
-                                                                 credential=credential, 
+                                                                 credential=self.credential, 
                                                                  credential_scopes=["https://cognitiveservices.azure.com/.default"])
 
         logger.debug(f"Initialized ChatCompletionsClient for Azure AI Inference Service: {self.name}")

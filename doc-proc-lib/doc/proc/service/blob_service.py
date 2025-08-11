@@ -8,9 +8,10 @@ from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.blob_service") # need to specify the logger name as this module is loaded dynamically
 
-
 class BlobService(ServiceBase):
     """Azure Blob Storage service for managing blob storage operations."""
+
+    blob_service_client: BlobServiceClient
 
     def __init__(self, name: str, type: str, settings:dict, **kwargs):
         super().__init__(name=name, type=type, settings=settings, **kwargs)
@@ -25,7 +26,7 @@ class BlobService(ServiceBase):
 
         if self.storage_account_name.startswith('${') and self.storage_account_name.endswith('}'):
             env_var_name = self.storage_account_name[2:-1]
-            self.storage_account_name = os.getenv(env_var_name)
+            self.storage_account_name = self.config.get(env_var_name)
             if not self.storage_account_name:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -38,7 +39,7 @@ class BlobService(ServiceBase):
         
         if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
             env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
+            self.credential_type = self.config.get(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -55,7 +56,7 @@ class BlobService(ServiceBase):
             # Read the credential key from environment variable
             if self.credential_key.startswith('${') and self.credential_key.endswith('}'):
                 env_var_name = self.credential_key[2:-1]
-                self.credential_key = os.getenv(env_var_name)
+                self.credential_key = self.config.get(env_var_name)
                 if not self.credential_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             else:
@@ -67,10 +68,7 @@ class BlobService(ServiceBase):
         else:
             raise ValueError(f"Unsupported credential type: {self.credential_type}. Supported types are 'azure_key_credential' and 'default_azure_credential'.")
         
-        self.blob_service_client: BlobServiceClient
-
-
-    async def __aenter__(self):
+    async def _connect(self):
         """Initialize the BlobServiceClient."""
 
         account_url = f"https://{self.storage_account_name}.blob.core.windows.net"
@@ -80,17 +78,18 @@ class BlobService(ServiceBase):
         if self.credential_key not in ['', None]:
             self.blob_service_client = BlobServiceClient(account_url=account_url, credential=self.credential_key)
         else:
-            async with DefaultAzureCredential() as credential:
-                self.blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
+            self._get_credentials()
+            self.blob_service_client = BlobServiceClient(account_url=account_url, credential=self.aiocredential)
 
         logger.debug(f"Initialized BlobServiceClient")
 
+    async def __aenter__(self):
+        await self._connect()
         return self
 
-
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.blob_service_client.close()
-
+        pass
+        #await self.blob_service_client.close()
 
     async def test_connection(self) -> bool:
         """Test the connection to the Azure Blob Storage service."""
@@ -105,12 +104,28 @@ class BlobService(ServiceBase):
 
         return False
 
-
     async def get_container_client(self, container_name:str):
 
         async with self.blob_service_client.get_container_client(container_name) as container_client:
             return container_client
+        
+    async def get_file_metadata(self, container_name:str, filename:str):
 
+        container_client = await self.get_container_client(container_name)
+
+        file_blob_client = await container_client.get_blob_client(filename)
+
+        file_properties = await file_blob_client.get_blob_properties()
+        return file_properties
+
+    async def get_file(self, container_name:str, filename:str):
+
+        container_client = await self.get_container_client(container_name)
+
+        file_blob_client = await container_client.get_blob_client(filename)
+
+        file_content = await file_blob_client.download_blob()
+        return file_content.readall()
 
     async def upload_file(self, container_name:str, filename:str, file_content):
         

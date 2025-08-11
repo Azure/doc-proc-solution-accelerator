@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/doc-proc-lib",
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "AZURE_TENANT_ID" : "",
+                "AZURE_CLIENT_ID" : "",
+                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+            }
+        }
+    ]
+}

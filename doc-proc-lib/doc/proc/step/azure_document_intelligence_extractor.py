@@ -2,6 +2,8 @@ import os
 import logging
 import hashlib
 import json
+import tiktoken
+
 from typing import List, Dict, Any
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
@@ -25,6 +27,8 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         self.extract_paragraphs = self.settings.get("extract_paragraphs", True)
         self.chunk_by_pages = self.settings.get("chunk_by_pages", True)
         self.output_format = self.settings.get("output_format", "markdown")  # structured, markdown, json
+
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
         if self.debug_mode:
             logger.debug(f"Initialized AzureContentUnderstandingExtractorStep with settings: {self.settings} " \
@@ -159,11 +163,6 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             logger.error("No input file path found in input data.")
             raise ValueError("No input file path found in input data. Please check the input data and try again.")
 
-        # Check if the file exists
-        if not os.path.exists(file_path):
-            logger.error(f"File not found: {file_path}.")
-            raise FileNotFoundError(f"File not found: {file_path}. Please check the file path and try again.")
-
         # Check if the file is a supported format
         supported_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.docx', '.xlsx', '.pptx', '.heic']
         file_extension = os.path.splitext(file_path)[1].lower()
@@ -174,8 +173,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
 
         try:
             # Read file as bytes
-            with open(file_path, 'rb') as file:
-                file_bytes = file.read()
+            file_bytes = document.get("content")
 
             # Analyze document using Azure Document Intelligence
             analysis_result = await doc_intel_service.analyze_document_from_bytes(
@@ -185,8 +183,8 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             )
 
             if(self.debug_mode):
-                with open(f"f_analysis_result.json", 'w') as f:
-                    json.dump(analysis_result, f, indent=2)
+                #with open(f"f_analysis_result.json", 'w') as f:
+                #    json.dump(analysis_result, f, indent=2)
                 logger.debug(f"Analysis result for {file_path}: {json.dumps(analysis_result, indent=2)}")
             
             # Process and structure the results
@@ -246,8 +244,11 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             page_text = self._extract_page_text(page)
             
             if page_text.strip():  # Only create chunk if there's content
-                chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_page_{page_number}")
-                
+                #chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_page_{page_number}")
+                chunk_id = page_number
+
+                tokens = self.encoding.encode(page_text)
+
                 chunk_data = {
                     'input_file_path': file_path,
                     'chunk_id': chunk_id,
@@ -255,6 +256,8 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
                     'chunk_num': start_chunk_counter + i,
                     'page_num': page_number,
                     'text': page_text,
+                    'length' : len(tokens),
+                    'size' : len(tokens),
                     'raw_text': page_text,
                     'structured_content': self._format_page_content(page, analysis_result) if self.output_format == 'structured' else None,
                     'confidence': self._calculate_page_confidence(page)
@@ -450,16 +453,3 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         
         total_confidence = sum([self._calculate_page_confidence(page) for page in pages])
         return total_confidence / len(pages)
-
-    def generate_sha1_hash(self, input_string: str) -> str:
-        """
-        Generates a sha1 hash from a given string.
-        """
-        # Encode the string to bytes, as hash functions operate on bytes
-        encoded_string = input_string.encode('utf-8')
-        # Create a SHA1 hash object
-        sha1_hash = hashlib.sha1()
-        # Update the hash object with the encoded string
-        sha1_hash.update(encoded_string)
-        # Get the hexadecimal representation of the hash
-        return sha1_hash.hexdigest()

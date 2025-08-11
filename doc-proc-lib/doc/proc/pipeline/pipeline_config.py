@@ -5,7 +5,7 @@ import yaml
 from doc.proc.step.step_config import StepConfig
 from doc.proc.step.step_base import StepInstanceConfig
 from doc.proc.service.service_config import ServiceConfig
-
+from doc.proc.service.source_config import SourceConfig
 
 class PipelineSettingsConfig(BaseModel):
     """Settings for the pipeline execution."""
@@ -20,16 +20,23 @@ class ServiceInstanceConfig(BaseModel):
     service_catalog_id: str  # Reference to service id in the service catalog
     settings: Optional[dict] = None  # Additional settings for the service instance
 
+class SourceInstanceConfig(BaseModel):
+    name: str  # Instance name in the pipeline
+    source_catalog_id: str  # Reference to source id in the source catalog
+    settings: Optional[dict] = None  # Additional settings for the source instance
+
 
 class PipelineConfig(BaseModel):
     """Configuration for a single pipeline."""
     name: str
     description: Optional[str] = None
     version: Optional[str] = None
+    schedule: Optional[str] = None
     steps: List[StepInstanceConfig] = []
     execution_sequence: List[str] = None  # Order of step instance names
     settings: PipelineSettingsConfig = PipelineSettingsConfig()
     service_instances: List[ServiceInstanceConfig] = []  # List of service instances used in the pipeline
+    source_instances: List[SourceInstanceConfig] = []  # List of source instances used in the pipeline
 
     @staticmethod
     def from_dict(config: dict) -> "PipelineConfig":
@@ -50,7 +57,10 @@ class PipelineConfig(BaseModel):
             raise ValueError(f"An error occurred while loading the pipeline configuration from file: {str(e)}")
 
     @staticmethod
-    def from_yaml(yaml_str: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> List["PipelineConfig"]:
+    def from_yaml(yaml_str: str, 
+                  step_catalog_config: List[StepConfig] = None, 
+                  service_catalog_config: List[ServiceConfig] = None,
+                  source_catalog_config: List[SourceConfig] = None) -> List["PipelineConfig"]:
         """Load steps and pipelines configuration from a YAML string."""
         if not yaml_str:
             raise ValueError("YAML string cannot be empty")
@@ -71,8 +81,18 @@ class PipelineConfig(BaseModel):
                         s_found = next((s for s in service_catalog_config if s.id == service.service_catalog_id), None)
                         if not s_found:
                             raise ValueError(f"Service instance '{service.name}' references unknown service catalog id '{service.service_catalog_id}' that could not be found in service catalog configuration. Available services: {[s.id for s in service_catalog_config]}")
-
+                        
+            source_instances: List[SourceInstanceConfig] = []
             
+            if config.get("source_instances"):
+                source_instances = [SourceInstanceConfig(**s) for s in config.get("source_instances", [])]
+
+                if source_catalog_config:
+                    for source in source_instances:
+                        s_found = next((s for s in source_catalog_config if s.id == source.source_catalog_id), None)
+                        if not s_found:
+                            raise ValueError(f"Source instance '{source.name}' references unknown source catalog id '{source.source_catalog_id}' that could not be found in source catalog configuration. Available sources: {[s.id for s in source_catalog_config]}")
+
             # Load and validate pipelines
             if not config.get("pipelines"):
                 raise ValueError("No pipelines found in the configuration.")
@@ -91,6 +111,8 @@ class PipelineConfig(BaseModel):
                     raise ValueError(f"Pipeline '{pipeline.name}' has an invalid execution sequence. Some steps in the sequence do not match defined step names.")
 
                 pipeline.service_instances = service_instances  # Assign service instances to the pipeline
+
+                pipeline.source_instances = source_instances  # Assign source instances to the pipeline
 
                 # Validate step instances
                 for step in pipeline.steps:

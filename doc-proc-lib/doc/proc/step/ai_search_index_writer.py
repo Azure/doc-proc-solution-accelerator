@@ -26,6 +26,10 @@ class AISearchIndexWriterStep(StepBase):
             logger.error("Index name not found in settings.")
             raise ValueError("Index name not found in settings.")
 
+        if self.index_name.startswith('${') and self.index_name.endswith('}'):
+            env_var_name = self.index_name[2:-1]
+            self.index_name = self.config.get(env_var_name)
+
         self.index_field_mappings = self.settings.get("index_field_mappings", "")
         if not self.index_field_mappings:
             logger.error("Index field mappings not found in settings.")
@@ -169,11 +173,31 @@ class AISearchIndexWriterStep(StepBase):
             # generate the documents to be indexed
             index_documents = []
 
+            #clear the content (use the chunk text)
+            document['content'] = None
+
             for chunk in chunks:
                 index_doc = {}
+                
                 for doc_field, index_field in self.index_field_mappings.items():
-                    index_doc[index_field] = value = chunk.get(doc_field, None)
+                    value = index_doc.get(index_field, None)
 
+                    if ( value == None):
+                        value = chunk.get(doc_field, None)
+                    
+                    if ( value == None):
+                        value = document.get(doc_field, None)
+
+                    if ( value == None and 'metadata' in document):
+                        value = document['metadata'].get(doc_field, None)
+
+                    if ( value == None and 'metadata_security' in document):
+                        value = document['metadata_security'].get(doc_field, None)
+
+                    if value is not None:
+                        index_doc[index_field] = value
+
+                index_doc['id'] = document.get('id', None)
                 index_documents.append(index_doc)
 
 

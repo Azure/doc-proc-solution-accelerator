@@ -2,8 +2,11 @@ from __future__ import annotations
 from abc import abstractmethod
 import pydantic
 import logging
+import hashlib
 from typing import List, Optional, TYPE_CHECKING
-
+from dependencies import get_config
+from connectors import CosmosDBClient
+from datetime import datetime, timedelta, timezone
 
 if TYPE_CHECKING:
     # Avoid circular import issues by using string type hints
@@ -83,6 +86,10 @@ class StepBase:
         self.condition = instance_config.condition  # Condition string to evaluate before running the step
         self.params = kwargs
 
+        self.config = get_config()
+
+        self.cosmos = CosmosDBClient(self.config)
+
         # Initialize condition evaluator if condition is provided
         if self.condition:
             from doc.proc.utils.secure_condition_evaluator import SecureConditionEvaluator
@@ -102,7 +109,43 @@ class StepBase:
         """
         # from pipeline.pipeline_base import PipelineExecutionContext  # Uncomment if runtime access is needed
         raise NotImplementedError("Subclasses must implement this method.")
+    
+    async def get_state(self, document):
+        document_state = self.cosmos.get_document('doc-proc', document.get("id"))
+        if document_state == None:
+            document_state = {
+                "id": document.get("id"),
+                "steps": [],
+                "modify_date" : str(datetime.now(timezone.utc)),
+                "create_date" : str(datetime.now(timezone.utc)),
+                "status" : "new",
+                "data": {
+                    "source_name": document.get("source_name"),
+                    "file_path": document.get("file_path"),
+                    "file_type": document.get("file_type"),
+                    "modify_date" : str(document.get("modify_date", datetime.now(timezone.utc))),
+                    "create_date" : str(document.get("create_date", datetime.now(timezone.utc)))
+                }
+            }
+            await self.save_state(document_state)
+        return document_state
 
+    async def save_state(self, document_state):
+        document_state['modify_date'] = str(datetime.now(timezone.utc))
+        #document_state['status'] = "processing"
+        await self.cosmos.upsert_document('doc-proc', document_state)
+
+    async def should_process(self, document_state, document):
+        
+        #document have been modified
+        if document_state['data']['modify_date'] != document.get("modify_date"):
+            return False
+        
+        #we did this step already
+        if self.name in document_state['steps']:
+            return False
+
+        return True
 
     def evaluate_document_condition(self, document: dict, step_input: StepInputOutput) -> bool:
         """
@@ -180,6 +223,37 @@ class StepBase:
         logger.info(f"Step {self.name}: {len(filtered_documents)} out of {len(documents)} documents meet the condition")
         return filtered_documents
 
+    def get_service(self, context: "PipelineExecutionContext", name: str, type : str = None):
+        """
+        Get the Service from the context.
+
+        :param context: PipelineExecutionContext instance.
+        :return: Service instance.
+        """
+        if not context or not hasattr(context, 'get_service'):
+            logger.error("Invalid context provided. Cannot retrieve Service.")
+            return None
+
+        cs = context.get_service(name)
+        
+        if type != None:
+            if cs and cs.type == type:
+                return cs
+
+        return cs
+    
+    def generate_sha1_hash(self, input_string: str) -> str:
+        """
+        Generates a sha1 hash from a given string.
+        """
+        # Encode the string to bytes, as hash functions operate on bytes
+        encoded_string = input_string.encode('utf-8')
+        # Create a SHA1 hash object
+        sha1_hash = hashlib.sha1()
+        # Update the hash object with the encoded string
+        sha1_hash.update(encoded_string)
+        # Get the hexadecimal representation of the hash
+        return sha1_hash.hexdigest()
 
     def __str__(self):
         return f"StepBase(step_catalog_id={self.step_catalog_id}, name={self.name}, description={self.description}, tags={self.tags}, params={self.params})"

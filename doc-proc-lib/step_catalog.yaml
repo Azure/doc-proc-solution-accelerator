@@ -36,6 +36,66 @@ step_catalog:
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
   ########################################################
+  # Extract Content Step
+  - id: content_extractor
+    name: "Extract Content"
+    description: "Extracts content from various document types"
+    type: script
+    module_name: content_extractor
+    module_path: ./doc/proc/step/content_extractor.py
+    class_name: ContentExtractorStep
+    tags: [document, extraction, content]
+    category: "Processing"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      identification_methods:
+        type: string
+        title: "Identification Methods"
+        description: "Methods to use for document type identification. Comma separated list. Possible values: magic_bytes, file_extension"
+        default: "magic_bytes, file_extension"
+        ui_component: "input"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "file-question-mark"
+      color: "#F59E0B"
+      description_short: "Identifies document types based on file properties."
+      description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
+
+########################################################
+  # Embed Content Step
+  - id: content_embed
+    name: "Embed Content"
+    description: "Embeds content from various document types"
+    type: script
+    module_name: content_embed
+    module_path: ./doc/proc/step/content_embed.py
+    class_name: ContentEmbedStep
+    tags: [document, embedding, content]
+    category: "Processing"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:  
+      ai_model_embed_service:
+        type: string
+        title: "AI Inference Service"
+        description: "Reference to the AI service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_inference"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "file-question-mark"
+      color: "#F59E0B"
+      description_short: "Identifies document types based on file properties."
+      description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
+
+
+  ########################################################
   # Document type identification Step
   - id: document_type_identifier
     name: "Document Type Identifier"
@@ -494,13 +554,28 @@ step_catalog:
         description: "Mappings of document fields to index fields. Document fields are mapped from the StepInputOutput object model."
         default: |
                   {
-                    "page_id": "id",
-                    "input_file_path": "file_name",
-                    "page_num": "page_num",
-                    "markdown": "page_markdown",
-                    "markdown_text": "markdown_text",
-                    "markdown_image_descriptions": "image_descriptions",
-                    "summary": "summary"
+                    "id": "id",
+                    "parent_id": "id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "filepath": "file_path",
+                    "url": "file_path",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "contentVector": "contentVector",
+                    "captionVector": "captionVector"
                   }
         ui_component: "textarea"
       

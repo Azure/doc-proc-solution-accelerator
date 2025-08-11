@@ -7,10 +7,11 @@ from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from dependencies import get_config
 
 logger = logging.getLogger("doc.proc.service.azure_ai_search_service") # need to specify the logger name as this module is loaded dynamically
 
-
+config = get_config()
 class AzureAISearchService(ServiceBase):
     """Azure AI Search service for managing AI search operations."""
 
@@ -24,13 +25,21 @@ class AzureAISearchService(ServiceBase):
         self.api_version = settings.get('api_version')
         self.index_name = settings.get('index_name')
 
+        if self.index_name.startswith('${') and self.index_name.endswith('}'):
+            env_var_name = self.index_name[2:-1]
+            self.index_name = config.get(env_var_name)
+            if not self.index_name:
+                raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
+        else:
+            raise ValueError("Settings key 'index_name' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+
         # Validate account name
         if not self.account_name:
             raise ValueError("Settings key 'account_name' is required")
 
         if self.account_name.startswith('${') and self.account_name.endswith('}'):
             env_var_name = self.account_name[2:-1]
-            self.account_name = os.getenv(env_var_name)
+            self.account_name = config.get(env_var_name)
             if not self.account_name:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -44,7 +53,7 @@ class AzureAISearchService(ServiceBase):
         
         if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
             env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
+            self.credential_type = config.get(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -60,7 +69,7 @@ class AzureAISearchService(ServiceBase):
             # Read the API key from environment variable
             if self.api_key.startswith('${') and self.api_key.endswith('}'):
                 env_var_name = self.api_key[2:-1]
-                self.api_key = os.getenv(env_var_name)
+                self.api_key = config.get(env_var_name)
                 if not self.api_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             else:
@@ -86,7 +95,8 @@ class AzureAISearchService(ServiceBase):
         if self.credential_type == 'azure_key_credential':
             return {"api-key": self.api_key}
         elif self.credential_type == 'default_azure_credential':
-            access_token = await DefaultAzureCredential().get_token("https://search.azure.com/.default")
+            self._get_credentials()
+            access_token = await self.aiocredential.get_token("https://search.azure.com/.default")
             return {"Authorization": f"Bearer {access_token.token}"}
         
         return {}

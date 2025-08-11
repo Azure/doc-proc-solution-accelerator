@@ -137,9 +137,9 @@ services:
     type: azure_blob
     test_connection: true
     settings:
-      account_name: \${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
-      credential_type: \${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
-      credential_key: \${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+      account_name: \${STORAGE_ACCOUNT_NAME}
+      credential_type: \${STORAGE_ACCOUNT_CREDENTIAL_TYPE}
+      credential_key: \${STORAGE_ACCOUNT_KEY}
 
 pipelines:
   - name: pipeline_1

@@ -346,16 +346,16 @@ service_instances:
   - name: primary_blob_storage
     service_catalog_id: azure_storage_01
     settings:
-      account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
-      credential_key: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+      account_name: ${STORAGE_ACCOUNT_NAME}
+      credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE}
+      credential_key: ${STORAGE_ACCOUNT_KEY}
 
   - name: primary_ai_inference_service
     service_catalog_id: azure_ai_inference_service_01
     settings:
       endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
       credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
-      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_APIKEY}
 
 pipelines:
   - name: document_processing_pipeline

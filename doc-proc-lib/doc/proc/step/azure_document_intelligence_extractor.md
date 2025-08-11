@@ -212,14 +212,14 @@ services:
     settings:
       endpoint: "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}"
       credential_type: "azure_key_credential"
-      api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
+      api_key: "${AZURE_DOCUMENT_INTELLIGENCE_APIKEY}"
 ```
 
 ### Environment Variables
 
 Required environment variables:
 - `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`: The endpoint URL for your Document Intelligence service
-- `AZURE_DOCUMENT_INTELLIGENCE_API_KEY`: The API key for authentication (when using azure_key_credential)
+- `AZURE_DOCUMENT_INTELLIGENCE_APIKEY`: The API key for authentication (when using azure_key_credential)
 - `AZURE_DOCUMENT_INTELLIGENCE_CREDENTIAL_TYPE`: The credential type (azure_key_credential or default_azure_credential)
 
 ## Model Selection Guide
@@ -303,7 +303,7 @@ pipeline:
       settings:
         endpoint: "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}"
         credential_type: "azure_key_credential"
-        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
+        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_APIKEY}"
         api_version: "2023-07-31"
   
   steps:
@@ -331,7 +331,7 @@ pipeline:
       settings:
         endpoint: "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}"
         credential_type: "azure_key_credential"
-        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
+        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_APIKEY}"
         model_id: "prebuilt-invoice"
   
   steps:
@@ -358,7 +358,7 @@ pipeline:
       settings:
         endpoint: "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}"
         credential_type: "azure_key_credential"
-        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
+        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_APIKEY}"
   
   steps:
     - name: process_invoices_only

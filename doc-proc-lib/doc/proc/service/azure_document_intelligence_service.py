@@ -9,10 +9,11 @@ from azure.ai.documentintelligence.aio import DocumentIntelligenceClient, Docume
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, DocumentContentFormat, AnalyzeResult
 
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from dependencies import get_config
 
 logger = logging.getLogger("doc.proc.service.azure_document_intelligence_service") # need to specify the logger name as this module is loaded dynamically
 
-
+config = get_config()
 class AzureDocumentIntelligenceService(ServiceBase):
     """Azure Document Intelligence service for document analysis and content extraction."""
 
@@ -31,7 +32,7 @@ class AzureDocumentIntelligenceService(ServiceBase):
 
         if self.endpoint.startswith('${') and self.endpoint.endswith('}'):
             env_var_name = self.endpoint[2:-1]
-            self.endpoint = os.getenv(env_var_name)
+            self.endpoint = config.get(env_var_name)
             if not self.endpoint:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -43,7 +44,7 @@ class AzureDocumentIntelligenceService(ServiceBase):
         
         if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
             env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
+            self.credential_type = config.get(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
         else:
@@ -58,7 +59,7 @@ class AzureDocumentIntelligenceService(ServiceBase):
             # Read the API key from environment variable
             if self.api_key.startswith('${') and self.api_key.endswith('}'):
                 env_var_name = self.api_key[2:-1]
-                self.api_key = os.getenv(env_var_name)
+                self.api_key = config.get(env_var_name)
                 if not self.api_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             else:
@@ -87,10 +88,11 @@ class AzureDocumentIntelligenceService(ServiceBase):
 
     def __init_client(self):
         """Initialize the DocumentIntelligenceClient."""
+        self._get_credentials()
 
         logger.debug(f"Creating DocumentIntelligenceClient with endpoint: {self.endpoint} and credential type: {self.credential_type}")
 
-        cred = DefaultAzureCredential() if self.credential_type == 'default_azure_credential' else AzureKeyCredential(self.api_key)
+        cred = self.credential if self.credential_type == 'default_azure_credential' else AzureKeyCredential(self.api_key)
         
         # Initialize the DocumentIntelligenceClient with the appropriate credential
         self.document_client = DocumentIntelligenceClient(
@@ -104,7 +106,8 @@ class AzureDocumentIntelligenceService(ServiceBase):
         """Test the connection to the Azure Document Intelligence service."""
         try:
             # Test with a simple operation - get account information
-            cred = DefaultAzureCredential() if self.credential_type == 'default_azure_credential' else AzureKeyCredential(self.api_key)
+            self._get_credentials()
+            cred = self.credential if self.credential_type == 'default_azure_credential' else AzureKeyCredential(self.api_key)
             document_intelligence_admin_client = DocumentIntelligenceAdministrationClient(endpoint=self.endpoint, credential=cred)
             async with document_intelligence_admin_client:
             

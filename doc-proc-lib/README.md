@@ -10,23 +10,42 @@ A flexible, modular document processing pipeline library built with Python that 
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-  - [Service Catalog](#service-catalog)
-  - [Step Catalog](#step-catalog)
-  - [Pipeline Configuration](#pipeline-configuration)
-- [Core Components](#core-components)
-- [Usage Examples](#usage-examples)
-- [Built-in Services](#built-in-services)
-- [Built-in Steps](#built-in-steps)
-- [Creating Custom Components](#creating-custom-components)
-  - [Custom Service](#custom-service)
-  - [Custom Step](#custom-step)
-- [Environment Variables](#environment-variables)
-- [Troubleshooting](#troubleshooting)
+- [Doc-Proc-Lib: Document Processing Pipeline Library](#doc-proc-lib-document-processing-pipeline-library)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Architecture](#architecture)
+  - [Installation](#installation)
+  - [Quick Start](#quick-start)
+  - [Configuration](#configuration)
+    - [Service Catalog](#service-catalog)
+    - [Step Catalog](#step-catalog)
+    - [Pipeline Configuration](#pipeline-configuration)
+    - [How They Work Together](#how-they-work-together)
+  - [Core Components](#core-components)
+    - [StepBase](#stepbase)
+    - [ServiceBase](#servicebase)
+    - [Pipeline Execution Context](#pipeline-execution-context)
+  - [Usage Examples](#usage-examples)
+    - [Example 1: Basic Document Processing](#example-1-basic-document-processing)
+    - [Example 2: Batch Processing](#example-2-batch-processing)
+    - [Example 3: Custom Step with Service Integration](#example-3-custom-step-with-service-integration)
+  - [Built-in Services](#built-in-services)
+    - [Azure Blob Storage Service](#azure-blob-storage-service)
+    - [Azure AI Inference Service](#azure-ai-inference-service)
+    - [Azure Cosmos DB Service](#azure-cosmos-db-service)
+    - [Azure AI Search Service](#azure-ai-search-service)
+  - [Built-in Steps](#built-in-steps)
+  - [Creating Custom Components](#creating-custom-components)
+    - [Custom Service](#custom-service)
+    - [Custom Step](#custom-step)
+      - [View the Step documentation for more details on how to create steps and use them in pipelines.](#view-the-step-documentation-for-more-details-on-how-to-create-steps-and-use-them-in-pipelines)
+  - [Environment Variables](#environment-variables)
+  - [Troubleshooting](#troubleshooting)
+    - [Common Issues](#common-issues)
+    - [Debugging Tips](#debugging-tips)
+    - [Performance Optimization](#performance-optimization)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Overview
 
@@ -166,24 +185,24 @@ services_catalog:
         title: "Storage Account Name"
         description: "Name of the Azure Blob Storage account"
         required: true
-        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_NAME"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
+        env_var: "STORAGE_ACCOUNT_NAME"
+        default: ${STORAGE_ACCOUNT_NAME}
       credential_type:
         type: string
         title: "Credential Type"
         description: "Type of credential used for authentication"
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
-        env_var: "AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
+        env_var: "STORAGE_ACCOUNT_NAME"
+        default: ${STORAGE_ACCOUNT_NAME}
       credential_key:
         type: string
         title: "Account Key"
         description: "Account key for Azure Blob Storage authentication"
         required: false
         sensitive: true
-        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_KEY"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+        env_var: "STORAGE_ACCOUNT_KEY"
+        default: ${STORAGE_ACCOUNT_KEY}
     
     # UI metadata for frontend display
     ui_metadata:
@@ -267,7 +286,7 @@ service_instances:
     service_catalog_id: azure_ai_inference_service_01
     settings:
       endpoint: ${AZURE_AI_ENDPOINT}
-      api_key: ${AZURE_AI_API_KEY}
+      api_key: ${AZURE_AI_APIKEY}
       model_name: "gpt-4o"
       max_tokens: 4000
   
@@ -276,9 +295,9 @@ service_instances:
     settings:
       account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
       credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
-      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      api_key: ${AZURE_AI_SEARCH_SERVICE_APIKEY}
       api_version: "2024-07-01"
-      index_name: "documents_index"
+      index_name: ${SEARCH_RAG_INDEX_NAME}
 
 # Pipeline definitions
 pipelines:
@@ -695,19 +714,19 @@ Create a `.env` file with your configuration:
 
 ```bash
 # Azure Storage
-AZURE_STORAGE_SERVICE_ACCOUNT_NAME=your_storage_account
-AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_STORAGE_SERVICE_ACCOUNT_KEY=your_storage_key
+STORAGE_ACCOUNT_NAME=your_storage_account
+STORAGE_ACCOUNT_CREDENTIAL_TYPE=azure_key_credential
+STORAGE_ACCOUNT_KEY=your_storage_key
 
 # Azure AI Services
 AZURE_AI_INFERENCE_SERVICE_ENDPOINT=https://your-ai-service.openai.azure.com/
 AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_AI_INFERENCE_SERVICE_API_KEY=your_api_key
+AZURE_AI_INFERENCE_SERVICE_APIKEY=your_api_key
 
 # Azure AI Search
 AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME=your_search_service_account_name
 AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_AI_SEARCH_SERVICE_API_KEY=your_search_api_key
+AZURE_AI_SEARCH_SERVICE_APIKEY=your_search_api_key
 
 # Azure Cosmos DB
 AZURE_COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/

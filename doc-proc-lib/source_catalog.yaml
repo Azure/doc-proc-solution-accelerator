@@ -1,0 +1,138 @@
+# source_catalog.yaml - Reusable source definitions
+
+sources_catalog:
+
+  # Azure Blob Storage source
+  - id: azure_storage_01
+    name: "Azure Blob Storage - Primary"
+    description: "Primary Azure Blob Storage account for document storage and retrieval"
+    type: azure_blob
+    module_name: doc.proc.source.blob
+    module_path: ./doc/proc/source/blob.py
+    class_name: BlobSource
+    test_connection: true
+    category: "Storage"
+    version: "1.0"
+    tags: [azure, storage, blob, documents]
+
+    # Source configuration settings schema
+    settings_schema:
+      container_name:
+        type: string
+        title: "Container Name"
+        description: "Name of the Azure Blob Storage container"
+        required: true
+        env_var: "STORAGE_CONTAINER_NAME"
+        default: "documents"
+      file_types:
+        type: string
+        title: "File Types"
+        description: "Comma-separated list of file types to include (e.g. .pdf, .docx)"
+        required: true
+        env_var: "STORAGE_FILE_TYPES"
+        default: "pdf,docx"
+      paths:
+        type: string
+        title: "File Paths"
+        description: "Comma-separated list of file paths to include (e.g. /path/to/file1.pdf)"
+        required: true
+        env_var: "STORAGE_FILE_PATHS"
+        default: "/path/to/file1.pdf,/path/to/file2.pdf"
+      include_metadata:
+        type: bool
+        title: "Include Metadata"
+        description: "Whether to include metadata in the processing"
+        required: true
+        env_var: "STORAGE_INCLUDE_METADATA"
+        default: true
+      recursive:
+        type: bool
+        title: "Recursive"
+        description: "Whether to include files from subdirectories"
+        required: true
+        env_var: "STORAGE_RECURSIVE"
+        default: true
+      account_name:
+        type: string
+        title: "Storage Account Name"
+        description: "Name of the Azure Blob Storage account"
+        required: true
+        env_var: "STORAGE_ACCOUNT_NAME"
+        default: ${STORAGE_ACCOUNT_NAME}
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        default: "azure_key_credential"
+        enum: ["azure_key_credential", "default_azure_credential"]
+        env_var: "STORAGE_ACCOUNT_CREDENTIAL_TYPE"
+        default: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE}
+      credential_key:
+        type: string
+        title: "Account Key"
+        description: "Account key for Azure Blob Storage authentication"
+        required: false
+        sensitive: true
+        env_var: "STORAGE_ACCOUNT_KEY"
+        default: ${STORAGE_ACCOUNT_KEY}
+        
+    # UI metadata
+    ui_metadata:
+      icon: "container"
+      color: "#0078D4"
+      description_short: "Azure Blob Storage for document storage"
+      description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
+
+  # Azure Cosmos DB for storing processed document metadata and results
+  - id: azure_cosmos_db_01
+    name: "Azure Cosmos DB"
+    description: "Azure Cosmos DB for storing processed document metadata and results"
+    type: azure_cosmos
+    module_name: doc.proc.source.cosmos
+    module_path: ./doc/proc/source/cosmos.py
+    class_name: CosmosService
+    test_connection: true
+    category: "Database"
+    version: "1.0"
+    tags: [azure, cosmos, database, nosql, metadata]
+    
+    settings_schema:
+      endpoint:
+        type: string
+        title: "Cosmos DB Endpoint"
+        description: "Endpoint URL for Azure Cosmos DB"
+        required: true
+        pattern: "^https://.*"
+        env_var: "AZURE_COSMOS_DB_ENDPOINT"
+        default: ${AZURE_COSMOS_DB_ENDPOINT}
+      key:
+        type: string
+        title: "Primary Key"
+        description: "Primary key for Cosmos DB authentication"
+        required: true
+        sensitive: true
+        env_var: "AZURE_COSMOS_DB_KEY"
+        default: ${AZURE_COSMOS_DB_KEY}
+      database_name:
+        type: string
+        title: "Database Name"
+        description: "Name of the Cosmos DB database"
+        required: true
+        default: "document-processing"
+      container_name:
+        type: string
+        title: "Container Name"
+        description: "Name of the Cosmos DB container"
+        required: true
+        default: "documents"
+      partition_key:
+        type: string
+        title: "Partition Key"
+        description: "Partition key for the container"
+        default: "/id"
+    
+    ui_metadata:
+      icon: "database"
+      color: "#00BCF2"
+      description_short: "Azure Cosmos DB for document metadata"
+      description_long: "Azure Cosmos DB service for storing document metadata, processing results, and application state."

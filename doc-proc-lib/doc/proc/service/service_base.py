@@ -1,5 +1,12 @@
-from abc import abstractmethod
+import os
+import logging
+import json
 
+from typing import Dict, List
+from abc import abstractmethod
+from azure.identity import AzureCliCredential, ChainedTokenCredential, ManagedIdentityCredential
+from azure.identity.aio import AzureCliCredential as AsyncAzureCliCredential, ChainedTokenCredential as AsyncChainedTokenCredential, ManagedIdentityCredential as AsyncManagedIdentityCredential
+from dependencies import get_config
 
 class ServiceExecutionError(Exception):
     """Custom exception for errors during service execution."""
@@ -17,6 +24,7 @@ class ServiceBase:
         self.type = type
         self.settings = settings or {}
         self.params = kwargs
+        self.config = get_config()
 
         if not self.name:
             raise ValueError("Service name cannot be empty")
@@ -24,6 +32,45 @@ class ServiceBase:
         if not self.type:
             raise ValueError("Service type cannot be empty")
         
+    def _get_credentials(self):
+        try:
+            self.tenant_id = os.environ.get('AZURE_TENANT_ID', "*")
+        except Exception as e:
+            raise e
+        
+        try:
+            self.client_id = os.environ.get('AZURE_CLIENT_ID', "*")
+        except Exception as e:
+            raise e
+        
+        self.credential = ChainedTokenCredential(
+                ManagedIdentityCredential(client_id=self.client_id),
+                AzureCliCredential()
+            )
+        
+        self.aiocredential = AsyncChainedTokenCredential(
+                AsyncManagedIdentityCredential(client_id=self.client_id),
+                AsyncAzureCliCredential()
+            )
+        
+    def _get_model(self, model_name: str = 'CHAT_DEPLOYMENT_NAME') -> Dict:
+        model_deployments = self.config.get_value("MODEL_DEPLOYMENTS", default='[]').replace("'", "\"")
+
+        try:
+            print(f"Model deployments: {model_deployments}")
+            logging.info(f"Model deployments: {model_deployments}")
+
+            json_model_deployments = json.loads(model_deployments)
+
+            #get the canonical_name of 'CHAT_DEPLOYMENT_NAME'
+            for deployment in json_model_deployments:
+                if deployment.get("canonical_name") == model_name:
+                    return deployment
+        except json.JSONDecodeError as e:
+            logging.error(f"Error decoding JSON for model deployments: {e}")
+            raise ValueError(f"Invalid model deployments configuration: {model_deployments}")
+            
+        return None
 
     @abstractmethod
     async def test_connection(self) -> bool:

@@ -6,17 +6,18 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel
 import logging
 
-from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig
+from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig, SourceInstanceConfig
 from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutput
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_base import ServiceBase
+from doc.proc.source.source_base import SourceBase
 from doc.proc.service.service_config import ServiceConfig
+from doc.proc.service.source_config import SourceConfig
 from doc.proc.service.service_manager import get_service
+from doc.proc.service.source_manager import get_source
 from doc.proc.utils.import_module import import_module
 
-
 logger = logging.getLogger(__name__)
-
 
 class StepExecutionResult(BaseModel):
     """Model for the result of a step execution."""
@@ -82,7 +83,11 @@ class Pipeline:
             
     """
 
-    def __init__(self, pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig], service_catalog_config: List[ServiceConfig]=None, **kwargs):
+    def __init__(self, pipeline_config: PipelineConfig, 
+                 step_catalog_config: List[StepConfig], 
+                 service_catalog_config: List[ServiceConfig]=None, 
+                 source_catalog_config: List[SourceConfig]=None,
+                 **kwargs):
         """
         Initialize the Pipeline instance with the provided configuration.
         !IMPORTANT!
@@ -92,6 +97,7 @@ class Pipeline:
         self.pipeline_config = pipeline_config
         self.step_catalog = step_catalog_config
         self.service_catalog = service_catalog_config
+        self.source_catalog = source_catalog_config
 
         if not self.pipeline_config:
             raise PipelineConfigError("Pipeline configuration cannot be None")
@@ -103,6 +109,7 @@ class Pipeline:
             raise PipelineConfigError("Services configuration must be a non-empty list if provided")
 
         self.services: List[ServiceBase] = []
+        self.sources: List[SourceBase] = []
         self.pipeline_step_instances: List[StepBase] = []
         self.pipeline_execution_steps: List[StepBase] = []
     
@@ -126,6 +133,9 @@ class Pipeline:
         if self.pipeline_config.service_instances and self.service_catalog:
             await self.__load_services()
 
+        if self.pipeline_config.source_instances and self.source_catalog:
+            await self.__load_sources()
+
         # Load steps and validate them
         self.__load_pipeline_step_instances()
         if not self.pipeline_step_instances:
@@ -138,6 +148,83 @@ class Pipeline:
 
         # Additional validation can be added here if needed
 
+    async def __load_sources(self):
+        """Load sources based on the configuration."""
+
+        logger.debug("Loading sources from configuration")
+
+        if not self.source_catalog or not isinstance(self.source_catalog, list) or len(self.source_catalog) == 0:
+            # do not raise an error if no sources are configured
+            # this allows pipelines to run without sources if not needed
+            return
+
+        for source_instance_config in self.pipeline_config.source_instances:
+            logger.debug(f"Loading pipeline source instance configuration: \"{source_instance_config.name}\" that references source catalog id \"{source_instance_config.source_catalog_id}\"")
+
+            if not isinstance(source_instance_config, SourceInstanceConfig):
+                raise TypeError(f"Source configuration must be an instance of SourceInstanceConfig, got \"{type(source_instance_config)}\"")
+
+            source_config = next((s for s in self.source_catalog if s.id == source_instance_config.source_catalog_id), None)
+            if not source_config:
+                raise PipelineConfigError(f"Source configuration for id \"{source_instance_config.source_catalog_id}\" not found in sources catalog.")
+
+            source_instance = await get_source(
+                source_config=source_config,
+                instance_settings=source_instance_config.settings
+            )
+
+            if not source_instance:
+                raise PipelineConfigError(f"Source instance \"{source_config.name}\" could not be created from configuration in the catalog.")
+
+            logger.info(f"Source instance \"{source_instance_config.name}\" loaded successfully.")
+
+            if source_config.test_connection:
+                logger.debug(f"Testing connection for source instance \"{source_instance_config.name}\"")
+                if not await source_instance.test_connection():
+                    raise PipelineConfigError(f"Source instance \"{source_instance_config.name}\" failed to pass the connection test")
+
+                logger.info(f"Source instance \"{source_instance_config.name}\" connection test passed successfully")
+
+            self.sources.append({ "name": source_instance_config.name,
+                                   "catalog_id": source_instance_config.source_catalog_id,
+                                   "instance": source_instance
+                                 })
+
+            # do not raise an error if no services are configured
+            # this allows pipelines to run without services if not needed
+            return
+
+        for service_instance_config in self.pipeline_config.service_instances:
+            logger.debug(f"Loading pipeline service instance configuration: \"{service_instance_config.name}\" that references service catalog id \"{service_instance_config.service_catalog_id}\"")
+
+            if not isinstance(service_instance_config, ServiceInstanceConfig):
+                raise TypeError(f"Service configuration must be an instance of ServiceInstanceConfig, got \"{type(service_instance_config)}\"")
+
+            service_config = next((s for s in self.service_catalog if s.id == service_instance_config.service_catalog_id), None)
+            if not service_config:
+                raise PipelineConfigError(f"Service configuration for id \"{service_instance_config.service_catalog_id}\" not found in services catalog.")
+
+            service_instance = await get_service(
+                service_config=service_config,
+                instance_settings=service_instance_config.settings
+            )
+
+            if not service_instance:
+                raise PipelineConfigError(f"Service instance \"{service_config.name}\" could not be created from configuration in the catalog.")
+
+            logger.info(f"Service instance \"{service_instance_config.name}\" loaded successfully.")
+
+            if service_config.test_connection:
+                logger.debug(f"Testing connection for service instance \"{service_instance_config.name}\"")
+                if not await service_instance.test_connection():
+                    raise PipelineConfigError(f"Service instance \"{service_instance_config.name}\" failed to pass the connection test")
+
+                logger.info(f"Service instance \"{service_instance_config.name}\" connection test passed successfully")
+
+            self.services.append({ "name": service_instance_config.name, 
+                                   "catalog_id": service_instance_config.service_catalog_id,
+                                   "instance": service_instance 
+                                 })
 
     async def __load_services(self):
         """Load services based on the configuration."""
@@ -276,7 +363,10 @@ class Pipeline:
 
 
     @staticmethod
-    async def create(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "Pipeline":
+    async def create(pipeline_config: PipelineConfig, 
+                     step_catalog_config: List[StepConfig] = None, 
+                     service_catalog_config: List[ServiceConfig] = None,
+                     source_catalog_config: List[SourceConfig] = None) -> "Pipeline":
         """Factory method to create a Pipeline instance from configuration."""
         
         logger.info("Creating pipeline instance from configuration")
@@ -286,8 +376,14 @@ class Pipeline:
 
         if not step_catalog_config or len(step_catalog_config) == 0:
             raise PipelineConfigError("Step catalog cannot be None or empty")
+        
+        if not source_catalog_config or len(source_catalog_config) == 0:
+            raise PipelineConfigError("Source catalog cannot be None or empty")
 
-        pipeline_instance = Pipeline(pipeline_config=pipeline_config, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
+        pipeline_instance = Pipeline(pipeline_config=pipeline_config, 
+                                     step_catalog_config=step_catalog_config, 
+                                     service_catalog_config=service_catalog_config,
+                                     source_catalog_config=source_catalog_config)
 
         # Load and validate the pipeline configuration and steps.
         try:
@@ -298,9 +394,29 @@ class Pipeline:
         logger.debug(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
         return pipeline_instance
 
+    async def load_data(self) -> StepInputOutput:
+        """Load data for the pipeline."""
+        logger.info(f"Loading data for pipeline '{self.name}'")
 
-    async def run(self, input_data: StepInputOutput) -> PipelineExecutionResult:
+        input_data = StepInputOutput(summary_data={}, data={})
+
+        # Implement data loading logic here
+        for source in self.sources:
+            instance = source.get('instance')
+            source_input_data = await instance.load_data()
+            if not source_input_data:
+                logger.warning(f"Source '{source.name}' returned no data.")
+                continue
+            
+            # Merge or process input_data as needed
+            input_data.data.update(source_input_data.data)
+            logger.info(f"Loaded data from source '{instance.name}'")
+
+        return input_data
+
+    async def run(self) -> PipelineExecutionResult:
         """Run the pipeline with the given input data."""
+        input_data = await self.load_data()
 
         logger.info(f"Starting pipeline '{self.name}' execution with input data: {input_data.data}")
 
@@ -308,7 +424,7 @@ class Pipeline:
             logger.error("Pipeline execution steps are not defined. Please check the pipeline configuration.")
             raise PipelineConfigError("No execution steps defined in the pipeline")
 
-        context = PipelineExecutionContext(pipeline=self, services=self.services, start_time=datetime.now())
+        context = PipelineExecutionContext(pipeline=self, services=self.services, sources=self.sources, start_time=datetime.now())
 
         output_data = input_data
 
