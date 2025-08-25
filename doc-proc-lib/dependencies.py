@@ -18,7 +18,7 @@ def get_config(action: str = None) -> Configuration:
     return __config
 
 def validate_api_key_header(x_api_key: str = Depends(APIKeyHeader(name='X-API-Key'))):
-    result = x_api_key == get_config().get_value(f'INGEST_APP_APIKEY')
+    result = x_api_key == get_config().get_value(f'INGESTION_APP_APIKEY')
     
     if not result:
         logging.error('Invalid API key. You must provide a valid API key in the X-API-KEY header.')

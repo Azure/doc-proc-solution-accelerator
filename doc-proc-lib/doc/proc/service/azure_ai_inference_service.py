@@ -1,6 +1,9 @@
 import logging
 import os
+import tiktoken
+
 from typing import List
+from tenacity import retry, wait_random_exponential, stop_after_attempt, RetryError
 
 from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
@@ -23,6 +26,8 @@ class AzureAIInferenceService(ServiceBase):
         self.api_key = ''
 
         self.model = self._get_model(self.model_name)
+
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
         # Validate endpoint
         if not self.endpoint:
@@ -80,6 +85,9 @@ class AzureAIInferenceService(ServiceBase):
         self.__init_client()
 
 
+    @retry(
+        stop=stop_after_attempt(5)
+    )
     def __init_client(self):
         """Initialize the ChatCompletionsClient."""
 

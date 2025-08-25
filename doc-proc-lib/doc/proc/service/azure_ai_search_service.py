@@ -1,7 +1,10 @@
 import logging
 import os
-from typing import List
 import aiohttp
+
+from typing import List
+
+from tenacity import retry, wait_random_exponential, stop_after_attempt, RetryError
 
 from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
@@ -89,7 +92,9 @@ class AzureAISearchService(ServiceBase):
         if self.index_name in ['', None]:
             raise ValueError("Settings key 'index_name' is required")
 
-    
+    @retry(
+        stop=stop_after_attempt(5)
+    )
     async def get_auth_header_for_http_request(self):
         """Get the authentication header based on the credential type."""
         if self.credential_type == 'azure_key_credential':

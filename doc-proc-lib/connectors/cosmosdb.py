@@ -1,6 +1,8 @@
 import logging
 from configuration import Configuration
 
+from tenacity import retry, wait_random_exponential, stop_after_attempt, RetryError
+
 MAX_RETRIES = 10  # Maximum number of retries for rate limit errors
 
 class CosmosDBClient:
@@ -22,6 +24,12 @@ class CosmosDBClient:
         self.db_name = self.config.get_value("DATABASE_NAME")
         self.db_uri = f"https://{self.db_id}.documents.azure.com:443/"
 
+        self._init_clients()
+
+    @retry(
+        stop=stop_after_attempt(5)
+    )
+    def _init_clients(self):
         from azure.cosmos import CosmosClient
         self.db_client = CosmosClient(self.db_uri, credential=self.config.credential)
         self.db = self.db_client.get_database_client(database=self.db_name)

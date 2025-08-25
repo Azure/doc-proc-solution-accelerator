@@ -19,6 +19,36 @@
                 "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
                 "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
             }
+        },
+        {
+            "name": "Doc Proc Worker",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "worker.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/doc-proc-lib",
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "AZURE_TENANT_ID" : "",
+                "AZURE_CLIENT_ID" : "",
+                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+            }
+        },
+        {
+            "name": "Doc Proc Crawler",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "crawler.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/doc-proc-lib",
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "AZURE_TENANT_ID" : "",
+                "AZURE_CLIENT_ID" : "",
+                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+            }
         }
     ]
 }

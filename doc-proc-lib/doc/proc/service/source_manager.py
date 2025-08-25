@@ -60,7 +60,7 @@ async def get_source(source_config: SourceConfig, instance_settings: dict = None
         logger.debug(f"Source instance settings: {settings}")
 
         # Create an instance of the source class
-        source_instance = source_class(name=source_config.name, type=source_config.type, settings=settings)
+        source_instance = source_class(id=source_config.id, name=source_config.name, type=source_config.type, settings=settings)
 
         if not issubclass(source_class, SourceBase):
             raise TypeError(f"Source class \"{source_config.class_name}\" must be a subclass of SourceBase.")

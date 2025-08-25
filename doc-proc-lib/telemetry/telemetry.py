@@ -7,6 +7,9 @@ from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource, SERVICE_INSTANCE_ID, SERVICE_VERSION, SERVICE_NAMESPACE
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 from configuration import Configuration
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 # Custom filter to exclude trace logs
 class ExcludeTraceLogsFilter(logging.Filter):
@@ -26,6 +29,30 @@ class Telemetry:
     langchain_log_level : int = logging.NOTSET
     api_name : str = None
     telemetry_connection_string : str = None
+
+    def setup_logging(logger: logging.Logger):
+        """Setup logging configuration."""
+        logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+
+        class ColorFormatter(logging.Formatter):
+            COLORS = {
+                logging.DEBUG: Fore.CYAN,
+                logging.INFO: Fore.GREEN,
+                logging.WARNING: Fore.YELLOW,
+                logging.ERROR: Fore.RED,
+                logging.CRITICAL: Fore.RED + Style.BRIGHT,
+            }
+            def format(self, record):
+                color = self.COLORS.get(record.levelno, "")
+                message = super().format(record)
+                return f"{color}{message}{Style.RESET_ALL}"
+
+        formatter = ColorFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)')
+        handler.setFormatter(formatter)
+        logger.handlers.clear()
+        logger.addHandler(handler)
 
     @staticmethod
     def configure_basic(config: Configuration):

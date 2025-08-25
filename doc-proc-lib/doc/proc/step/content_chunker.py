@@ -4,10 +4,14 @@ import os
 import re
 import logging
 import json
+import spacy
+
 from typing import List, Dict, Set
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.models.docproc_request import DocProcRequest
+from doc.proc.models.docproc_state import DocProcState
 
 logger = logging.getLogger("doc.proc.step.content_chunker") # need to specify the logger name as this module is loaded dynamically
 
@@ -20,8 +24,9 @@ class ContentChunkerStep(StepBase):
         if not self.settings:
             self.settings = {}
 
+        self.nlp = spacy.load('en_core_web_sm')
 
-    async def run(self, input_data: dict, context: "PipelineExecutionContext") -> Dict:
+    async def run(self, input_data: dict, context: "PipelineExecutionContext", request: DocProcRequest, state: DocProcState) -> Dict:
         """
         Process a single document to extract content.
         
@@ -32,44 +37,28 @@ class ContentChunkerStep(StepBase):
         """
 
         # Get the source
-        documents = input_data.data.get("documents", [])
+        document = input_data.data.get("documents", [])[0]
 
-        for document in documents:
-            source = document.get("source_name")
+        content = document.get("content","")
 
-            if not source:
-                logger.error(f"No source found in document: {document}.")
-                raise StepExecutionError(f"No source found in document: {document}.")
+        doc = self.nlp(content)
+        sentences = list(doc.sents)
+        chunks = []
+        chunk_id = 0
 
-            # Find the source by name by iterating
-            source_instance = None
-            for src in context.sources:
-                if src["instance"].name == source:
-                    source_instance = src["instance"]
-                    break
-
-            if not source_instance:
-                logger.error(f"No source instance found for: {document['source_name']}.")
-                raise StepExecutionError(f"No source instance found for: {document['source_name']}.")
-
-            content = await source_instance.get_content(document["content_uri"])
-
-            if not content:
-                logger.error(f"No content found for: {document['content_uri']}.")
-                raise StepExecutionError(f"No content found for: {document['content_uri']}.")
-
-            content_metadata = await source_instance.get_content_metadata(document["content_uri"])
-
-            if not content_metadata:
-                logger.error(f"No content metadata found for: {document['content_uri']}.")
+        for sentence in sentences:
+            chunk_data = {
+                    'chunk_id': len(chunks),
+                    'chunk_type': 'page',
+                    'chunk_num': len(chunks),
+                    'text': sentence,
+                    'length' : len(sentence),
+                    'size' : len(sentence),
+                    'raw_text': sentence
+                }
                 
-            # Process the content and metadata as needed
-            # ...
+            chunks.append(chunk_data)
 
-            if content:
-                document["content"] = content
-
-            if content_metadata:
-                document["metadata"] = content_metadata
-
+        document['chunks'] = chunks
+            
         return input_data

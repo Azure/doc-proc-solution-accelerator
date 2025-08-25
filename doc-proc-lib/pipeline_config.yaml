@@ -44,9 +44,18 @@ service_instances:
       index_name: ${SEARCH_RAG_INDEX_NAME} # Name of the search index to use
 
 source_instances:
+  - name: sharepoint_01
+    source_catalog_id: sharepoint_01 # Reference to source in catalog
+    settings:
+      reindex : true
+      account_name: ${STORAGE_ACCOUNT_NAME}
+      credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      credential_key: ${STORAGE_ACCOUNT_KEY}
+  
   - name: primary_blob_storage
     source_catalog_id: azure_storage_01 # Reference to source in catalog
     settings:
+      reindex : true
       account_name: ${STORAGE_ACCOUNT_NAME}
       credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
       credential_key: ${STORAGE_ACCOUNT_KEY}
@@ -62,7 +71,9 @@ pipelines:
     description: 'A pipeline to extract, transform, and load documents from Azure Blob Storage to a database'
     version: '1.0'
     #run every 5 mins
-    schedule: "*/5 * * * *" # Run every 5 minutes
+    schedule: "*/2 * * * *" # Run every 5 minutes
+    crawl_schedule: "*/2 * * * *" # Run every 5 minutes
+    purge_schedule: "*/2 * * * *" # Run every 5 minutes
 
     ###########################################################
     # PIPELINE STEP INSTANCES
@@ -98,6 +109,20 @@ pipelines:
         debug_mode: false # Enable debug mode for this step
         settings:
           identification_methods: "magic_bytes, file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
+
+      ## STEP 2: Extract Content
+      - name: "content_chunker"
+        step_catalog_id: content_chunker
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
 
       ## STEP 2: Extract Content
       - name: "content_embed"
@@ -361,13 +386,53 @@ pipelines:
                     "contentVector": "contentVector",
                     "captionVector": "captionVector"
                     }
+      
+      ## STEP 5: AI Search Index Writer
+      - name: ai_search_purge
+        step_catalog_id: ai_search_purge
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [primary_ai_search_service] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          index_name: "${SEARCH_RAG_INDEX_NAME}"
+          index_field_mappings: | 
+                    {
+                    "id": "id",
+                    "id": "parent_id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page_num": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "file_path": "filepath",
+                    "url": "url",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "contentVector": "contentVector",
+                    "captionVector": "captionVector"
+                    }
 
       
     ##########################################################
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
     ## execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_embed,ai_search_index_writer_1]
+    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_chunker, content_embed,ai_search_index_writer_1]
 
     ##########################################################
     # PIPELINE SETTINGS

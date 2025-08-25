@@ -15,6 +15,18 @@ class Configuration:
     credential = None
     aiocredential = None
 
+    def retry_before_sleep(self, retry_state):
+        # Log the outcome of each retry attempt.
+        message = f"""Retrying {retry_state.fn}:
+                        attempt {retry_state.attempt_number}
+                        ended with: {retry_state.outcome}"""
+        if retry_state.outcome.failed:
+            ex = retry_state.outcome.exception()
+            message += f"; Exception: {ex.__class__.__name__}: {ex}"
+        if retry_state.attempt_number < 1:
+            logging.info(message)
+        else:
+            logging.warning(message)
 
     def __init__(self):
 
@@ -38,6 +50,12 @@ class Configuration:
                 AsyncAzureCliCredential()
             )
         
+        self._init_clients()
+
+    @retry(
+        stop=stop_after_attempt(5)
+    )
+    def _init_clients(self):
         no_label_selector = SettingSelector(label_filter=None, key_filter='*')
         label_selector = SettingSelector(label_filter='gpt-rag', key_filter='*')
         
@@ -57,6 +75,7 @@ class Configuration:
             except Exception as e:
                 raise Exception(f"Unable to connect to Azure App Configuration. Please check your connection string or endpoint. {e}")
 
+    
     # Connect to Azure App Configuration.
     def get(self, key: str, default: str = None, allow_none: bool = False, type: type = str) -> str:
         return self.get_value(key=key, default=default, allow_none=allow_none, type=type)
@@ -99,19 +118,6 @@ class Configuration:
                 return default
             
             raise Exception(f'The configuration variable {key} not found.')
-        
-    def retry_before_sleep(self, retry_state):
-        # Log the outcome of each retry attempt.
-        message = f"""Retrying {retry_state.fn}:
-                        attempt {retry_state.attempt_number}
-                        ended with: {retry_state.outcome}"""
-        if retry_state.outcome.failed:
-            ex = retry_state.outcome.exception()
-            message += f"; Exception: {ex.__class__.__name__}: {ex}"
-        if retry_state.attempt_number < 1:
-            logging.info(message)
-        else:
-            logging.warning(message)
 
     @retry(
         wait=wait_random_exponential(multiplier=1, max=5),

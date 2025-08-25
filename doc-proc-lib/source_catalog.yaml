@@ -2,6 +2,23 @@
 
 sources_catalog:
 
+  # SharePoint source
+  - id: sharepoint_01
+    name: "SharePoint - Primary"
+    description: "Primary SharePoint site for document storage and retrieval"
+    type: sharepoint
+    module_name: doc.proc.source.sharepoint
+    module_path: ./doc/proc/source/sharepoint.py
+    class_name: SharePointSource
+    test_connection: false
+    enabled: true
+    category: "Storage"
+    version: "1.0"
+    tags: [storage, sharepoint, documents]
+
+    # Source configuration settings schema
+    settings_schema:
+
   # Azure Blob Storage source
   - id: azure_storage_01
     name: "Azure Blob Storage - Primary"
@@ -11,6 +28,7 @@ sources_catalog:
     module_path: ./doc/proc/source/blob.py
     class_name: BlobSource
     test_connection: true
+    enabled: false
     category: "Storage"
     version: "1.0"
     tags: [azure, storage, blob, documents]

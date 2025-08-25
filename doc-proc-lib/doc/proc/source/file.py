@@ -5,6 +5,8 @@ from .source_base import SourceBase
 
 from doc.proc.service import ServiceBase, ServiceExecutionError, BlobService
 from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutput
+from doc.proc.models.content_identifier import ContentIdentifier
+
 from dependencies import get_config
 
 from azure.identity.aio import DefaultAzureCredential
@@ -14,8 +16,8 @@ logger = logging.getLogger("doc.proc.source.file") # need to specify the logger 
 
 class FileSource(SourceBase):
     """Data source for loading data from local File Storage."""
-    def __init__(self, name, type, settings: dict):
-        super().__init__(name, type, settings)
+    def __init__(self, id, name, type, settings: dict):
+        super().__init__(id, name, type, settings)
 
         self.container_name = settings.get("container_name")
         self.file_types = settings.get("file_types", [])
@@ -54,6 +56,9 @@ class FileSource(SourceBase):
 
         return input_output
     
+    async def get_document(self, content_identifier : ContentIdentifier):
+        return await self.get_content(content_identifier.canonical_id)
+    
     async def get_content(self, content_uri):
         """Get the content of a blob from Azure Blob Storage."""
         try:
@@ -72,7 +77,7 @@ class FileSource(SourceBase):
                 "name": properties.name,
                 "size": properties.size,
                 "content_type": properties.content_type,
-                "last_modified": properties.last_modified
+                "modified": properties.last_modified
             }
         except Exception as e:
             logger.error(f"Failed to get content metadata from Azure Blob Storage: {e}")

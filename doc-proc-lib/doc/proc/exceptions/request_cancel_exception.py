@@ -1,0 +1,2 @@
+class RequestCancelException(Exception):
+    pass

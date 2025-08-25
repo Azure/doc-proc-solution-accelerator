@@ -32,6 +32,9 @@ class PipelineConfig(BaseModel):
     description: Optional[str] = None
     version: Optional[str] = None
     schedule: Optional[str] = None
+    crawl_schedule: Optional[str] = None
+    recrawl: Optional[bool] = None
+    purge_schedule: Optional[str] = None
     steps: List[StepInstanceConfig] = []
     execution_sequence: List[str] = None  # Order of step instance names
     settings: PipelineSettingsConfig = PipelineSettingsConfig()

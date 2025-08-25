@@ -1,10 +1,15 @@
 import logging
 import hashlib
 
-from typing import Dict, Any
+from typing import Optional, List, Dict, Any, Iterator, Tuple
 from abc import abstractmethod
 from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutput
 from doc.proc.service.source_config import SourceConfig
+from doc.proc.models.content_identifier import ContentIdentifier
+from doc.proc.models.docproc_request import DocProcRequest
+from doc.proc.models.docproc_state import DocProcState
+
+from dependencies import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +25,27 @@ class SourceConfigError(Exception):
 
 class SourceBase:
     """Base class for data sources in the pipeline."""
-    def __init__(self, name, type, settings: dict):
+    def __init__(self, id, name, type, settings: dict):
+        self.id = id
         self.name = name
         self.type = type
         self.settings = settings
+        self.config = get_config()
+
+    def replace_config_value(self, value):
+        if value.startswith('${') and value.endswith('}'):
+            env_var_name = value[2:-1]
+            value = self.config.get(env_var_name)
+        return value
 
     async def load_data(self) -> StepInputOutput:
         """Load data from the source."""
+        raise NotImplementedError("Subclasses must implement this method.")
+    
+    async def check_changes(self, request: DocProcRequest, state: DocProcState):
+        raise NotImplementedError("Subclasses must implement this method.")
+    
+    async def check_exists(self, content_identifier : ContentIdentifier):
         raise NotImplementedError("Subclasses must implement this method.")
     
     async def get_content(self, contentUri:str):
@@ -38,6 +57,10 @@ class SourceBase:
         raise NotImplementedError("Subclasses must implement this method.")
     
     async def get_content_security(self, contentUri:str):
+        """Get content security information from the source."""
+        raise NotImplementedError("Subclasses must implement this method.")
+    
+    async def get_items(self) -> Iterator:
         """Get content security information from the source."""
         raise NotImplementedError("Subclasses must implement this method.")
     

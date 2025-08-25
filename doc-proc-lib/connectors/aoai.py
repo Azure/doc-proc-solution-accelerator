@@ -7,6 +7,8 @@ from openai import AzureOpenAI, RateLimitError
 from azure.identity import ManagedIdentityCredential, AzureCliCredential, ChainedTokenCredential, get_bearer_token_provider
 from configuration import Configuration
 
+from tenacity import retry, wait_random_exponential, stop_after_attempt, RetryError
+
 MAX_RETRIES = 10 # Maximum number of retries for rate limit errors
 MAX_EMBEDDINGS_MODEL_INPUT_TOKENS = 8192
 MAX_GPT_MODEL_INPUT_TOKENS = 128000 # this is gpt4o max input, if using gpt35turbo use 16385
@@ -39,6 +41,12 @@ class AzureOpenAIConnector:
         self.max_completion_tokens = self.settings.get("max_completion_tokens", self.config.get_value('AZURE_OPENAI_MAX_TOKENS', 10000, type=int))
         self.stream = self.settings.get("stream", self.config.get_value('AZURE_OPENAI_STREAM', False, type=bool))
 
+        self._init_clients()
+
+    @retry(
+        stop=stop_after_attempt(5)
+    )
+    def _init_clients(self):
         token_provider = get_bearer_token_provider(
             self.config.credential, 
             "https://cognitiveservices.azure.com/.default"

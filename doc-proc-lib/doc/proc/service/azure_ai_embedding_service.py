@@ -1,6 +1,9 @@
 import logging
 import os
+import tiktoken
+
 from typing import List
+from tenacity import retry, wait_random_exponential, stop_after_attempt, RetryError
 
 from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
@@ -23,6 +26,7 @@ class AzureAIEmbeddingService(ServiceBase):
         self.api_key = ''
 
         self.model = self._get_model(self.model_name)
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
         # Validate endpoint
         if not self.endpoint:
@@ -79,6 +83,9 @@ class AzureAIEmbeddingService(ServiceBase):
         self.__init_client()
 
 
+    @retry(
+        stop=stop_after_attempt(5)
+    )
     def __init_client(self):
         """Initialize the EmbeddingsClient."""
 
@@ -112,6 +119,10 @@ class AzureAIEmbeddingService(ServiceBase):
     def run_embeddings(self, content :str) -> ChatCompletions:
         """Run embeddings using the Azure AI Embedding Service."""
         try:
+            tokens = self.encoding.encode(content)
+            if len(tokens) > 8192:
+                content = self.encoding.decode(tokens[:8192])
+
             response = self.embeddings_client.embed(input=content)
             return response.data[0].embedding
         except Exception as e:

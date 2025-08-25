@@ -65,6 +65,30 @@ step_catalog:
       description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
 
 ########################################################
+  # Extract Content Step
+  - id: content_chunker
+    name: "Chunk Content"
+    description: "Chunks content from various document types"
+    type: script
+    module_name: content_chunker
+    module_path: ./doc/proc/step/content_chunker.py
+    class_name: ContentChunkerStep
+    tags: [document, chunking, content]
+    category: "Processing"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "file-question-mark"
+      color: "#F59E0B"
+      description_short: "Identifies document types based on file properties."
+      description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
+
+########################################################
   # Embed Content Step
   - id: content_embed
     name: "Embed Content"
@@ -522,6 +546,78 @@ step_catalog:
     module_name: ai_search_index_writer
     module_path: ./doc/proc/step/ai_search_index_writer.py
     class_name: AISearchIndexWriterStep
+    tags: [ai, search, index, azure_search]
+    category: "AI Processing"
+    version: "1.0"
+    
+    # Settings schema for UI generation and validation
+    settings_schema:
+      ai_search_service:
+        type: string
+        title: "Azure AI Search Service"
+        description: "Reference to the Azure AI Search service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_ai_search"
+      storage_service:
+        type: string
+        title: "Storage Service"
+        description: "Reference to the storage service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_blob"
+      index_name:
+        type: string
+        title: "Azure AI Index Name"
+        description: "Name of the Azure AI Search index to write to"
+        default: "pdf-index"
+        ui_component: "input"
+      index_field_mappings:
+        type: string
+        title: "Index Field Mappings"
+        description: "Mappings of document fields to index fields. Document fields are mapped from the StepInputOutput object model."
+        default: |
+                  {
+                    "id": "id",
+                    "parent_id": "id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "filepath": "file_path",
+                    "url": "file_path",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "contentVector": "contentVector",
+                    "captionVector": "captionVector"
+                  }
+        ui_component: "textarea"
+      
+    ui_metadata:
+      icon: "text-search"
+      color: "#8B5CF6"
+      description_short: "Writes AI-generated summaries and metadata to search index."
+      description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
+  
+  ########################################################
+  # AI Search Index Writer step
+  - id: ai_search_purge
+    name: "AI Search Index Purger"
+    description: "Purges AI-generated summaries and metadata from search index"
+    type: script
+    module_name: ai_search_purge
+    module_path: ./doc/proc/step/ai_search_purge.py
+    class_name: AISearchPurgeStep
     tags: [ai, search, index, azure_search]
     category: "AI Processing"
     version: "1.0"

@@ -1,30 +1,24 @@
-from azure.storage.blob import ContainerClient, BlobServiceClient, generate_blob_sas, BlobSasPermissions
-from azure.identity import ManagedIdentityCredential, AzureCliCredential, ChainedTokenCredential
-from azure.core.exceptions import ResourceNotFoundError, AzureError
-from urllib.parse import urlparse, unquote
-from typing import Union, IO
 import logging
 import datetime
 import os
 import time
 
-from configuration import Configuration
+from azure.storage.blob import ContainerClient, BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from azure.core.exceptions import ResourceNotFoundError, AzureError
+from urllib.parse import urlparse, unquote
+from typing import Union, IO
 
-class BlobClient:
-    
-    def __init__(self, blob_url, credential=None):
-        """
-        Initialize BlobClient with a specific blob URL.
-        
-        :param blob_url: URL of the blob (e.g., "https://mystorage.blob.core.windows.net/mycontainer/myblob.png")
-        :param credential: Credential for authentication (optional)
-        """
+from dependencies import get_config
+from configuration import Configuration
+from .azure_client import AzureClient
+
+class AzureBlobClient(AzureClient):
+    def __init__(self,credential=None):
         # 1. Generate the credential in case it is not provided
         self.credential = self._get_credential(credential)
-        self.file_url = blob_url
         self.blob_service_client = None
 
-        config = Configuration()
+        config = get_config()
 
         self.storage_account_name = config.get_value("STORAGE_ACCOUNT_NAME")
         self.use_sas_token = config.get_value("USE_SAS_TOKEN", "true") == "true"
@@ -34,122 +28,6 @@ class BlobClient:
         self.blob_service_client = BlobServiceClient(
             f"https://{self.storage_account_name}.blob.core.windows.net", credential=config.credential
         )
-
-        # 2. Parse the blob URL => account_url, container_name, blob_name
-        try:
-            parsed_url = urlparse(self.file_url)
-            self.account_url = f"{parsed_url.scheme}://{parsed_url.netloc}"   # e.g. https://mystorage.blob.core.windows.net
-            self.container_name = parsed_url.path.split("/")[1]              # e.g. 'mycontainer'
-            # Blob name is everything after "/{container_name}/"
-            self.blob_name = unquote(parsed_url.path[len(f"/{self.container_name}/"):])
-            logging.debug(f"[blob][{self.blob_name}] Parsed blob URL successfully.")
-        except Exception as e:
-            logging.error(f"[blob] Invalid blob URL '{self.file_url}': {e}")
-            raise EnvironmentError(f"Invalid blob URL '{self.file_url}': {e}")
-
-        # 3. Initialize the BlobServiceClient
-        try:
-            self.blob_service_client = BlobServiceClient(
-                account_url=self.account_url, 
-                credential=self.credential
-            )
-            logging.debug(f"[blob][{self.blob_name}] Initialized BlobServiceClient.")
-        except Exception as e:
-            logging.error(f"[blob][{self.blob_name}] Failed to initialize BlobServiceClient: {e}")
-            raise
-
-    def _get_credential(self, credential):
-        """
-        Get the appropriate credential for authentication.
-        
-        :param credential: Credential for authentication (optional)
-        :return: Credential object
-        """
-        if credential is None:
-            try:
-                credential = ChainedTokenCredential(
-                    ManagedIdentityCredential(),
-                    AzureCliCredential()
-                )
-                logging.debug("[blob] Initialized ChainedTokenCredential with ManagedIdentityCredential and AzureCliCredential.")
-            except Exception as e:
-                logging.error(f"[blob] Failed to initialize ChainedTokenCredential: {e}")
-                raise
-        else:
-            logging.debug("[blob] Initialized BlobClient with provided credential.")
-        return credential
-
-    def download_blob(self):
-        """
-        Downloads the blob data from Azure Blob Storage.
-
-        Returns:
-            bytes: The content of the blob.
-
-        Raises:
-            Exception: If downloading the blob fails after retries.
-        """
-        blob_client = self.blob_service_client.get_blob_client(container=self.container_name, blob=self.blob_name)
-        data = b""
-
-        try:
-            logging.debug(f"[blob][{self.blob_name}] Attempting to download blob.")
-            data = blob_client.download_blob().readall()
-            logging.info(f"[blob][{self.blob_name}] Blob downloaded successfully.")
-        except Exception as e:
-            error_message = f"Error when downloading blob: {e}"            
-            logging.error(f"[blob][{self.blob_name}] Failed to download blob. Error: {e}")
-            raise Exception(error_message)
-
-        return data
-
-class BlobContainerClient:
-    def __init__(self, storage_account_base_url, container_name, credential=None):
-        """
-        Initialize BlobContainerClient with the storage account base URL and container name.
-        
-        :param storage_account_base_url: Base URL of the storage account (e.g., "https://mystorage.blob.core.windows.net")
-        :param container_name: Name of the container
-        :param credential: Credential for authentication (optional)
-        """
-        try:
-            self.credential = self._get_credential(credential)
-            self.container_client = ContainerClient(
-                account_url=storage_account_base_url,
-                container_name=container_name,
-                credential=self.credential
-            )
-            # Verify the container exists
-            self.container_client.get_container_properties()
-            logging.debug(f"[blob] Connected to container '{container_name}'.")
-        except ResourceNotFoundError:
-            logging.error(f"[blob] Container '{container_name}' does not exist.")
-            raise
-        except AzureError as e:
-            logging.error(f"[blob] Failed to connect to container: {e}")
-            raise
-
-
-    def _get_credential(self, credential):
-        """
-        Get the appropriate credential for authentication.
-        
-        :param credential: Credential for authentication (optional)
-        :return: Credential object
-        """
-        if credential is None:
-            try:
-                credential = ChainedTokenCredential(
-                    ManagedIdentityCredential(),
-                    AzureCliCredential()
-                )
-                logging.debug("[blob] Initialized ChainedTokenCredential with ManagedIdentityCredential and AzureCliCredential.")
-            except Exception as e:
-                logging.error(f"[blob] Failed to initialize ChainedTokenCredential: {e}")
-                raise
-        else:
-            logging.debug("[blob] Initialized BlobClient with provided credential.")
-        return credential
 
     def generate_sas_token(self, container_name, blob_name):
         delegation_key = self.blob_service_client.get_user_delegation_key(
@@ -175,6 +53,131 @@ class BlobContainerClient:
         else:
             # Generate a URL without SAS token for Managed Identity access
             return blob_client.url
+        
+    async def file_exists_async(self, container_name, blob_name):
+        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        try:
+            blob_client.get_blob_properties()
+            return True
+        except ResourceNotFoundError:
+            return False
+        
+    def get_files(self, container_name : str, path : str):
+        container_client = self.blob_service_client.get_container_client(container_name)
+        blobs = container_client.list_blobs(name_starts_with=path)
+        return blobs
+
+    async def write_file_async(self, container_name, blob_name, data: bytes):
+        return await self.upload_blob(container_name, blob_name, data)
+
+    async def read_file_async(self, container_name, blob_name):
+        return self.download_blob(container_name, blob_name)
+        
+    def download_blob(self, container_name, blob_name):
+        """
+        Downloads the blob data from Azure Blob Storage.
+
+        Returns:
+            bytes: The content of the blob.
+
+        Raises:
+            Exception: If downloading the blob fails after retries.
+        """
+        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        data = b""
+
+        try:
+            logging.debug(f"[blob][{blob_name}] Attempting to download blob.")
+            data = blob_client.download_blob().readall()
+            logging.info(f"[blob][{blob_name}] Blob downloaded successfully.")
+        except Exception as e:
+            error_message = f"Error when downloading blob: {e}"            
+            logging.error(f"[blob][{blob_name}] Failed to download blob. Error: {e}")
+            raise Exception(error_message)
+
+        return data
+        
+    async def upload_blob(self, container_name, blob_name, data: bytes):
+        """
+        Uploads a blob to Azure Blob Storage.
+
+        :param data: The content of the blob to upload
+        """
+        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        try:
+            blob_client.upload_blob(data, overwrite=True)
+            logging.info(f"[blob][{blob_name}] Blob uploaded successfully.")
+        except Exception as e:
+            logging.error(f"[blob][{blob_name}] Failed to upload blob. Error: {e}")
+            raise
+
+
+class BlobClient(AzureBlobClient):
+    
+    def __init__(self, blob_url, credential=None):
+        """
+        Initialize BlobClient with a specific blob URL.
+        
+        :param blob_url: URL of the blob (e.g., "https://mystorage.blob.core.windows.net/mycontainer/myblob.png")
+        :param credential: Credential for authentication (optional)
+        """
+        super().__init__(credential)
+
+        self.file_url = blob_url
+
+        # 2. Parse the blob URL => account_url, container_name, blob_name
+        try:
+            parsed_url = urlparse(self.file_url)
+            self.account_url = f"{parsed_url.scheme}://{parsed_url.netloc}"   # e.g. https://mystorage.blob.core.windows.net
+            self.container_name = parsed_url.path.split("/")[1]              # e.g. 'mycontainer'
+            # Blob name is everything after "/{container_name}/"
+            self.blob_name = unquote(parsed_url.path[len(f"/{self.container_name}/"):])
+            logging.debug(f"[blob][{self.blob_name}] Parsed blob URL successfully.")
+        except Exception as e:
+            logging.error(f"[blob] Invalid blob URL '{self.file_url}': {e}")
+            raise EnvironmentError(f"Invalid blob URL '{self.file_url}': {e}")
+
+    async def file_exists_async(self):
+        return super().file_exists_async(self.container_name, self.blob_name)
+
+    async def read_file_async(self):
+        return await self.download_blob()
+
+    async def write_file_async(self, data: bytes):
+        await self.upload_blob(data)
+
+    def upload_blob(self, data: bytes):
+        super().upload_blob(self.container_name, self.blob_name, data)
+
+    def download_blob(self):
+        return super().download_blob(self.container_name, self.blob_name)
+
+class BlobContainerClient(AzureBlobClient):
+    def __init__(self, storage_account_base_url, container_name, credential=None):
+        """
+        Initialize BlobContainerClient with the storage account base URL and container name.
+        
+        :param storage_account_base_url: Base URL of the storage account (e.g., "https://mystorage.blob.core.windows.net")
+        :param container_name: Name of the container
+        :param credential: Credential for authentication (optional)
+        """
+        super().__init__(credential)
+        
+        try:
+            self.container_client = ContainerClient(
+                account_url=storage_account_base_url,
+                container_name=container_name,
+                credential=self.credential
+            )
+            # Verify the container exists
+            self.container_client.get_container_properties()
+            logging.debug(f"[blob] Connected to container '{container_name}'.")
+        except ResourceNotFoundError:
+            logging.error(f"[blob] Container '{container_name}' does not exist.")
+            raise
+        except AzureError as e:
+            logging.error(f"[blob] Failed to connect to container: {e}")
+            raise
         
     def upload_blob(self, blob_name : str, file_path : str, overwrite:bool=False):
         """

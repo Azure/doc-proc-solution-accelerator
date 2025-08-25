@@ -13,6 +13,9 @@ from azure.ai.inference.models import (
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.models.docproc_request import DocProcRequest
+from doc.proc.models.docproc_state import DocProcState
+from doc.proc.models.content_identifier import ContentIdentifier
 
 logger = logging.getLogger("doc.proc.step.content_embed") # need to specify the logger name as this module is loaded dynamically
 
@@ -26,36 +29,21 @@ class ContentEmbedStep(StepBase):
             self.settings = {}
 
 
-    async def run(self, input_data: dict, context: "PipelineExecutionContext") -> Dict:
-        """
-        Process a single document to extract content.
-        
-        :param document: Document dictionary containing file path and other metadata.
-        :param context: PipelineExecutionContext instance.
-        :param ai_model_inference_service: AI Model Inference Service instance.
-        :return: Dictionary with processing statistics.
-        """
+    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", request: DocProcRequest, state: DocProcState, **kwargs) -> StepInputOutput:
 
         # Get the source
-        documents = input_data.data.get("documents", [])
+        document = input_data.data.get("documents", [])[0]
+        
+        chunks = document.get("chunks")
 
-        for document in documents:
-            source = document.get("source_name")
+        if not chunks:
+            logger.error(f"No chunks found for: {document['content_uri']}.")
+            raise StepExecutionError(message=f"No chunks found for: {document['content_uri']}.", cancel_request=True)
 
-            if not source:
-                logger.error(f"No source found in document: {document}.")
-                raise StepExecutionError(f"No source found in document: {document}.")
-            
-            chunks = document.get("chunks")
-
-            if not chunks:
-                logger.error(f"No chunks found for: {document['content_uri']}.")
-                raise StepExecutionError(f"No chunks found for: {document['content_uri']}.")
-
-            #embed content
-            for chunk in chunks:
-                chunk["content"] = chunk.get("text", "")
-                chunk["contentVector"] = await self.embed_content(context, chunk["text"])
+        #embed content
+        for chunk in chunks:
+            chunk["content"] = chunk.get("text", "")
+            chunk["contentVector"] = await self.embed_content(context, chunk["text"])
 
         return input_data
     

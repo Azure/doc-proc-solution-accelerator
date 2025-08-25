@@ -4,6 +4,8 @@ import base64
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.models.docproc_request import DocProcRequest
+from doc.proc.models.docproc_state import DocProcState
 
 logger = logging.getLogger("doc.proc.step.ai_search_index_writer")
 
@@ -57,7 +59,7 @@ class AISearchIndexWriterStep(StepBase):
             raise ValueError("Invalid index field mappings format.")
 
     
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", request: DocProcRequest, state: DocProcState, **kwargs) -> StepInputOutput:
 
         # Check if input_data has the required data structure
         if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
@@ -71,66 +73,36 @@ class AISearchIndexWriterStep(StepBase):
             logger.error("Azure AI Search Service not found in context.")
             raise StepExecutionError("Azure AI Search Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "failed_documents": 0,
-        }
-
         # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents list found in input data.")
-            # skipping processing if no documents are found
-            return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
+        document = input_data.data.get("documents", [])[0]
         
-
-        # Iterate through each document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
-
-        _stats["total_documents"] = len(documents)
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {document}")
             
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+            # Check if the document is a dictionary
+            if not isinstance(document, dict):
+                raise ValueError(f"Invalid document format: {document}. Expected a dictionary.")
                 
-                # Check if the document is a dictionary
-                if not isinstance(document, dict):
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary.")
-                    
-                # Process each document
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_search_service=ai_search_service)
+            # Process each document
+            await self.process_document(document=document, 
+                                        context=context, 
+                                        ai_search_service=ai_search_service)
 
-                _stats["successful_documents"] += 1
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {document}")
 
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
 
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
+            if self.fail_step_on_document_error:
+                # If the step is configured to fail on document error, raise an exception
+                raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
+        return StepInputOutput(summary_data={}, 
+                               data={
                                         **input_data.data
                                     })
 
@@ -198,6 +170,9 @@ class AISearchIndexWriterStep(StepBase):
                         index_doc[index_field] = value
 
                 index_doc['id'] = document.get('id', None)
+
+                #cut off the content to 32766
+                index_doc['content'] = index_doc['content'][:32766]
                 index_documents.append(index_doc)
 
 

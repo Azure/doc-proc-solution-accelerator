@@ -1,10 +1,13 @@
 from abc import abstractmethod
-from datetime import datetime
 import os
+import json
 import traceback
+import logging
+import uuid
+
 from typing import List, Literal, Optional
 from pydantic import BaseModel
-import logging
+from datetime import datetime
 
 from doc.proc.pipeline.pipeline_config import PipelineConfig, ServiceInstanceConfig, SourceInstanceConfig
 from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutput
@@ -16,6 +19,15 @@ from doc.proc.service.source_config import SourceConfig
 from doc.proc.service.service_manager import get_service
 from doc.proc.service.source_manager import get_source
 from doc.proc.utils.import_module import import_module
+from doc.proc.models.content_identifier import ContentIdentifier
+from doc.proc.models.docproc_request import DocProcRequest
+from doc.proc.models.docproc_processing_type import DocProcProcessingType
+from doc.proc.models.docproc_pipeline_state import DocProcPipelineState
+from doc.proc.models.docproc_state import DocProcState
+from doc.proc.state.docproc_state_service import DocProcStateService
+from doc.proc.state.blob_storage_state_service import BlobStorageDocProcStateService
+
+from connectors import BlobQueueClient, CosmosDBClient, AzureBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,20 +51,6 @@ class PipelineExecutionResult(BaseModel):
     step_execution_results: List[StepExecutionResult] = []  # List of StepExecutionResult for each step in the pipeline
     summary_data: dict = {}  # Summary data for the pipeline execution
     data: dict = {}  # Final data output from the pipeline execution
-
-
-class PipelineExecutionContext:
-    """Context for pipeline execution, can be extended with more attributes as needed."""
-    
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-    def get_service(self, service_name: str) -> Optional[ServiceBase]:
-        """Get a service by name from the execution context."""
-        if not hasattr(self, 'services') or not isinstance(self.services, list):
-            return None
-
-        return next((service['instance'] for service in self.services if service['name'] == service_name), None)
 
 
 class PipelineExecutionError(Exception):
@@ -82,6 +80,7 @@ class Pipeline:
             services_config (List[ServiceConfig]): Configuration for services used in the pipeline.
             
     """
+    docproc_state_service : DocProcStateService
 
     def __init__(self, pipeline_config: PipelineConfig, 
                  step_catalog_config: List[StepConfig], 
@@ -98,6 +97,8 @@ class Pipeline:
         self.step_catalog = step_catalog_config
         self.service_catalog = service_catalog_config
         self.source_catalog = source_catalog_config
+        
+        self.docproc_state_service = BlobStorageDocProcStateService(AzureBlobClient())
 
         if not self.pipeline_config:
             raise PipelineConfigError("Pipeline configuration cannot be None")
@@ -112,7 +113,8 @@ class Pipeline:
         self.sources: List[SourceBase] = []
         self.pipeline_step_instances: List[StepBase] = []
         self.pipeline_execution_steps: List[StepBase] = []
-    
+
+        self.queue_client = BlobQueueClient()    
 
     async def __load(self):
         """Load the pipeline configuration and steps."""
@@ -188,42 +190,6 @@ class Pipeline:
             self.sources.append({ "name": source_instance_config.name,
                                    "catalog_id": source_instance_config.source_catalog_id,
                                    "instance": source_instance
-                                 })
-
-            # do not raise an error if no services are configured
-            # this allows pipelines to run without services if not needed
-            return
-
-        for service_instance_config in self.pipeline_config.service_instances:
-            logger.debug(f"Loading pipeline service instance configuration: \"{service_instance_config.name}\" that references service catalog id \"{service_instance_config.service_catalog_id}\"")
-
-            if not isinstance(service_instance_config, ServiceInstanceConfig):
-                raise TypeError(f"Service configuration must be an instance of ServiceInstanceConfig, got \"{type(service_instance_config)}\"")
-
-            service_config = next((s for s in self.service_catalog if s.id == service_instance_config.service_catalog_id), None)
-            if not service_config:
-                raise PipelineConfigError(f"Service configuration for id \"{service_instance_config.service_catalog_id}\" not found in services catalog.")
-
-            service_instance = await get_service(
-                service_config=service_config,
-                instance_settings=service_instance_config.settings
-            )
-
-            if not service_instance:
-                raise PipelineConfigError(f"Service instance \"{service_config.name}\" could not be created from configuration in the catalog.")
-
-            logger.info(f"Service instance \"{service_instance_config.name}\" loaded successfully.")
-
-            if service_config.test_connection:
-                logger.debug(f"Testing connection for service instance \"{service_instance_config.name}\"")
-                if not await service_instance.test_connection():
-                    raise PipelineConfigError(f"Service instance \"{service_instance_config.name}\" failed to pass the connection test")
-
-                logger.info(f"Service instance \"{service_instance_config.name}\" connection test passed successfully")
-
-            self.services.append({ "name": service_instance_config.name, 
-                                   "catalog_id": service_instance_config.service_catalog_id,
-                                   "instance": service_instance 
                                  })
 
     async def __load_services(self):
@@ -393,6 +359,20 @@ class Pipeline:
 
         logger.debug(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
         return pipeline_instance
+    
+    async def get_document(self, content_identifier : ContentIdentifier) -> dict:
+
+        source = None
+
+        for src in self.sources:
+            if src['catalog_id'] == content_identifier.data_source_object_id:
+                source = src
+                break
+
+        if (source):
+            return await source['instance'].get_document(content_identifier)
+        
+        return None
 
     async def load_data(self) -> StepInputOutput:
         """Load data for the pipeline."""
@@ -413,6 +393,80 @@ class Pipeline:
             logger.info(f"Loaded data from source '{instance.name}'")
 
         return input_data
+    
+    async def purge(self):
+        logging.info("Starting purge job")
+
+        for source in self.sources:
+            try:
+                logging.info(f"[{source}] Starting purge")
+                source_instance : SourceBase = source['instance']
+                
+                items = self.docproc_state_service.get_source_items(source)
+
+                step_list = [
+                    'ai_search_purge_item'
+                ]
+
+                for item in items:
+                    try:
+                        data = json.loads(item)
+                        state = DocProcState(**data)
+                        ci = state.content_identifier
+                        document = await source_instance.get_content_metadata(ci.canonical_id)
+
+                        if document == None:
+                            request = DocProcRequest(content_identifier=document, 
+                                                        processing_type=DocProcProcessingType.asynchronous,
+                                                        pipeline_object_id=self.name,
+                                                        pipeline_name=self.name,
+                                                        pipeline_execution_id=str(uuid.uuid4()),
+                                                        steps = step_list
+                                                        )
+                    except Exception as ex:
+                        logging.error(ex)
+            except Exception as ex:
+                logging.error(ex)
+    
+    async def crawl(self):
+        logging.info("Starting crawl job")
+
+        step_list = []
+        for step in self.pipeline_execution_steps :
+            step_list.append(
+                {'id' :step.name,
+                 'parameters' : {}}
+                )
+            
+        for source in self.sources:
+            logging.info(f"[{source}] Starting crawl")
+            source_instance : SourceBase = source['instance']
+            
+            logging.info(f"[{source}] Getting item iterator")
+            document_iterator = source_instance.get_items()
+
+            document : ContentIdentifier
+            for document in document_iterator:
+                document.data_source_object_id = source['catalog_id']
+                request = DocProcRequest(content_identifier=document, 
+                                               processing_type=DocProcProcessingType.asynchronous,
+                                               pipeline_object_id=self.name,
+                                               pipeline_name=self.name,
+                                               pipeline_execution_id=str(uuid.uuid4()),
+                                               steps = step_list
+                                               )
+                
+                modified = True
+                deleted = False
+                
+                if (await self.docproc_state_service.has_state(request)):
+                    state = await self.docproc_state_service.get_state(request)
+                    modified, deleted = await source_instance.check_changes(request, state)
+
+                if (modified and not deleted) or source_instance.settings.get("reindex", False):
+                    # Send the request into the queue
+                    logging.info(f"[{source}] Sending content request - [{request.content_identifier.canonical_id}]")
+                    await self.queue_client.send_message(request.model_dump_json())
 
     async def run(self) -> PipelineExecutionResult:
         """Run the pipeline with the given input data."""
@@ -457,7 +511,7 @@ class Pipeline:
                 context.current_step = step
 
                 # Run the step with the current output data and context
-                output_data = await step.run(output_data, context=context)
+                output_data = await step.run(output_data, context=context, request=None, state=None)
                 if not isinstance(output_data, StepInputOutput):
                     raise TypeError(f"Output data from step {step.name} must be an instance of StepInputOutput")
                 
@@ -502,3 +556,19 @@ class Pipeline:
         logger.info(f"Pipeline '{self.name}' executed with result: {pipeline_execution_result.result}. Total elapsed time: {elapsed_time_secs:.2f} seconds.")
 
         return pipeline_execution_result
+
+
+class PipelineExecutionContext:
+    """Context for pipeline execution, can be extended with more attributes as needed."""
+
+    pipeline : Pipeline
+    
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def get_service(self, service_name: str) -> Optional[ServiceBase]:
+        """Get a service by name from the execution context."""
+        if not hasattr(self, 'services') or not isinstance(self.services, list):
+            return None
+
+        return next((service['instance'] for service in self.services if service['name'] == service_name), None)

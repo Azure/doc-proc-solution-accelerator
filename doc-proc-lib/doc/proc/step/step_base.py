@@ -33,7 +33,14 @@ class StepExecutionError(Exception):
     """
     Custom exception for errors during step execution.
     """
-    pass
+    cancel_request : bool = False
+    error_count : int = 0
+
+    def __init__(self, message : str, cancel_request = False, error_count = 0):
+        super().__init__(message)
+
+        self.cancel_request = cancel_request
+        self.error_count = error_count
 
 class StepInputOutput(pydantic.BaseModel):
     id: Optional[str] = None
