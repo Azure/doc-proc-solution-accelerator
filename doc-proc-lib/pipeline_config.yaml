@@ -432,7 +432,7 @@ pipelines:
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
     ## execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_chunker, content_embed,ai_search_index_writer_1]
+    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_chunker, content_embed,ai_search_index_writer_1,ai_search_purge]
 
     ##########################################################
     # PIPELINE SETTINGS

@@ -104,7 +104,8 @@ class AISearchPurgeStep(StepBase):
         return StepInputOutput(summary_data={}, 
                                data={
                                         **input_data.data
-                                    })
+                                    },
+                                remove_state=True)
 
 
     def get_ai_search_service(self, context: "PipelineExecutionContext"):
@@ -135,52 +136,21 @@ class AISearchPurgeStep(StepBase):
         """
 
         try:
-            # get the chunks from the document
-            chunks = document.get("chunks", None)
+            items = await ai_search_service.search_documents(self.index_name, select_fields=['id'], filter_field = 'parent_id', filter_value=document['parent_id'], top=1000)
 
-            if not chunks:
-                logger.error(f"No chunks found in document.")
-                raise StepExecutionError(f"No chunks found in document. Please check the document structure and try again.")
-
-            # generate the documents to be indexed
-            index_documents = []
-
-            #clear the content (use the chunk text)
-            document['content'] = None
-
-            for chunk in chunks:
-                index_doc = {}
-                
-                for doc_field, index_field in self.index_field_mappings.items():
-                    value = index_doc.get(index_field, None)
-
-                    if ( value == None):
-                        value = chunk.get(doc_field, None)
-                    
-                    if ( value == None):
-                        value = document.get(doc_field, None)
-
-                    if ( value == None and 'metadata' in document):
-                        value = document['metadata'].get(doc_field, None)
-
-                    if ( value == None and 'metadata_security' in document):
-                        value = document['metadata_security'].get(doc_field, None)
-
-                    if value is not None:
-                        index_doc[index_field] = value
-
-                index_doc['id'] = document.get('id', None)
-                index_documents.append(index_doc)
-
+            ids = []
+            for document in items['documents']:
+                ids.append(document['id'])
 
             # Write documents to Azure AI Search Index
-            logger.debug(f"Writing {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
-            indexing_result = await ai_search_service.delete_documents(index_name=self.index_name, documents=index_documents)
+            logger.debug(f"Purging {len(items)} documents to Azure AI Search Index '{self.index_name}'")
+            
+            indexing_result = await ai_search_service.delete_documents(index_name=self.index_name, key_field=['id'], key_values=ids)
 
             if self.debug_mode:
                 logger.debug(f"Indexing result: {indexing_result}")
 
-            logger.debug(f"Successfully purged {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
+            logger.debug(f"Successfully purged {len(items)} documents to Azure AI Search Index '{self.index_name}'")
 
         except Exception as e:
             logger.error(f"Error writing to Azure AI Search Index: {e}")

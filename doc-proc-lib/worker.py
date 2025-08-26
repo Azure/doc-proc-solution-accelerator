@@ -197,6 +197,9 @@ class Worker:
                 state.request.last_successful_step_time = datetime.now(timezone.utc)
                 await pipeline.docproc_state_service.save_state(state)
 
+                if input_data.remove_state:
+                    await pipeline.docproc_state_service.delete_state(state)
+
             except StepExecutionError as error:
                 state.request.error_count += 1
                 error.error_count = state.request.error_count
@@ -205,9 +208,15 @@ class Worker:
 
     async def process_step(self, step : DocProcStep, context: PipelineExecutionContext, request: DocProcRequest, state: DocProcState):
 
+        target_instance = None
+
         for step_instance in context.pipeline.pipeline_execution_steps:
             if step_instance.name == step.id:
+                target_instance = step_instance
                 break
+
+        if target_instance == None:
+            return
 
         try:
             input_data = StepInputOutput(data={"documents": [state.content_identifier.metadata]})
@@ -275,5 +284,5 @@ async def http_process_request(request: DocProcRequest):
 
 if (not is_azure_environment()):
     # Run the app locally
-    uvicorn.run(app, host="0.0.0.0", port=80, log_level="debug", timeout_keep_alive=60)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug", timeout_keep_alive=60)
     

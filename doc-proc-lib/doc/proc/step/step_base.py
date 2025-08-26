@@ -46,7 +46,7 @@ class StepInputOutput(pydantic.BaseModel):
     id: Optional[str] = None
     summary_data: dict = None
     data: dict = None
-
+    remove_state : bool = False
 
 class StepBase:
     """

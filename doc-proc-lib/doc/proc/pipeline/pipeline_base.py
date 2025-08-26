@@ -405,7 +405,9 @@ class Pipeline:
                 items = self.docproc_state_service.get_source_items(source)
 
                 step_list = [
-                    'ai_search_purge_item'
+                    {'id':'ai_search_purge_item',
+                     'parameters' : {}
+                    }
                 ]
 
                 for item in items:
@@ -413,16 +415,19 @@ class Pipeline:
                         data = json.loads(item)
                         state = DocProcState(**data)
                         ci = state.content_identifier
+                        ci.metadata = {}
                         document = await source_instance.get_content_metadata(ci.canonical_id)
 
                         if document == None:
-                            request = DocProcRequest(content_identifier=document, 
+                            request = DocProcRequest(content_identifier=ci, 
                                                         processing_type=DocProcProcessingType.asynchronous,
                                                         pipeline_object_id=self.name,
                                                         pipeline_name=self.name,
                                                         pipeline_execution_id=str(uuid.uuid4()),
                                                         steps = step_list
                                                         )
+                            logging.info(f"[{source}] Sending content request - [{request.content_identifier.canonical_id}]")
+                            await self.queue_client.send_message(request.model_dump_json())
                     except Exception as ex:
                         logging.error(ex)
             except Exception as ex:

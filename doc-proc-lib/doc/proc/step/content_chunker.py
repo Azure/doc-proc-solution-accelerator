@@ -41,23 +41,25 @@ class ContentChunkerStep(StepBase):
 
         content = document.get("content","")
 
-        doc = self.nlp(content)
-        sentences = list(doc.sents)
         chunks = []
-        chunk_id = 0
 
-        for sentence in sentences:
-            chunk_data = {
-                    'chunk_id': len(chunks),
-                    'chunk_type': 'page',
-                    'chunk_num': len(chunks),
-                    'text': sentence,
-                    'length' : len(sentence),
-                    'size' : len(sentence),
-                    'raw_text': sentence
-                }
-                
-            chunks.append(chunk_data)
+        if content != None:
+            doc = self.nlp(content)
+            sentences = list(doc.sents)
+            chunk_id = 0
+
+            for sentence in sentences:
+                chunk_data = {
+                        'chunk_id': len(chunks),
+                        'chunk_type': 'page',
+                        'chunk_num': len(chunks),
+                        'text': sentence,
+                        'length' : len(sentence),
+                        'size' : len(sentence),
+                        'raw_text': sentence
+                    }
+                    
+                chunks.append(chunk_data)
 
         document['chunks'] = chunks
             

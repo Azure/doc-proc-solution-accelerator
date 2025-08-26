@@ -1,5 +1,6 @@
 import logging
 
+from azure.core.exceptions import ResourceNotFoundError, AzureError
 from .source_base import SourceBase
 
 from typing import Optional, List, Dict, Any, Iterator, Tuple
@@ -102,6 +103,7 @@ class BlobSource(SourceBase):
     async def get_content(self, content_uri):
         """Get the content of a blob from Azure Blob Storage."""
         try:
+            await self.async_blob_service._connect()
             vals = content_uri.split('::')
             container_name = vals[1]
             blob_name = '/'.join(vals[2:])
@@ -109,12 +111,16 @@ class BlobSource(SourceBase):
             blob_client = container_client.get_blob_client(blob_name)
             content = await blob_client.download_blob()
             return await content.readall()
+        except ResourceNotFoundError as e:
+            logger.error(f"Failed to get content metadata from Azure Blob Storage: {e}")
+            return None
         except Exception as e:
             logger.error(f"Failed to get content from Azure Blob Storage: {e}")
             return None
         
     async def get_content_metadata(self, content_uri):
         try:
+            await self.async_blob_service._connect()
             vals = content_uri.split('::')
             container_name = vals[1]
             blob_name = '/'.join(vals[2:])
@@ -123,9 +129,12 @@ class BlobSource(SourceBase):
             properties = await blob_client.get_blob_properties()
             item = await self.create_item(properties)
             return item
+        except ResourceNotFoundError as e:
+            logger.error(f"Failed to get content metadata from Azure Blob Storage: {e}")
+            return None
         except Exception as e:
             logger.error(f"Failed to get content metadata from Azure Blob Storage: {e}")
-            return {}
+            return None
 
     async def get_content_security(self, content_uri):
         return {

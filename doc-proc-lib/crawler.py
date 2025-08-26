@@ -79,17 +79,17 @@ async def lifespan(app: FastAPI):
             logging.error(f"Error loading pipeline '{pipeline_config.name}': {e}")
             continue
 
-        # try:
-        #     trigger = CronTrigger.from_crontab(pipeline_config.crawl_schedule)
-        #     scheduler.add_job(
-        #         pipeline.crawl,
-        #         trigger=trigger,
-        #         id=f"pipeline_{pipeline.name}_crawl",
-        #         replace_existing=True,
-        #     )
-        #     logging.info(f"Scheduled {pipeline.name} @ {pipeline_config.crawl_schedule}")
-        # except ValueError:
-        #     logging.error(f"Invalid CRON expression for pipeline '{pipeline.name}': {pipeline_config.crawl_schedule!r}")
+        try:
+            trigger = CronTrigger.from_crontab(pipeline_config.crawl_schedule)
+            scheduler.add_job(
+                pipeline.crawl,
+                trigger=trigger,
+                id=f"pipeline_{pipeline.name}_crawl",
+                replace_existing=True,
+            )
+            logging.info(f"Scheduled {pipeline.name} @ {pipeline_config.crawl_schedule}")
+        except ValueError:
+            logging.error(f"Invalid CRON expression for pipeline '{pipeline.name}': {pipeline_config.crawl_schedule!r}")
 
         try:
             trigger = CronTrigger.from_crontab(pipeline_config.purge_schedule)
@@ -114,5 +114,5 @@ FastAPIInstrumentor.instrument_app(app)
 
 if (not is_azure_environment()):
     # Run the app locally
-    uvicorn.run(app, host="0.0.0.0", port=80, log_level="debug", timeout_keep_alive=60)
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="debug", timeout_keep_alive=60)
     

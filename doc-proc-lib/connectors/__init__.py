@@ -1,6 +1,5 @@
 from .azure_client import AzureClient
 from .aoai import AzureOpenAIConnector
-from .azureaisearch import AzureAISearch
 from .blob import BlobClient, BlobContainerClient, AzureBlobClient
 from .queue import BlobQueueClient
 from .cosmosdb import CosmosDBClient
