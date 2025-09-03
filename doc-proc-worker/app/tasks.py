@@ -1,26 +1,21 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any
 from celery import current_task
 import traceback
-import sys
-import os
 
-# Add the doc-proc-lib to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib"))
+from app.celery_app import celery_app
+from app.models.execution import BatchExecution, ActivityLog, ActivityType, BatchStatus, DocumentReference, StepOutput
+from app.services.execution_service import ExecutionService
 
-from .celery_app import celery_app
-from .models.execution import BatchExecution, ActivityLog, ActivityType, BatchStatus, DocumentReference, StepOutput
-from .services.execution_service import ExecutionService
-from .dependencies import get_cosmos_db
 from doc.proc.pipeline.pipeline_base import Pipeline
 from doc.proc.step.step_base import StepInputOutput
 
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(bind=True, name="doc_proc_backend.tasks.execute_pipeline_batch")
+@celery_app.task(bind=True, name="doc_proc_worker.tasks.execute_pipeline_batch")
 def execute_pipeline_batch(self, batch_execution_id: str) -> Dict[str, Any]:
     """
     Celery task to execute a pipeline batch.
@@ -58,7 +53,7 @@ def execute_pipeline_batch(self, batch_execution_id: str) -> Dict[str, Any]:
         raise
 
 
-@celery_app.task(bind=True, name="doc_proc_backend.tasks.process_single_document")
+@celery_app.task(bind=True, name="doc_proc_worker.tasks.process_single_document")
 def process_single_document(self, batch_execution_id: str, pipeline_instance_id: str, 
                           document_ref: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -106,8 +101,7 @@ def process_single_document(self, batch_execution_id: str, pipeline_instance_id:
 async def _execute_pipeline_batch_async(batch_execution_id: str, task_id: str) -> Dict[str, Any]:
     """Async function to execute a pipeline batch."""
     
-    db = get_cosmos_db()
-    execution_service = ExecutionService(db)
+    execution_service = ExecutionService()
     
     # Get batch execution
     batch = await execution_service.get_batch_execution(batch_execution_id)
@@ -119,7 +113,7 @@ async def _execute_pipeline_batch_async(batch_execution_id: str, task_id: str) -
         batch_execution_id, 
         BatchStatus.RUNNING,
         celery_task_id=task_id,
-        started_at=datetime.utcnow()
+        started_at=datetime.now(timezone.utc)
     )
     
     # Log batch start activity
@@ -260,8 +254,7 @@ async def _process_single_document_async(batch_execution_id: str, pipeline_insta
                                        document_ref: Dict[str, Any], task_id: str) -> Dict[str, Any]:
     """Async function to process a single document."""
     
-    db = get_cosmos_db()
-    execution_service = ExecutionService(db)
+    execution_service = ExecutionService()
     
     doc_ref = DocumentReference(**document_ref)
     
@@ -335,8 +328,8 @@ async def _process_single_document_async(batch_execution_id: str, pipeline_insta
 
 async def _handle_batch_failure(batch_execution_id: str, error_message: str):
     """Handle batch execution failure."""
-    db = get_cosmos_db()
-    execution_service = ExecutionService(db)
+    
+    execution_service = ExecutionService()
     
     await execution_service.update_batch_status(
         batch_execution_id,
@@ -355,8 +348,7 @@ async def _handle_batch_failure(batch_execution_id: str, error_message: str):
 
 async def _handle_document_failure(batch_execution_id: str, document_ref: Dict[str, Any], error_message: str):
     """Handle document processing failure."""
-    db = get_cosmos_db()
-    execution_service = ExecutionService(db)
+    execution_service = ExecutionService()
     
     await execution_service.log_activity(
         batch_execution_id=batch_execution_id,
