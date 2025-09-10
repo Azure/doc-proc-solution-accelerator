@@ -57,7 +57,3 @@ def setup_task_logger(logger, *args, **kwargs):
         handler.setFormatter(TaskFormatter('%(asctime)s - %(task_id)s - %(task_name)s - %(name)s - %(levelname)s - %(message)s'))
 
 celery_app: Celery = create_app()
-
-
-# if __name__ == "__main__":
-#     celery_app.start()

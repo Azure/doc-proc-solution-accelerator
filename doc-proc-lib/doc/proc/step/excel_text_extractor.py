@@ -18,7 +18,7 @@ class ExcelTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/excel_output/pngs")
         self.extract_images = self.settings.get("extract_images", False)  # Default to False if not specified
         self.extract_charts = self.settings.get("extract_charts", False)  # Default to False if not specified
         self.max_rows_per_sheet = self.settings.get("max_rows_per_sheet", -1)  # -1 means all rows

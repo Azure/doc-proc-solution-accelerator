@@ -198,3 +198,5 @@ cython_debug/
 Thumbs.db # Windows specific
 
 tmp/
+output/
+logs/

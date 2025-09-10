@@ -21,7 +21,7 @@ step_catalog:
         type: string
         title: "Temporary Folder"
         description: "Path to temporary folder for downloaded files. Uses system temp if not specified."
-        default: ""
+        default: "./tmp/docproc_downloads"
 
     # UI metadata for dynamic form generation
     ui_metadata:
@@ -126,7 +126,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/pdf-output/png"
         required: true
         pattern: "^\\.\\/.*"
       num_pages:
@@ -221,7 +221,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/word_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -331,7 +331,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/pptx_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -439,7 +439,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/excel_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:

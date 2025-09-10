@@ -29,7 +29,7 @@ class WordTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/word_output/pngs")
         self.extract_images = self.settings.get("extract_images", True)
         self.extract_image_descriptions = self.settings.get("extract_image_descriptions", True)
         self.extract_tables = self.settings.get("extract_tables", True)

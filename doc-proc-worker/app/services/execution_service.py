@@ -207,7 +207,10 @@ class ExecutionService(CosmosDBService):
         # clean up the data field for each document
         for doc_result in output_data.get("document_results", []):
             # remove all fields except id and file_path
-            doc_result = {k: v for k, v in doc_result.items() if k in ["id", "file_path"]}
+            doc_result_data = doc_result.get("data", {})
+            for k in list(doc_result_data.keys()):
+                if k not in ["id", "file_path"]:
+                    doc_result_data.pop(k)
 
         output_data["id"] = result_id
         output_data["batch_execution_id"] = batch_id

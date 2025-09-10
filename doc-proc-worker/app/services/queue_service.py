@@ -9,7 +9,7 @@ from azure.storage.queue.aio import QueueClient
 
 
 from app.settings import app_settings
-from app.azure_resource import AzureResource
+from app.utils import get_azure_credential
 
 logger = logging.getLogger("doc-proc-worker.app.queue_service")
 
@@ -57,7 +57,7 @@ class QueueMessage:
         return self._message.expires_on
 
 
-class AzureStorageQueueService(AzureResource):
+class AzureStorageQueueService():
     """Service for interacting with Azure Storage Queue"""
     
     def __init__(self):
@@ -80,7 +80,7 @@ class AzureStorageQueueService(AzureResource):
         try:
             self._queue_client = QueueClient(account_url=self.storage_account_url, 
                                              queue_name=self.queue_name, 
-                                             credential=self._get_credential(None))
+                                             credential=get_azure_credential())
             
             # Ensure queue exists
             await self._queue_client.create_queue()

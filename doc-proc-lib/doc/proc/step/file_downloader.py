@@ -30,7 +30,7 @@ class FileDownloaderStep(StepBase):
             self.settings = {}
 
         # Extract configuration settings
-        self.temp_folder = self.settings.get("temp_folder", "/tmp/pipeline_downloads")
+        self.temp_folder = self.settings.get("temp_folder", "./tmp/docproc_downloads")
 
         # If temp_folder is specified, ensure it exists
         if self.temp_folder:

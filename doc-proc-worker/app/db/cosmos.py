@@ -2,11 +2,11 @@ from typing import Any, Dict, Iterable, Optional
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
-from app.azure_resource import AzureResource
+from app.utils import get_azure_credential
 from app.settings import app_settings
 
 
-class CosmosDb(AzureResource):
+class CosmosDb():
     def __init__(self, 
                  endpoint: str, 
                  credential = None):
@@ -18,7 +18,7 @@ class CosmosDb(AzureResource):
         if credential:
             self.client = CosmosClient(endpoint, credential=credential)
         else:
-            self.client = CosmosClient(endpoint, credential=self._get_credential())
+            self.client = CosmosClient(endpoint, credential=get_azure_credential())
 
         self.database = self._ensure_database(app_settings.COSMOS_DB_NAME)
 

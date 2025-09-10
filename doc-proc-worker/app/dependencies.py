@@ -1,10 +1,6 @@
 from functools import lru_cache
 
 from app.db.cosmos import CosmosDb
-
-# from app.services.servicecatalog_service import ServiceCatalogService
-# from app.services.step_service import StepCatalogService
-
 from app.services.cosmos_db_service import CosmosDBService
 from app.services.pipeline_service import PipelineService
 from app.services.execution_service import ExecutionService
@@ -17,14 +13,6 @@ from app.settings import app_settings
 def get_cosmos_db() -> CosmosDb:
     """Get a singleton instance of CosmosDb"""
     return CosmosDb(endpoint=app_settings.COSMOS_DB_ENDPOINT)
-
-# def get_service_catalog_service() -> ServiceCatalogService:
-#     """Get ServiceCatalogService instance"""
-#     return ServiceCatalogService(get_cosmos_db())
-
-# def get_step_catalog_service() -> StepCatalogService:
-#     """Get StepCatalogService instance"""
-#     return StepCatalogService(get_cosmos_db())
 
 def get_cosmos_db_service(container_name: str) -> CosmosDBService:
     """Get CosmosDBService instance"""

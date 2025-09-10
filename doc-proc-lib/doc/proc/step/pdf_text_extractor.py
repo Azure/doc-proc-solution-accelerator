@@ -30,7 +30,7 @@ class PDFTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/pdf_output_pngs")
         self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
 
         # get prompts from settings

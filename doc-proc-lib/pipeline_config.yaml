@@ -64,7 +64,7 @@ pipelines:
         condition:
         debug_mode: false # Enable debug mode for this step
         settings:
-          temp_folder: "tmp/docproc"
+          temp_folder: "./tmp/docproc_downloads" # Temporary folder to download files to
 
       ## STEP 1: Sample Step
       - name: sample_step_1
@@ -140,7 +140,7 @@ pipelines:
         condition: "document_type.primary_type == 'word_document'" # Only run this step if the document type is Word document
         debug_mode: false # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/word_output/png"
           extract_images: false # Whether to extract text from images in slides
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
           extract_tables: false # Whether to extract tables from slides
@@ -176,7 +176,7 @@ pipelines:
         condition: "document_type.primary_type == 'powerpoint_presentation'" # Only run this step if the document type is PowerPoint presentation
         debug_mode: false # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/pptx_output/png"
           num_slides: 3 # Maximum number of slides to convert (-1 = all slides)
           extract_images: false # Whether to extract text from images in slides
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
@@ -212,7 +212,7 @@ pipelines:
         condition: "document_type.primary_type == 'excel_spreadsheet'" # Only run this step if the document type is Excel spreadsheet
         debug_mode: true # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/excel_output/png"
           extract_images: true # Whether to extract text from images in sheets
           extract_charts: true # Whether to extract charts from sheets
           max_rows_per_sheet: -1 # Maximum number of rows to extract from each sheet (-1 = all rows)
