@@ -27,7 +27,12 @@ class CustomAIPromptStep(StepBase):
             self.settings = {}
 
         # Set default values for settings if not provided
-        self.chunk_field_to_apply_prompt_on = self.settings.get("chunk_field_to_apply_prompt_on", "markdown_text")
+        self.chunks_iterator_field = self.settings.get("chunks_iterator_field", "chunks")
+        if not self.chunks_iterator_field:
+            logger.error("Chunks iterator field not found in settings.")
+            raise ValueError("Chunks iterator field not found in settings.")
+
+        self.chunk_field_to_apply_prompt_on = self.settings.get("chunk_field_to_apply_prompt_on", "markdown_text,text")
         if not self.chunk_field_to_apply_prompt_on:
             logger.error("Chunk field to apply prompt on not found in settings.")
             raise ValueError("Chunk field to apply prompt on not found in settings.")
@@ -63,83 +68,66 @@ class CustomAIPromptStep(StepBase):
             logger.debug(f"Initialized CustomAIPromptStep with settings: {self.settings}")
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
-        """ Run the custom AI prompt step to process documents and apply AI prompts."""
+    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+        """
+        Run the step processing logic for AI custom prompt enrichment.
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
+        Args:
+            document: Input document to analyze
+            context: Pipeline execution context
+
+        Returns:
+            StepInputOutput: Output with AI enriched results as per the prompt
+        """
+        
+        # Check if document has the required data structure
+        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
         
         # get Azure AI Model Inference Service from context
-        ai_model_inference_service = self.get_ai_inference_service(context)
+        ai_model_inference_service = self._get_ai_inference_service(context)
         if not ai_model_inference_service:
             logger.error("Azure AI Model Inference Service not found in context.")
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "failed_documents": 0,
-        }
+        # get document from input data
+        doc_to_process = document.data
+        if not doc_to_process or not isinstance(doc_to_process, dict):
+            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
 
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            # do nothing if no documents are found
-            return StepInputOutput(summary_data={
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                   },
-                                   data={
-                                       **input_data.data
-                                   })
-
-        # Iterate through each document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
         
-        _stats["total_documents"] = len(documents)
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_to_process}")
 
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {}
+            # Validate required fields - now only chunks is required
+            if self.chunks_iterator_field not in doc_to_process:
+                raise StepExecutionError(f"Invalid document format: {doc_to_process.get('id', '')}. Document is missing the required '{self.chunks_iterator_field}' field.")
 
-                # Check if the document is a dictionary
-                if not isinstance(document, dict):
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with attributes.")
-                    
-                # Process each document
-                # This will extend the document with extracted text and images for each page/chunk
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_model_inference_service=ai_model_inference_service)
-                
-                _stats["successful_documents"] += 1
+            # Process the document
+            # This will extend the document with extracted text and images for each page/chunk
+            result_data = await self._process_document(document=doc_to_process, 
+                                                       context=context, 
+                                                       ai_model_inference_service=ai_model_inference_service)
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {result_data}")
+            else:
+                logger.info(f"Successfully processed document: {result_data.get('id', '')}")
 
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
+            # Return the updated StepInputOutput
+            return StepInputOutput(summary_data = {**document.summary_data}, 
+                                   data = result_data)
 
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
 
-        # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-    
-    
-    def get_ai_inference_service(self, context: "PipelineExecutionContext"):
+
+    def _get_ai_inference_service(self, context: "PipelineExecutionContext"):
         """
         Get the AI Model Inference Service from the context.
         
@@ -155,7 +143,7 @@ class CustomAIPromptStep(StepBase):
         return None
     
 
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single document to extract text and images.
         
@@ -165,21 +153,22 @@ class CustomAIPromptStep(StepBase):
         """
 
         # get the chunks from the document
-        chunks = document.get("chunks", [])
+        chunks = document.get(self.chunks_iterator_field, [])
         if not chunks:
-            logger.warning(f"No chunks found in document.")
-            raise StepExecutionError(f"No chunks found in document.")
+            logger.warning(f"No chunks found in document using field '{self.chunks_iterator_field}'.")
+            raise StepExecutionError(f"No chunks found in document using field '{self.chunks_iterator_field}'.")
 
-        logger.debug(f"Processing {len(chunks)} chunks.")
+        logger.debug(f"Processing {len(chunks)} chunk(s).")
 
         # Process each chunk
         for chunk in chunks:
-            await self.process_chunk(chunk=chunk, 
+            await self._process_chunk(chunk=chunk, 
                                      context=context, 
-                                     ai_model_inference_service=ai_model_inference_service)               
+                                     ai_model_inference_service=ai_model_inference_service)
 
+        return document
             
-    async def process_chunk(self, chunk: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_chunk(self, chunk: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single chunk to apply the AI prompt and get the response.
         
@@ -188,10 +177,16 @@ class CustomAIPromptStep(StepBase):
         :param ai_model_inference_service: AI Model Inference Service instance.
         :return: None
         """
-    
+
+        # get the first field in the chunk that has data
+        chunk_field_value = None
+        for field in self.chunk_field_to_apply_prompt_on.split(","):
+            if field in chunk and chunk[field]:
+                chunk_field_value = chunk[field]
+                break
+
         # Apply the AI prompt to the specified chunk field
-        if self.chunk_field_to_apply_prompt_on in chunk:
-            chunk_field_value = chunk[self.chunk_field_to_apply_prompt_on]
+        if chunk_field_value:
                     
             if isinstance(chunk_field_value, str) and chunk_field_value.strip():
                 # Use the AI Model Inference Service to process the text
@@ -230,6 +225,6 @@ class CustomAIPromptStep(StepBase):
                 logger.warning(f"The value of {self.chunk_field_to_apply_prompt_on} is not a string or is empty. Skipping this chunk.")
                 chunk[self.output_field_name] = ""
         else:
-            logger.warning(f"Chunk field '{self.chunk_field_to_apply_prompt_on}' not found in chunk: {chunk}. Skipping AI prompt application for this chunk.")
+            logger.warning(f"Chunk field(s) '{self.chunk_field_to_apply_prompt_on}' not found in chunk: {chunk}. Skipping AI prompt application for this chunk.")
             chunk[self.output_field_name] = ""
             

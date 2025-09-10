@@ -74,7 +74,7 @@ services_catalog:
   - id: azure_storage_01
     name: "Azure Blob Storage - Primary"
     description: "Primary Azure Blob Storage account for document storage and retrieval"
-    type: azure_blob
+    type: azure_blob_storage
     module_name: blob_service
     module_path: ./doc/proc/service/blob_service.py
     class_name: BlobService

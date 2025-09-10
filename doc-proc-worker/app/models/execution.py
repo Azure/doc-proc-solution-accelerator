@@ -1,16 +1,17 @@
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from .common import BaseDoc
+from app.models.common import BaseDoc
 
 
 class BatchStatus(str, Enum):
     """Enum for batch execution status"""
     PENDING = "pending"
-    RUNNING = "running" 
+    SUBMITTED = "submitted"
+    RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -31,19 +32,10 @@ class ActivityType(str, Enum):
     DOCUMENT_FAILED = "document_failed"
 
 
-class DocumentReference(BaseModel):
-    """Reference to a document in Azure Blob Storage"""
-    container_name: str = Field(..., description="Azure Blob container name")
-    blob_name: str = Field(..., description="Blob name/path")
-    url: Optional[str] = Field(None, description="Full URL to the blob")
-    content_type: Optional[str] = Field(None, description="Document content type")
-    size_bytes: Optional[int] = Field(None, description="Document size in bytes")
-
-
 class BatchExecutionRequest(BaseModel):
     """Request model for batch execution"""
-    pipeline_instance_id: str = Field(..., description="ID of the pipeline instance to execute")
-    documents: List[DocumentReference] = Field(..., description="List of documents to process")
+    pipeline_name: str = Field(..., description="Name of the pipeline to execute")
+    documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
     batch_name: Optional[str] = Field(None, description="Optional name for the batch")
     priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
@@ -64,9 +56,8 @@ class StepOutput(BaseModel):
 
 class BatchExecution(BaseDoc):
     """Model for batch execution tracking"""
-    pipeline_instance_id: str = Field(..., description="ID of the pipeline instance")
     pipeline_name: str = Field(..., description="Name of the pipeline")
-    documents: List[DocumentReference] = Field(..., description="Documents in the batch")
+    documents: List[Dict[str, Any]] = Field(..., description="Documents in the batch")
     status: BatchStatus = Field(default=BatchStatus.PENDING, description="Current batch status")
     celery_task_id: Optional[str] = Field(None, description="Celery task ID for tracking")
     priority: int = Field(default=0, description="Execution priority")
@@ -77,10 +68,10 @@ class BatchExecution(BaseDoc):
     failed_documents: int = Field(default=0, description="Number of failed documents")
     
     # Timing information
-    started_at: Optional[datetime] = Field(None, description="Batch execution start time")
-    completed_at: Optional[datetime] = Field(None, description="Batch execution completion time")
-    estimated_completion: Optional[datetime] = Field(None, description="Estimated completion time")
-    
+    submitted_at: Optional[str] = Field(None, description="Batch execution submission time to Celery in utc tz iso-format")
+    started_at: Optional[str] = Field(None, description="Batch execution start time in utc tz iso-format")
+    completed_at: Optional[str] = Field(None, description="Batch execution completion time in utc tz iso-format")
+
     # Results and errors
     results: Dict[str, Any] = Field(default_factory=dict, description="Batch execution results")
     errors: List[str] = Field(default_factory=list, description="List of errors encountered")
@@ -93,19 +84,17 @@ class ActivityLog(BaseDoc):
     """Model for activity logging"""
     batch_execution_id: str = Field(..., description="ID of the related batch execution")
     activity_type: ActivityType = Field(..., description="Type of activity")
-    step_name: Optional[str] = Field(None, description="Name of the step (if applicable)")
-    document_id: Optional[str] = Field(None, description="Document ID (if applicable)")
-    
+        
     # Activity details
-    details: Dict[str, Any] = Field(default_factory=dict, description="Activity details")
     status: str = Field(..., description="Activity status")
     message: Optional[str] = Field(None, description="Activity message")
+    details: Dict[str, Any] = Field(default_factory=dict, description="Activity details")
     error_message: Optional[str] = Field(None, description="Error message if failed")
-    
+        
     # Timing
     duration_ms: Optional[int] = Field(None, description="Activity duration in milliseconds")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Activity timestamp")
-    
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat(), description="Activity timestamp in utc tz iso-format")
+
     # Additional context
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 

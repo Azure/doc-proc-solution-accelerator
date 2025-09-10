@@ -7,13 +7,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
-from app.services.queue_service import AzureQueueService, QueueMessage
+from app.dependencies import get_execution_service, get_queue_service
+from app.services.queue_service import AzureStorageQueueService, QueueMessage
 from app.services.execution_service import ExecutionService
 from app.models.queue_models import (
     QueueMessageWrapper, QueueMessageType, QueueBatchExecutionRequest,
     QueueBatchRetryRequest, QueueBatchCancelRequest, QueueWorkerStats
 )
-from app.models.execution import BatchExecutionRequest, BatchStatus
+from app.models.execution import BatchExecutionRequest, BatchStatus, ActivityType
 from app.tasks import execute_pipeline_batch
 
 
@@ -24,8 +25,8 @@ class QueueWorker:
     
     def __init__(self, worker_id: Optional[str] = None):
         self.worker_id = worker_id or f"worker_{uuid.uuid4().hex[:8]}"
-        self.queue_service: AzureQueueService = None
-        self.execution_service: ExecutionService = None
+        self.queue_service: Optional[AzureStorageQueueService] = None
+        self.execution_service: Optional[ExecutionService] = None
         self.stats = QueueWorkerStats(
             worker_id=self.worker_id,
             started_at=datetime.now(timezone.utc),
@@ -40,8 +41,8 @@ class QueueWorker:
         
         # Control flags
         self._shutdown_requested = False
-        self._current_message: QueueMessage = None
-        
+        self._current_message: Optional[QueueMessage] = None
+
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -59,6 +60,9 @@ class QueueWorker:
             # Initialize services
             await self._initialize_services()
             
+            if not self.queue_service or not self.execution_service:
+                raise RuntimeError("Failed to initialize required services")
+            
             # Main processing loop
             await self._run_processing_loop()
             
@@ -72,13 +76,13 @@ class QueueWorker:
         """Initialize required services"""
         logger.info("Initializing services...")
         
-        logger.debug("Setting up Azure Queue Service...")
+        logger.debug("Setting up Azure Storage Queue Service...")
         # Connect to Azure Storage Queue
-        self.queue_service = AzureQueueService()
+        self.queue_service = get_queue_service()
         await self.queue_service.connect()
         
         logger.debug("Setting up Execution Service...")
-        self.execution_service = ExecutionService()
+        self.execution_service = get_execution_service()
         
         logger.info("Services initialized successfully")
     
@@ -86,6 +90,9 @@ class QueueWorker:
         """Main processing loop"""
         logger.info("Starting message processing loop...")
         
+        if not self.queue_service:
+            raise RuntimeError("Queue service not initialized")
+            
         while not self._shutdown_requested:
             try:
                 # Poll for messages
@@ -124,11 +131,18 @@ class QueueWorker:
             
             # Parse message content
             try:
+                message_type = message.content.get("message_type")
+                if not message_type or not isinstance(message_type, str) or message_type not in [e.value for e in QueueMessageType]:
+                    raise ValueError("Invalid or missing message_type in queue message.")
+                
                 message_wrapper = QueueMessageWrapper(
                     message_id=message.id,
-                    message_type=message.content.get("message_type"),
+                    message_type=QueueMessageType(message_type),
                     payload=message.content,
-                    received_at=start_time
+                    received_at=start_time,
+                    processing_started_at=None,
+                    processing_completed_at=None,
+                    processing_error=None
                 )
             except Exception as e:
                 logger.error(f"Failed to parse message {message.id}: {e}")
@@ -137,6 +151,9 @@ class QueueWorker:
             
             # Process based on message type
             result = await self._handle_message_by_type(message_wrapper)
+            
+            if not self.queue_service:
+                raise RuntimeError("Queue service not initialized")
             
             if result:
                 # Message processed successfully, delete from queue
@@ -168,14 +185,23 @@ class QueueWorker:
             payload = wrapper.get_typed_payload()
             
             if wrapper.message_type == QueueMessageType.BATCH_EXECUTION_REQUEST:
-                return await self._handle_batch_execution_request(payload)
+                if isinstance(payload, QueueBatchExecutionRequest):
+                    return await self._handle_batch_execution_request(payload)
+                logger.error("Invalid payload for BATCH_EXECUTION_REQUEST")
+                return False
             
             elif wrapper.message_type == QueueMessageType.BATCH_RETRY_REQUEST:
-                return await self._handle_batch_retry_request(payload)
-            
+                if isinstance(payload, QueueBatchRetryRequest):
+                    return await self._handle_batch_retry_request(payload)
+                logger.error("Invalid payload for BATCH_RETRY_REQUEST")
+                return False
+
             elif wrapper.message_type == QueueMessageType.BATCH_CANCEL_REQUEST:
-                return await self._handle_batch_cancel_request(payload)
-            
+                if isinstance(payload, QueueBatchCancelRequest):
+                    return await self._handle_batch_cancel_request(payload)
+                logger.error("Invalid payload for BATCH_CANCEL_REQUEST")
+                return False
+
             else:
                 logger.error(f"Unknown message type: {wrapper.message_type}")
                 return False
@@ -187,11 +213,11 @@ class QueueWorker:
     async def _handle_batch_execution_request(self, request: QueueBatchExecutionRequest) -> bool:
         """Handle batch execution request"""
         try:
-            logger.info(f"Creating batch execution for pipeline: {request.pipeline_instance_id}")
+            logger.info(f"Creating batch execution for pipeline: {request.pipeline_name}")
             
             # Convert to BatchExecutionRequest
             batch_request = BatchExecutionRequest(
-                pipeline_instance_id=request.pipeline_instance_id,
+                pipeline_name=request.pipeline_name,
                 documents=request.documents,
                 batch_name=request.batch_name,
                 priority=request.priority,
@@ -204,6 +230,9 @@ class QueueWorker:
                 }
             )
             
+            if not self.execution_service:
+                raise RuntimeError("Execution service not initialized")
+
             # Create batch execution
             batch = await self.execution_service.create_batch_execution(batch_request)
             
@@ -213,9 +242,9 @@ class QueueWorker:
             # Update batch with task ID
             await self.execution_service.update_batch_status(
                 batch.id,
-                BatchStatus.RUNNING,
+                BatchStatus.SUBMITTED,
                 celery_task_id=task.id,
-                started_at=datetime.now(timezone.utc).isoformat()
+                submitted_at=datetime.now(timezone.utc).isoformat()
             )
             
             logger.info(f"Successfully submitted batch {batch.id} to Celery with task ID: {task.id}")
@@ -223,12 +252,16 @@ class QueueWorker:
             
         except Exception as e:
             logger.error(f"Failed to handle batch execution request: {e}")
+            logger.error(e, exc_info=True)
             return False
     
     async def _handle_batch_retry_request(self, request: QueueBatchRetryRequest) -> bool:
         """Handle batch retry request"""
         try:
             logger.info(f"Retrying batch execution: {request.batch_id}")
+            
+            if not self.execution_service:
+                raise RuntimeError("Execution service not initialized")
             
             # Get existing batch
             batch = await self.execution_service.get_batch_execution(request.batch_id)
@@ -249,13 +282,13 @@ class QueueWorker:
                 batch.id,
                 BatchStatus.RUNNING,
                 celery_task_id=task.id,
-                started_at=datetime.utcnow()
+                started_at=datetime.now(timezone.utc).isoformat()
             )
             
             # Log retry activity
             await self.execution_service.log_activity(
                 batch_execution_id=batch.id,
-                activity_type="BATCH_RETRY",
+                activity_type=ActivityType.BATCH_RETRY,
                 status="retrying",
                 message=f"Batch retry attempt {request.retry_attempt}",
                 details={
@@ -276,6 +309,9 @@ class QueueWorker:
         """Handle batch cancellation request"""
         try:
             logger.info(f"Cancelling batch execution: {request.batch_id}")
+            
+            if not self.execution_service:
+                raise RuntimeError("Execution service not initialized")
             
             # Get existing batch
             batch = await self.execution_service.get_batch_execution(request.batch_id)
@@ -303,7 +339,7 @@ class QueueWorker:
             # Log cancellation activity
             await self.execution_service.log_activity(
                 batch_execution_id=batch.id,
-                activity_type="BATCH_CANCELLED",
+                activity_type=ActivityType.BATCH_CANCELLED,
                 status="cancelled",
                 message=f"Batch cancelled via queue request",
                 details={
@@ -331,6 +367,9 @@ class QueueWorker:
             retry_delay = min(60 * (2 ** message.dequeue_count), 300)  # Exponential backoff, max 5 minutes
             logger.info(f"Retrying message {message.id} in {retry_delay} seconds (attempt {message.dequeue_count + 1})")
             
+            if not self.queue_service:
+                raise RuntimeError("Queue service not initialized")
+            
             await self.queue_service.update_message(
                 message,
                 wrapper.payload,
@@ -352,6 +391,9 @@ class QueueWorker:
         # 1. Move message to a poison queue for manual inspection
         # 2. Log to a dead letter queue
         # 3. Send alerts
+        
+        if not self.queue_service:
+                raise RuntimeError("Queue service not initialized")
         
         # For now, just delete the message to prevent infinite retries
         await self.queue_service.delete_message(message)

@@ -196,3 +196,5 @@ cython_debug/
 # Operating System Files
 .DS_Store # macOS specific
 Thumbs.db # Windows specific
+
+tmp/

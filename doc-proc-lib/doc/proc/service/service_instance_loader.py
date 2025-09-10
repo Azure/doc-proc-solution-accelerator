@@ -4,10 +4,10 @@ from doc.proc.utils.import_module import import_module
 from doc.proc.service.service_base import ServiceBase
 from doc.proc.service.service_config import ServiceConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("doc.proc.service.service_instance_loader")
 
 
-async def get_service(service_config: ServiceConfig, instance_settings: dict = None) -> ServiceBase:
+def create_service_instance(service_config: ServiceConfig, instance_settings: dict = None) -> ServiceBase:
     """Get an instance of the specified service type."""
 
     # Validate service_config
@@ -70,11 +70,11 @@ async def get_service(service_config: ServiceConfig, instance_settings: dict = N
         return service_instance
     
     except ImportError as e:
-        logger.error(f"Failed to import service class \"{service_config.class_name}\" from module \"{service_config.module_name}\": {e}")
-        raise ImportError(f"Failed to import service class \"{service_config.class_name}\" from module \"{service_config.module_name}\": {e}")
+        logger.error(f"Failed to import service class \"{service_config.class_name}\" from module \"{service_config.module_name}\". {e}")
+        raise ImportError(f"Failed to import service class \"{service_config.class_name}\" from module \"{service_config.module_name}\". {e}")
     except AttributeError as e:
-        logger.error(f"Service class \"{service_config.class_name}\" not found in module \"{service_config.module_name}\": {e}")
-        raise AttributeError(f"Service class \"{service_config.class_name}\" not found in module \"{service_config.module_name}\": {e}")
+        logger.error(f"Service class \"{service_config.class_name}\" not found in module \"{service_config.module_name}\". {e}")
+        raise AttributeError(f"Service class \"{service_config.class_name}\" not found in module \"{service_config.module_name}\". {e}")
     except Exception as e:
         logger.error(f"Error creating service instance: {e}")
         raise RuntimeError(f"Error creating service instance: {e}")

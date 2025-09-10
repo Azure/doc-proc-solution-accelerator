@@ -2,7 +2,8 @@ from abc import abstractmethod
 from datetime import datetime
 import os
 import traceback
-from typing import List, Literal, Optional
+import asyncio
+from typing import List, Literal, Optional, Any, Dict
 from pydantic import BaseModel
 import logging
 
@@ -11,11 +12,11 @@ from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutpu
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_base import ServiceBase
 from doc.proc.service.service_config import ServiceConfig
-from doc.proc.service.service_manager import get_service
-from doc.proc.utils.import_module import import_module
+from doc.proc.service.service_instance_loader import create_service_instance
+from doc.proc.step.step_instance_loader import create_step_instance
+from doc.proc.utils.secure_condition_evaluator import SecureConditionEvaluator
 
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("doc.proc.pipeline")
 
 
 class StepExecutionResult(BaseModel):
@@ -27,6 +28,17 @@ class StepExecutionResult(BaseModel):
     error: Optional[str] = None  # Error message if the step fails
     error_message: Optional[str] = None  # Detailed error message if available
     error_traceback: Optional[str] = None  # Traceback of the error if available
+
+
+class DocumentResult(BaseModel):
+    """Model for the result of processing a single document."""
+    document_id: str
+    result: Literal["NotStarted", "Succeeded", "Failed", "PartialSucceeded"] = "NotStarted"
+    reason: Optional[str] = None  # Reason for failure or partial success, if applicable
+    elapsed_time_secs: float
+    data: Dict[str, Any] = {}  # Final data output from document processing
+    summary_data: Dict[str, Any] = {}  # Summary data for document processing
+    step_results: List[StepExecutionResult] = []  # List of StepExecutionResult for each step
     
 
 class PipelineExecutionResult(BaseModel):
@@ -35,9 +47,8 @@ class PipelineExecutionResult(BaseModel):
     result: Literal["NotStarted", "Succeeded", "Failed", "PartialSucceeded"] = "NotStarted"
     reason: Optional[str] = None  # Reason for failure or partial success, if applicable
     elapsed_time_secs: float
-    step_execution_results: List[StepExecutionResult] = []  # List of StepExecutionResult for each step in the pipeline
-    summary_data: dict = {}  # Summary data for the pipeline execution
-    data: dict = {}  # Final data output from the pipeline execution
+    document_results: List[DocumentResult] = []  # List of DocumentResult for each document processed
+    summary_stats: dict = {}  # Summary statistics for the pipeline execution
 
 
 class PipelineExecutionContext:
@@ -105,7 +116,8 @@ class Pipeline:
         self.services: List[ServiceBase] = []
         self.pipeline_step_instances: List[StepBase] = []
         self.pipeline_execution_steps: List[StepBase] = []
-    
+
+        self.condition_evaluator = SecureConditionEvaluator()
 
     async def __load(self):
         """Load the pipeline configuration and steps."""
@@ -159,7 +171,7 @@ class Pipeline:
             if not service_config:
                 raise PipelineConfigError(f"Service configuration for id \"{service_instance_config.service_catalog_id}\" not found in services catalog.")
 
-            service_instance = await get_service(
+            service_instance = create_service_instance(
                 service_config=service_config,
                 instance_settings=service_instance_config.settings
             )
@@ -167,14 +179,14 @@ class Pipeline:
             if not service_instance:
                 raise PipelineConfigError(f"Service instance \"{service_config.name}\" could not be created from configuration in the catalog.")
 
-            logger.info(f"Service instance \"{service_instance_config.name}\" loaded successfully.")
+            logger.debug(f"Service instance \"{service_instance_config.name}\" loaded successfully.")
 
             if service_config.test_connection:
                 logger.debug(f"Testing connection for service instance \"{service_instance_config.name}\"")
                 if not await service_instance.test_connection():
                     raise PipelineConfigError(f"Service instance \"{service_instance_config.name}\" failed to pass the connection test")
 
-                logger.info(f"Service instance \"{service_instance_config.name}\" connection test passed successfully")
+                logger.debug(f"Service instance \"{service_instance_config.name}\" connection test passed successfully")
 
             self.services.append({ "name": service_instance_config.name, 
                                    "catalog_id": service_instance_config.service_catalog_id,
@@ -198,66 +210,15 @@ class Pipeline:
             if not step_config:
                 raise PipelineConfigError(f"Step with catalog id \"{step_instance_config.step_catalog_id}\" not found in step catalog configuration.")
 
+            logger.debug(f"Loading step instance \"{step_instance_config.name}\" of type {step_config.class_name}.")
+
             # Initialize the step with the instance configuration
-            step_instance = Pipeline.__init_step(step_config=step_config, step_instance_config=step_instance_config)
+            step_instance = create_step_instance(step_config=step_config, step_instance_config=step_instance_config)
+            
+            logger.debug(f"Step instance \"{step_instance.name}\" of type {type(step_instance).__name__} created successfully. Enabled: {step_instance.enabled}")
             
             self.pipeline_step_instances.append(step_instance)
 
-
-    @staticmethod
-    def __init_step(step_config: StepConfig, step_instance_config: StepInstanceConfig) -> StepBase:
-        """Load steps based on the configuration."""
-
-        logger.debug(f"Initializing step: \"{step_config.id}\" with instance config: {step_instance_config.name}")
-
-        if not isinstance(step_config, StepConfig):
-            raise PipelineConfigError(f"Step configuration must be an instance of StepConfig, got {type(step_config)}")
-
-        if not isinstance(step_instance_config, StepInstanceConfig):
-            raise PipelineConfigError(f"Step instance configuration must be an instance of StepInstanceConfig, got {type(step_instance_config)}")
-
-        # Validate the step configuration
-        if not step_config.id:
-            raise PipelineConfigError("Step configuration must have an id defined")
-
-        module_name = step_config.module_name
-        if not module_name:
-            raise PipelineConfigError(f"Step \"{step_config.id}\" does not have a module defined")
-
-        module_path = step_config.module_path
-        if not module_path:
-            raise PipelineConfigError(f"Step \"{step_config.id}\" does not have a module path defined")
-
-        class_name = step_config.class_name
-        if not class_name:
-            raise PipelineConfigError(f"Step \"{step_config.id}\" does not have a class defined")
-
-        # Import the module dynamically
-        logger.debug(f"Importing step module: \"{module_name}\" from path: \"{module_path}\"")
-
-        if not os.path.exists(module_path):
-            logger.error(f"Module path \"{module_path}\" does not exist for step \"{step_config.id}\"")
-            raise PipelineConfigError(f"Module path \"{module_path}\" does not exist for step \"{step_config.id}\"")
-
-        step_module = import_module(module_path=module_path, module_name=module_name)
-        step_class = getattr(step_module, class_name, None)
-        if not step_class:
-            raise PipelineConfigError(f"Step \"{step_config.id}\" class \"{class_name}\" not found in module \"{module_name}\" at path \"{module_path}\"")
-
-        if not hasattr(step_class, '__call__'):
-            raise TypeError(f"{class_name} is not callable or does not have a __call__ method.")
-
-
-        # Create an instance of the step class with the provided configuration
-        step_instance = step_class(instance_config=step_instance_config) 
-
-        if not isinstance(step_instance, StepBase):
-            raise TypeError(f"Step \"{step_config.id}\" is not an instance of StepBase")
-
-        logger.info(f"Step instance \"{step_instance.name}\" of type {type(step_instance).__name__} created successfully. Enabled: {step_instance.enabled}")
-
-        return step_instance
-    
 
     def __load_execution_steps(self):
         """Load steps in the order defined by the execution sequence."""
@@ -278,11 +239,11 @@ class Pipeline:
     @staticmethod
     async def create(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "Pipeline":
         """Factory method to create a Pipeline instance from configuration."""
-        
-        logger.info("Creating pipeline instance from configuration")
-        
+
         if not pipeline_config:
             raise PipelineConfigError("Pipeline configuration cannot be None")
+        
+        logger.info(f"Creating pipeline instance of '{pipeline_config.name}' from configuration")
 
         if not step_catalog_config or len(step_catalog_config) == 0:
             raise PipelineConfigError("Step catalog cannot be None or empty")
@@ -295,14 +256,148 @@ class Pipeline:
         except Exception as e:
             raise PipelineConfigError(f"Error loading pipeline from configuration: {str(e)}")
 
-        logger.debug(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
+        logger.info(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
         return pipeline_instance
 
+    def _evaluate_document_condition(self, document: dict, condition: str) -> bool:
+        """
+        Evaluate a step's condition against a specific document.
+        
+        Args:
+            document: The document to evaluate the condition against
+            condition: The condition to evaluate
+
+        Returns:
+            bool: True if the condition is met or no condition is set, False otherwise
+            
+        Raises:
+            Exception: If condition evaluation fails
+        """
+        if not document or not condition or not self.condition_evaluator:
+            return True  # No condition means always process
+        
+        try:
+            # Create evaluation context with document data
+            evaluation_data = {}
+
+            logger.debug(f"Evaluating condition {condition} for document {document}")
+
+            # Add document data to evaluation context
+            evaluation_data.update(document)
+            
+            # Evaluate the condition
+            condition_group = self.condition_evaluator.parse_condition_string(condition)
+            logger.debug(f"Evaluation condition group: {condition_group}")
+            result = self.condition_evaluator.evaluate(condition_group, evaluation_data)
+            logger.debug(f"Condition evaluation result for document: {result}")
+                
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error evaluating condition for document: {e}")
+            raise Exception(f"Failed to evaluate condition '{condition}': {str(e)}")
+
+    async def _process_single_document(self, document_data: dict, context: PipelineExecutionContext) -> DocumentResult:
+        """Process a single document through the pipeline steps."""
+        document_id = document_data.get('id', document_data.get('id', document_data.get('blob_name', 'unknown')))
+        logger.info(f"Starting document processing for document ID: {document_id}")
+        
+        document_start_time = datetime.now()
+        
+        # Create input data for this document
+        input_data = StepInputOutput(id=document_id, data=document_data, summary_data={})
+        output_data = input_data
+        
+        document_result = DocumentResult(
+            document_id=document_id,
+            result="NotStarted",
+            elapsed_time_secs=0,
+            data=output_data.data,
+            summary_data=output_data.summary_data
+        )
+        
+        for step in self.pipeline_execution_steps:
+            logger.debug(f"Processing document {document_id} - Executing step: {step.name} (Enabled: {step.enabled})")
+            
+            step_start_time = datetime.now()
+            step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
+            
+            try:
+                # Check if the step is enabled
+                if not step.enabled:
+                    step_result.result = "Skipped"
+                    step_result.reason = "Step is not enabled"
+                    step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+                    document_result.step_results.append(step_result)
+                    logger.info(f"Document {document_id} - Step {step.name} is skipped as it is not enabled.")
+                    continue
+
+                # Evaluate the condition for the step
+                if step.condition and not self._evaluate_document_condition(document=output_data.data, condition=step.condition):
+                    step_result.result = "Skipped"
+                    step_result.reason = "Condition not met"
+                    step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+                    document_result.step_results.append(step_result)
+                    logger.info(f"Document {document_id} - Step {step.name} is skipped as condition is not met.")
+                    continue
+
+                # Update the context with the current step and document
+                context.current_step = step
+                context.current_document_id = document_id
+                
+                # Run the step with the current output data and context
+                output_data = await step.run(output_data, context=context)
+                if not isinstance(output_data, StepInputOutput):
+                    raise TypeError(f"Output data from step {step.name} must be an instance of StepInputOutput")
+                
+            except Exception as e:
+                logger.error(f"Document {document_id} - Error executing step {step.name}: {str(e)}")
+                
+                step_result.result = "Failed"
+                step_result.reason = f"Error executing step: {str(e)}"
+                step_result.error = str(e)
+                step_result.error_message = str(e)
+                step_result.error_traceback = traceback.format_exc()
+                step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
+                document_result.step_results.append(step_result)
+                
+                if step.fail_pipeline_on_error:
+                    document_result.result = "Failed"
+                    document_result.reason = f"Document processing failed due to step {step.name} error: {str(e)}"
+                    document_result.data = output_data.data
+                    document_result.summary_data = output_data.summary_data
+                    document_result.elapsed_time_secs = (datetime.now() - document_start_time).total_seconds()
+                    
+                    logger.error(f"Document {document_id} - Processing failed due to step {step.name} error: {str(e)}")
+                    return document_result
+                
+                continue
+            
+            step_elapsed_time = (datetime.now() - step_start_time).total_seconds()
+            logger.info(f"Document {document_id} - Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
+            
+            if step.debug_mode:
+                logger.debug(f"Document {document_id} - Step {step.name} output data: {output_data.data}")
+            
+            step_result.result = "Succeeded"
+            step_result.elapsed_time_secs = step_elapsed_time
+            document_result.step_results.append(step_result)
+        
+        # Finalize the document result
+        elapsed_time_secs = (datetime.now() - document_start_time).total_seconds()
+        document_result.result = "Succeeded" if all(step.result == "Succeeded" or step.result == "Skipped" for step in document_result.step_results) else "Failed"
+        document_result.elapsed_time_secs = elapsed_time_secs
+        document_result.data = output_data.data
+        document_result.summary_data = output_data.summary_data
+        
+        logger.info(f"Document {document_id} processing completed with result: {document_result.result}. Elapsed time: {elapsed_time_secs:.2f} seconds.")
+        
+        return document_result
 
     async def run(self, input_data: StepInputOutput) -> PipelineExecutionResult:
-        """Run the pipeline with the given input data."""
+        """Run the pipeline with the given input data, processing documents in parallel."""
 
-        logger.info(f"Starting pipeline '{self.name}' execution with input data: {input_data.data}")
+        logger.info(f"Starting pipeline '{self.name}' execution with input data")
 
         if not self.pipeline_execution_steps:
             logger.error("Pipeline execution steps are not defined. Please check the pipeline configuration.")
@@ -310,78 +405,148 @@ class Pipeline:
 
         context = PipelineExecutionContext(pipeline=self, services=self.services, start_time=datetime.now())
 
-        output_data = input_data
-
-        result_status = "NotStarted"
-
-        if not isinstance(output_data, StepInputOutput):
+        if not isinstance(input_data, StepInputOutput):
             logger.error("Input data must be an instance of StepInputOutput")
             raise TypeError("Input data must be an instance of StepInputOutput")
         
-        pipeline_execution_result = PipelineExecutionResult(pipeline_name=self.name, result=result_status, elapsed_time_secs=0, data=output_data.data, summary_data=output_data.summary_data)
+        pipeline_execution_result = PipelineExecutionResult(
+            pipeline_name=self.name, 
+            result="NotStarted", 
+            elapsed_time_secs=0, 
+            document_results=[],
+            summary_stats={}
+        )
 
-        for step in self.pipeline_execution_steps:
+        # Check if input data contains documents for parallel processing
+        documents = input_data.data.get('documents', [])
+        
+        if documents and isinstance(documents, list) and len(documents) > 0:
+            logger.info(f"Processing {len(documents)} documents in parallel")
             
-            logger.debug(f"Executing step: {step.name} (Enabled: {step.enabled}, Debug Mode: {step.debug_mode})")
-
-            step_start_time = datetime.now()
-            step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
-
-            try:
-                # Check if the step is enabled
-                if not step.enabled:
-                    step_result.result = "Skipped"
-                    step_result.reason = "Step is not enabled"
-                    step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
-                    pipeline_execution_result.step_execution_results.append(step_result)
-                    logger.info(f"Step {step.name} is skipped as it is not enabled.")
-                    continue
-
-                # Update the context with the current step
-                context.current_step = step
-
-                # Run the step with the current output data and context
-                output_data = await step.run(output_data, context=context)
-                if not isinstance(output_data, StepInputOutput):
-                    raise TypeError(f"Output data from step {step.name} must be an instance of StepInputOutput")
+            # Process all documents in parallel
+            document_tasks = []
+            for document in documents:
+                # Create a copy of context for each document to avoid shared state issues
+                doc_context = PipelineExecutionContext(
+                    pipeline=self, 
+                    services=self.services, 
+                    start_time=datetime.now()
+                )
+                task = self._process_single_document(document, doc_context)
+                document_tasks.append(task)
+            
+            # Execute all document processing tasks in parallel
+            document_results = await asyncio.gather(*document_tasks, return_exceptions=True)
+            print(document_results)
+            # Process results and handle any exceptions
+            # for i, result in enumerate(document_results):
+            for result in document_results:
                 
-            except Exception as e:
-                logger.error(f"Error executing step {step.name}: {str(e)}, traceback: {traceback.print_exc() if hasattr(e, '__traceback__') else None}")
-
-                step_result.result = "Failed"
-                step_result.reason = f"Error executing step: {str(e)}"
-                step_result.error = str(e)
-                step_result.error_message = str(e)
-                step_result.error_traceback = traceback.print_exc() if hasattr(e, '__traceback__') else None
-                step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
-                pipeline_execution_result.step_execution_results.append(step_result)
-
-                if step.fail_pipeline_on_error == True:
-                    pipeline_execution_result.result = "Failed"
-                    pipeline_execution_result.reason = f"Pipeline execution failed due to step {step.name} error: {str(e)}"
-                    pipeline_execution_result.data = output_data.data
-                    pipeline_execution_result.summary_data = output_data.summary_data
-                    pipeline_execution_result.elapsed_time_secs = (datetime.now() - context.start_time).total_seconds()
+                # if isinstance(result, Exception):
+                #     logger.error(f"Document {i} processing failed with exception: {str(result)}")
+                #     # Create a failed document result for exceptions
+                #     failed_result = DocumentResult(
+                #         document_id=f"document_{i}",
+                #         result="Failed",
+                #         reason=f"Document processing failed with exception: {str(result)}",
+                #         elapsed_time_secs=0,
+                #         step_results=[]
+                #     )
+                #     pipeline_execution_result.document_results.append(failed_result)
+                # else:
+                pipeline_execution_result.document_results.append(result)
+            
+            # # Aggregate step execution results from all document results
+            # step_aggregation = {}
+            # for doc_result in pipeline_execution_result.document_results:
+            #     for step_result in doc_result.step_results:
+            #         if step_result.step_name not in step_aggregation:
+            #             step_aggregation[step_result.step_name] = {
+            #                 "succeeded": 0,
+            #                 "failed": 0,
+            #                 "skipped": 0,
+            #                 "total_time": 0,
+            #                 "errors": []
+            #             }
                     
-                    logger.error(f"Pipeline execution failed due to step {step.name} error: {str(e)}")
-                    return pipeline_execution_result
+            #         step_agg = step_aggregation[step_result.step_name]
+            #         step_agg["total_time"] += step_result.elapsed_time_secs
+                    
+            #         if step_result.result == "Succeeded":
+            #             step_agg["succeeded"] += 1
+            #         elif step_result.result == "Failed":
+            #             step_agg["failed"] += 1
+            #             if step_result.error:
+            #                 step_agg["errors"].append(step_result.error)
+            #         elif step_result.result == "Skipped":
+            #             step_agg["skipped"] += 1
+            
+            # # Create aggregated step execution results
+            # for step_name, agg_data in step_aggregation.items():
+            #     total_docs = len(pipeline_execution_result.document_results)
+            #     avg_time = agg_data["total_time"] / total_docs if total_docs > 0 else 0
                 
-                continue
-
-            step_elapsed_time = (datetime.now() - step_start_time).total_seconds()
-            logger.info(f"Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
-            if step.debug_mode:
-                logger.debug(f"Step {step.name} output data: {output_data.data}")
-            step_result.result = "Succeeded"
-            step_result.elapsed_time_secs = step_elapsed_time
-            pipeline_execution_result.step_execution_results.append(step_result)
+            #     # Determine overall step result
+            #     if agg_data["failed"] > 0:
+            #         step_status = "Failed" if agg_data["succeeded"] == 0 else "PartialSucceeded"
+            #         reason = f"{agg_data['failed']} out of {total_docs} documents failed"
+            #     elif agg_data["succeeded"] > 0:
+            #         step_status = "Succeeded"
+            #         reason = f"All {agg_data['succeeded']} documents succeeded"
+            #     else:
+            #         step_status = "Skipped" 
+            #         reason = f"Step skipped for all {total_docs} documents"
+                
+            #     aggregated_step_result = StepExecutionResult(
+            #         step_name=step_name,
+            #         result=step_status,
+            #         reason=reason,
+            #         elapsed_time_secs=avg_time
+            #     )
+                
+            #     if agg_data["errors"]:
+            #         aggregated_step_result.error = f"Errors occurred in {len(agg_data['errors'])} documents"
+            #         aggregated_step_result.error_message = "; ".join(set(agg_data["errors"][:5]))  # Limit to first 5 unique errors
+                
+            #     pipeline_execution_result.step_execution_results.append(aggregated_step_result)
+            print(pipeline_execution_result)
+            
+            # Determine overall pipeline result
+            successful_docs = len([dr for dr in pipeline_execution_result.document_results if dr.result == "Succeeded"])
+            failed_docs = len([dr for dr in pipeline_execution_result.document_results if dr.result == "Failed"])
+            total_docs = len(pipeline_execution_result.document_results)
+            
+            if successful_docs == total_docs:
+                pipeline_execution_result.result = "Succeeded"
+                pipeline_execution_result.reason = f"All {total_docs} documents processed successfully"
+            elif successful_docs > 0:
+                pipeline_execution_result.result = "PartialSucceeded"
+                pipeline_execution_result.reason = f"{successful_docs} out of {total_docs} documents processed successfully"
+            else:
+                pipeline_execution_result.result = "Failed"
+                pipeline_execution_result.reason = f"All {total_docs} documents failed to process"
+            
+            # Set aggregated data
+            pipeline_execution_result.summary_stats = {
+                "total_documents": total_docs,
+                "successful_documents": successful_docs,
+                "failed_documents": failed_docs,
+                "success_rate": (successful_docs / total_docs * 100) if total_docs > 0 else 0
+            }
+            
+        else:
+            # Fallback to single document processing
+            logger.info("No documents array found, processing as single input")
+            
+            document_result = await self._process_single_document(input_data.data, context)
+            pipeline_execution_result.document_results.append(document_result)
+            pipeline_execution_result.result = document_result.result
+            pipeline_execution_result.reason = document_result.reason
+            
 
         # Finalize the pipeline execution result
         elapsed_time_secs = (datetime.now() - context.start_time).total_seconds()
-        pipeline_execution_result.result = "Succeeded" if all(step.result == "Succeeded" or step.result == "Skipped" for step in pipeline_execution_result.step_execution_results) else "PartialSucceeded"
         pipeline_execution_result.elapsed_time_secs = elapsed_time_secs
-        pipeline_execution_result.data = output_data.data
-        pipeline_execution_result.summary_data = output_data.summary_data
 
         logger.info(f"Pipeline '{self.name}' executed with result: {pipeline_execution_result.result}. Total elapsed time: {elapsed_time_secs:.2f} seconds.")
 

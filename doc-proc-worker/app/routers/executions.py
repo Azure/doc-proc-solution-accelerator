@@ -13,7 +13,6 @@ from app.tasks import execute_pipeline_batch
 
 router = APIRouter()
 
-
 @router.post("/", response_model=BatchExecution)
 async def create_batch_execution(
     request: BatchExecutionRequest,

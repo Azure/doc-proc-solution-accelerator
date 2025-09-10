@@ -15,10 +15,14 @@ import sys
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from app.logging import setup_logger
 from app.celery_app import celery_app
 
 # Import tasks to register them
 from app.tasks import execute_pipeline_batch, process_single_document
 
 if __name__ == "__main__":
-    celery_app.start()
+    setup_logger()
+    
+    args = ['worker', '--loglevel=DEBUG']
+    celery_app.start(argv=args)

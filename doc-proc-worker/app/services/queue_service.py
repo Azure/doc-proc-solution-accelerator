@@ -5,11 +5,11 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-from azure.storage.queue.aio import QueueServiceClient, QueueClient
+from azure.storage.queue.aio import QueueClient
 
 
 from app.settings import app_settings
-from app.services.azure_service import AzureService
+from app.azure_resource import AzureResource
 
 logger = logging.getLogger("doc-proc-worker.app.queue_service")
 
@@ -57,7 +57,7 @@ class QueueMessage:
         return self._message.expires_on
 
 
-class AzureQueueService(AzureService):
+class AzureStorageQueueService(AzureResource):
     """Service for interacting with Azure Storage Queue"""
     
     def __init__(self):
@@ -71,7 +71,7 @@ class AzureQueueService(AzureService):
         await self.connect()
         return self
         
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit"""
         await self.disconnect()
         
@@ -93,7 +93,7 @@ class AzureQueueService(AzureService):
             logger.error(f"Failed to connect to Azure Storage Queue: {e}. Ensure network connectivity and rbac permissions are set for the storage account.")
             raise
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Disconnect from Azure Storage Queue"""
         if self._queue_client:
             await self._queue_client.close()

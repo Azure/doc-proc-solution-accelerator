@@ -1,5 +1,8 @@
 import os
 from celery import Celery
+from celery.signals import after_setup_task_logger
+from celery.app.log import TaskFormatter
+
 from kombu import Queue
 
 
@@ -44,8 +47,14 @@ def create_app() -> Celery:
         task_reject_on_worker_lost=True,
         task_ignore_result=False,
     )
-
+    
     return celery_app
+
+@after_setup_task_logger.connect
+def setup_task_logger(logger, *args, **kwargs):
+    print(logger)
+    for handler in logger.handlers:
+        handler.setFormatter(TaskFormatter('%(asctime)s - %(task_id)s - %(task_name)s - %(name)s - %(levelname)s - %(message)s'))
 
 celery_app: Celery = create_app()
 

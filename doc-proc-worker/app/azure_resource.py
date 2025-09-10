@@ -2,9 +2,10 @@ import logging
 
 from azure.identity import DefaultAzureCredential
 
-logger = logging.getLogger("doc-proc-worker.app.azure_service")
+logger = logging.getLogger("doc-proc-worker.app.azure_resource")
 
-class AzureService():
+# TODO: make instead part of utils
+class AzureResource():
     
     def _get_credential(self, credential=None):
         """

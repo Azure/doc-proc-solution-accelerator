@@ -4,9 +4,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from app.models.execution import DocumentReference
-
-
 class QueueMessageType(str, Enum):
     """Types of messages that can be sent to the queue"""
     BATCH_EXECUTION_REQUEST = "batch_execution_request"
@@ -17,8 +14,8 @@ class QueueMessageType(str, Enum):
 class QueueBatchExecutionRequest(BaseModel):
     """Message format for batch execution requests in the queue"""
     message_type: QueueMessageType = Field(default=QueueMessageType.BATCH_EXECUTION_REQUEST)
-    pipeline_instance_id: str = Field(..., description="ID of the pipeline instance to execute")
-    documents: List[DocumentReference] = Field(..., description="List of documents to process")
+    pipeline_name: str = Field(..., description="Name of the pipeline to execute")
+    documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
     batch_name: Optional[str] = Field(None, description="Optional name for the batch")
     priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")

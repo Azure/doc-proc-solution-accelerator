@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 from enum import Enum
 from pathlib import Path
@@ -52,138 +53,116 @@ class DocumentTypeIdentifierStep(StepBase):
         logger.debug(f"Initialized DocumentTypeIdentifierStep with identification_methods: {self.identification_methods}")
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         """
-        Identify document types and formats for input documents.
-        
+        Run the step processing logic for document type identification.
+
         Args:
-            input_data: Input containing dict of documents to analyze
+            document: Input document to analyze
             context: Pipeline execution context
             
         Returns:
             StepInputOutput: Output with type identification results
         """
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-        
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "skipped_documents": 0,
-            "failed_documents": 0,
-        }
+        # Check if document has the required data structure
+        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
 
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            # do nothing if no documents are found
-            return StepInputOutput(summary_data={
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                   },
-                                   data={
-                                       **input_data.data
-                                   })
+        # get document from input data
+        doc_to_process = document.data
+        if not doc_to_process or not isinstance(doc_to_process, dict):
+            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
 
-        # Iterate through each document in the input data
-        
-        _stats["total_documents"] = len(documents)
+        try:
 
-        logger.info(f"Processing {len(documents)} documents...")
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_to_process}")
 
-        final_documents_list = []
+            document_dict = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
+            # Validate required fields - now only file_path is required
+            if "file_path" not in document_dict:
+                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
+            
 
-        for document in documents:
-            try:
+            # Process the file based on identification methods
+            identification_result = await self._process_document(
+                                                document_dict, self.identification_methods, context
+                                            )
 
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
-                
-                document_dict = document if isinstance(document, dict) else {"file_path": document}
-                if not isinstance(document_dict, dict) or "file_path" not in document_dict:
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
+            result_document = {
+                **document_dict,
+                "document_type": identification_result,
+            }
 
-                # Process the file based on identification methods
-                identification_result = await self.process_document(
-                    document_dict, self.identification_methods
-                )
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {result_document}")
+            else:
+                logger.info(f"Successfully processed document: {result_document.get('file_path', 'unknown')}")
 
-                result_document = {
-                    **document_dict,
-                    "document_type": identification_result,
-                }
+            # Return the updated StepInputOutput
+            return StepInputOutput(summary_data = {**document.summary_data}, 
+                                   data = result_document)
 
-                _stats["successful_documents"] += 1
-                
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {result_document}")
-                else:
-                    logger.info(f"Successfully processed document: {result_document.get('file_path', 'unknown')}")
-
-                final_documents_list.append(result_document)
-
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
-
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
-
-        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
-        
-        # Return the updated StepInputOutput
-        return StepInputOutput(summary_data = {**input_data.summary_data, f"{self.name}_stats": _stats}, 
-                               data={**input_data.data, "documents": final_documents_list})
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
 
 
-    async def process_document(self, document: dict, 
-                                     identification_methods: List[IdentificationMethod]) -> dict:
+    async def _process_document(self, document: dict, 
+                                     identification_methods: List[IdentificationMethod],
+                                     context: PipelineExecutionContext) -> dict:
         """Process a document for type identification"""
         if not document or not isinstance(document, dict):
             raise ValueError("Invalid document format. Expected a dictionary with file metadata.")
+
+        # Validate that we have a file_path
+        if "file_path" not in document:
+            raise ValueError("Document is missing the required 'file_path' field.")
         
+        file_path = document["file_path"]
+        if not file_path or not os.path.exists(file_path):
+            raise ValueError(f"Invalid or non-existent file path: {file_path}")
+
         try:
             # Perform document type identification
-            identification_result = await self.identify_document_type(
+            identification_result = await self._identify_document_type(
                 document, identification_methods
             )
 
             return identification_result
                 
         except Exception as e:
-            logger.error(f"Document type identification failed for {document.get('file_path', 'unknown')}: {str(e)}")
+            logger.error(f"Document type identification failed for {file_path}: {str(e)}")
             raise ValueError(f"Document type identification failed: {str(e)}")
 
 
-    async def identify_document_type(self, document: dict, 
+    async def _identify_document_type(self, document: dict, 
                                            identification_methods: List[IdentificationMethod]) -> dict:
         """Perform comprehensive document type identification"""
         identification_results = {}
         
         # Method 1: Magic bytes detection
         if IdentificationMethod.MAGIC_BYTES in identification_methods:
-            magic_result = await self.identify_by_magic_bytes(document)
+            magic_result = await self._identify_by_magic_bytes(document)
             identification_results["magic_bytes"] = magic_result
         
         # Method 2: File extension analysis
         if IdentificationMethod.FILE_EXTENSION in identification_methods:
-            
-            extension_result = await self.identify_by_file_extension(document)
+            extension_result = await self._identify_by_file_extension(document)
             identification_results["file_extension"] = extension_result
         
         # Combine and rank results
-        final_identification = await self.combine_identification_results(
+        final_identification = await self._combine_identification_results(
             identification_results
         )
         
         return final_identification
     
 
-    async def identify_by_magic_bytes(self, document: dict) -> dict:
+    async def _identify_by_magic_bytes(self, document: dict) -> dict:
         """Identify document type using magic bytes/file signatures"""
         
         try:
@@ -213,7 +192,7 @@ class DocumentTypeIdentifierStep(StepBase):
             file_type = magic.from_buffer(file_content)
 
             # Map file type to DocumentType if needed
-            file_type = self.map_magic_bytes_to_document_type(file_type)
+            file_type = self._map_magic_bytes_to_document_type(file_type)
             
             if file_type == DocumentType.UNKNOWN.value:
                 return {
@@ -236,7 +215,7 @@ class DocumentTypeIdentifierStep(StepBase):
                 "method": "magic_bytes"
             }
     
-    def map_magic_bytes_to_document_type(self, file_type: str) -> str:
+    def _map_magic_bytes_to_document_type(self, file_type: str) -> str:
         """Map magic bytes file type to DocumentType"""
         # This is a simplified mapping, you can expand it based on your requirements
         if "PDF" in file_type.upper() or "Portable Document Format" in file_type.upper():
@@ -266,7 +245,7 @@ class DocumentTypeIdentifierStep(StepBase):
         else:
             return DocumentType.UNKNOWN.value
 
-    async def identify_by_file_extension(self, document: dict) -> dict:
+    async def _identify_by_file_extension(self, document: dict) -> dict:
         """Identify document type using file extension"""
         
         try:
@@ -342,7 +321,7 @@ class DocumentTypeIdentifierStep(StepBase):
             }
         
 
-    async def combine_identification_results(self, results: dict) -> dict:
+    async def _combine_identification_results(self, results: dict) -> dict:
         """Combine multiple identification results into final determination"""
         if not results:
             return {"primary_type": "unknown", "confidence": 0.0}

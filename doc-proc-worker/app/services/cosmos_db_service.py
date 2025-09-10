@@ -1,15 +1,20 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Any, Dict, List, Optional
 
 from app.db.cosmos import CosmosDb
-from app.services.azure_service import AzureService
 
 
-class COSMOSDBService(AzureService, ABC):
+class CosmosDBService():
     """Base service class for common COSMOS DB CRUD operations"""
     
-    def __init__(self, container_name: str):
-        self.db = CosmosDb(credential=self._get_credential())
+    def __init__(self, db: CosmosDb, container_name: str):
+        if db is None:
+            raise ValueError("db cannot be None")
+        
+        if not container_name:
+            raise ValueError("container_name cannot be None")
+
+        self.db = db
         self.container_name = container_name
     
     async def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,12 +35,8 @@ class COSMOSDBService(AzureService, ABC):
     
     async def delete(self, item_id: str) -> bool:
         """Delete an item by ID"""
-        try:
-            self.db.containers[self.container_name].delete_item(item=item_id, partition_key=item_id)
-            return True
-        except Exception:
-            return False
-    
+        return self.db.delete(self.container_name, item_id)
+
     @abstractmethod
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate item before creating/updating"""

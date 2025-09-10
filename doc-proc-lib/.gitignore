@@ -199,6 +199,7 @@ Thumbs.db # Windows specific
 
 # custom directories
 output/
+tmp/
 
 TODO
 steps_services_todo.md

@@ -3,6 +3,34 @@
 step_catalog:
 
   ########################################################
+  # File Downloader Step
+  - id: file_downloader
+    name: "File Downloader"
+    description: "Downloads files from Azure Blob Storage to local temporary directory"
+    type: script
+    module_name: file_downloader
+    module_path: ./doc/proc/step/file_downloader.py
+    class_name: FileDownloaderStep
+    tags: [file, download, azure, blob, storage]
+    category: "Input/Output"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      temp_folder:
+        type: string
+        title: "Temporary Folder"
+        description: "Path to temporary folder for downloaded files. Uses system temp if not specified."
+        default: ""
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "download"
+      color: "#3B82F6"
+      description_short: "Downloads files from Azure Blob Storage to local storage."
+      description_long: "Downloads files from Azure Blob Storage using blob details or SAS URLs to a configurable temporary directory. Essential first step for processing remote files."
+
+  ########################################################
   # Sample step for development and testing purposes
   - id: sample_step
     name: "Sample Development Step"
@@ -533,11 +561,17 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
+      chunks_iterator_field:
+        type: string
+        title: "Chunks Iterator Field"
+        description: "Field in document that include list of chunks that will be iterated"
+        default: "chunks"
+        ui_component: "input"
       chunk_field_to_apply_prompt_on:
         type: string
-        title: "Field to Apply Prompt On"
-        description: "The field key in document.chunks.chunk which the AI prompt will be applied to"
-        default: "markdown_text"
+        title: "Fields to Apply Prompt On."
+        description: "Comma separated list of field keys in document.chunks.chunk which the AI prompt will be applied to. The first field with a value will be used."
+        default: "markdown_text,text"
         ui_component: "input"
       output_field_name:
         type: string

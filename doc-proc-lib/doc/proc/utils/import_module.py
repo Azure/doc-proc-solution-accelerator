@@ -1,3 +1,4 @@
+import importlib
 import importlib.util
 import sys
 
@@ -46,7 +47,11 @@ def import_module(module_path, module_name):
     except ImportError as e:
         raise ImportError(f"Could not import module '{module_name}' from path '{module_path}': {str(e)}")
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"Module file not found at '{module_path}': {str(e)}")
+        # if the file is not found, this could be loaded from other workers.
+        # use a different approach to load the module.
+        module = f"{module_path.replace('/', '.').replace('.py', '').strip('..')}"
+        loaded_module = importlib.import_module(module, "doc-proc-lib")
+        return loaded_module
     except Exception as e:
         raise Exception(f"An error occurred while importing module '{module_name}': {str(e)}")
     finally:

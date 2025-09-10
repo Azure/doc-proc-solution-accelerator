@@ -2,27 +2,31 @@ from typing import Any, Dict, Iterable, Optional
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
+from app.azure_resource import AzureResource
 from app.settings import app_settings
 
 
-class CosmosDb():
-    def __init__(self, credential = None) -> None:
-        settings = app_settings
-
-        if not settings.COSMOS_DB_ENDPOINT:
-            raise RuntimeError("COSMOS_DB_ENDPOINT is required")
-
-        self.client = CosmosClient(settings.COSMOS_DB_ENDPOINT, credential=credential)
-
-        self.database = self._ensure_database(settings.COSMOS_DB_NAME)
+class CosmosDb(AzureResource):
+    def __init__(self, 
+                 endpoint: str, 
+                 credential = None):
+        super().__init__()
         
+        if not endpoint:
+            raise RuntimeError("Cosmos DB endpoint is required")
+
+        if credential:
+            self.client = CosmosClient(endpoint, credential=credential)
+        else:
+            self.client = CosmosClient(endpoint, credential=self._get_credential())
+
+        self.database = self._ensure_database(app_settings.COSMOS_DB_NAME)
+
         self.containers = {
-            "services": self._ensure_container(settings.COSMOS_DB_CONTAINER_SERVICES),
-            "steps": self._ensure_container(settings.COSMOS_DB_CONTAINER_STEPS),
-            "pipelines": self._ensure_container(settings.COSMOS_DB_CONTAINER_PIPELINES),
-            "batch_executions": self._ensure_container(settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS),
-            "activities": self._ensure_container(settings.COSMOS_DB_CONTAINER_ACTIVITIES),
-            "step_outputs": self._ensure_container(settings.COSMOS_DB_CONTAINER_STEP_OUTPUTS),
+            "pipelines": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_PIPELINES),
+            "batch_executions": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS),
+            "activity_logs": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_ACTIVITY_LOGS),
+            "pipeline_executions": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS),
         }
 
     def _ensure_database(self, db_name: str):
@@ -46,6 +50,14 @@ class CosmosDb():
         except exceptions.CosmosResourceNotFoundError:
             return None
 
+    def delete(self, container: str, item_id: str) -> bool:
+        """Delete an item by ID"""
+        try:
+            self.containers[container].delete_item(item=item_id, partition_key=item_id)
+            return True
+        except exceptions.CosmosResourceNotFoundError:
+            return False
+    
     def list(self, container: str, query: Optional[str] = None, parameters: Optional[Iterable[Dict[str, Any]]] = None):
         if query:
             return list(self.containers[container].query_items(query=query, parameters=parameters or [], enable_cross_partition_query=True))

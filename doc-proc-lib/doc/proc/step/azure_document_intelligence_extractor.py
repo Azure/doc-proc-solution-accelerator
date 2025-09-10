@@ -32,97 +32,67 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
                          f"Extract paragraphs: {self.extract_paragraphs}, Chunk by pages: {self.chunk_by_pages}" \
                          f"Output format: {self.output_format}.")
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
-        # Implement document processing using Azure Content Understanding
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
+    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+        """
+        Run the step processing logic for Azure Document Intelligence extraction.
+
+        Args:
+            document: Input document to analyze
+            context: Pipeline execution context
+
+        Returns:
+            StepInputOutput: Output with extraction results
+        """
+        
+        # Check if document has the required data structure
+        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
 
         # get Azure Document Intelligence Service from context
-        doc_intel_service = self.get_document_intelligence_service(context)
+        doc_intel_service = self._get_document_intelligence_service(context)
         if not doc_intel_service:
             logger.error("Azure Document Intelligence Service not found in context.")
             raise StepExecutionError("Azure Document Intelligence Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "skipped_documents": 0,
-            "failed_documents": 0,
-        }
-
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
         
-        _stats["total_documents"] = len(documents)        
+        # get document from input data
+        doc_to_process = document.data
+        if not doc_to_process or not isinstance(doc_to_process, dict):
+            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
 
-        # Iterate through each filtered document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
-            
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_to_process}")
                 
-                # Check if the document is a dictionary and has the 'file_path' key
-                if not isinstance(document, dict) or 'file_path' not in document:
-                    logger.warning(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key. Skipping.")
-                    _stats["skipped_documents"] += 1
-                    continue
-                
-                # Evaluate condition if present
-                if self.condition:
-                    if not self.evaluate_document_condition(document, input_data):
-                        logger.debug(f"Document {document.get('file_path')} does not meet condition. Skipping.")
-                        _stats["skipped_documents"] += 1
-                        continue
-            
-                # Process each document
-                # This will extend the document with extracted content using Azure Document Intelligence
-                await self.process_document(document=document,
-                                            context=context,
-                                            doc_intel_service=doc_intel_service)
+            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
+            # Validate required fields - now only file_path is required
+            if "file_path" not in doc_to_process:
+                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
 
-                _stats["successful_documents"] += 1
+            # Process the document
+            # This will extend the document with extracted content using Azure Document Intelligence
+            result_data = await self._process_document(document=doc_to_process,
+                                                       context=context,
+                                                       doc_intel_service=doc_intel_service)
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document.get('file_path')}")
-                else:
-                    logger.info(f"Successfully processed document: {document.get('file_path')}")
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {result_data}")
+            else:
+                logger.info(f"Successfully processed document: {result_data.get('file_path')}")
 
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
+            # Return the updated StepInputOutput
+            return StepInputOutput(summary_data = {**document.summary_data}, 
+                                   data = result_data)
 
-                if self.fail_step_on_document_error:
-                    raise StepExecutionError(f"Failed to process document: {e}")
-
-        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
-        
-        # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
     
 
-    def get_document_intelligence_service(self, context: "PipelineExecutionContext"):
+    def _get_document_intelligence_service(self, context: "PipelineExecutionContext"):
         """
         Get the Azure Document Intelligence Service from the context.
 
@@ -141,7 +111,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         return None
 
 
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", doc_intel_service):
+    async def _process_document(self, document: dict, context: "PipelineExecutionContext", doc_intel_service):
         """
         Process a single document using Azure Document Intelligence service.
 
@@ -183,11 +153,6 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
                 model_id=self.model_id,
                 output_content_format="markdown" if self.output_format == "markdown" else "text"
             )
-
-            if(self.debug_mode):
-                with open(f"f_analysis_result.json", 'w') as f:
-                    json.dump(analysis_result, f, indent=2)
-                logger.debug(f"Analysis result for {file_path}: {json.dumps(analysis_result, indent=2)}")
             
             # Process and structure the results
             chunks_data = self._process_analysis_results(analysis_result, file_path)
@@ -198,6 +163,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             if self.debug_mode:
                 logger.debug(f"Extracted {len(chunks_data)} chunks from document: {file_path}")
 
+            return document
         except Exception as e:
             logger.error(f"Error analyzing document {file_path}: {e}")
             raise StepExecutionError(f"Error analyzing document {file_path}: {e}")
@@ -246,7 +212,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             page_text = self._extract_page_text(page)
             
             if page_text.strip():  # Only create chunk if there's content
-                chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_page_{page_number}")
+                chunk_id = self._generate_sha1_hash(f"{os.path.basename(file_path)}_page_{page_number}")
                 
                 chunk_data = {
                     'input_file_path': file_path,
@@ -254,9 +220,10 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
                     'chunk_type': 'page',
                     'chunk_num': start_chunk_counter + i,
                     'page_num': page_number,
-                    'text': page_text,
+                    'markdown_text': page_text if self.output_format == 'markdown' else '',
+                    'json': page_text if self.output_format == 'json' else '',
                     'raw_text': page_text,
-                    'structured_content': self._format_page_content(page, analysis_result) if self.output_format == 'structured' else None,
+                    'structured_content': self._format_page_content(page, analysis_result) if self.output_format == 'structured' else '',
                     'confidence': self._calculate_page_confidence(page)
                 }
                 
@@ -272,16 +239,17 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         document_text = analysis_result.get('content', '')
         
         if document_text.strip():
-            chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_document")
+            chunk_id = self._generate_sha1_hash(f"{os.path.basename(file_path)}_document")
             
             chunk_data = {
                 'input_file_path': file_path,
                 'chunk_id': chunk_id,
                 'chunk_type': 'document',
                 'chunk_num': chunk_counter,
-                'text': document_text,
+                'markdown_text': document_text if self.output_format == 'markdown' else '',
+                'json': document_text if self.output_format == 'json' else '',
                 'raw_text': document_text,
-                'structured_content': analysis_result if self.output_format == 'structured' else None,
+                'structured_content': analysis_result if self.output_format == 'structured' else '',
                 'total_pages': len(analysis_result.get('pages', [])),
                 'confidence': self._calculate_document_confidence(analysis_result)
             }
@@ -298,14 +266,15 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             table_text = self._format_table_text(table)
             
             if table_text.strip():
-                chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_table_{i + 1}")
+                chunk_id = self._generate_sha1_hash(f"{os.path.basename(file_path)}_table_{i + 1}")
                 
                 chunk_data = {
                     'input_file_path': file_path,
                     'chunk_id': chunk_id,
                     'chunk_type': 'table',
                     'chunk_num': start_chunk_counter + i,
-                    'text': table_text,
+                    'markdown_text': table_text if self.output_format == 'markdown' else '',
+                    'json': table_text if self.output_format == 'json' else '',
                     'raw_text': table_text,
                     'table_data': table,
                     'row_count': table.get('row_count', 0),
@@ -326,7 +295,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             kv_text = self._format_key_value_text(kv_pairs)
             
             if kv_text.strip():
-                chunk_id = self.generate_sha1_hash(f"{os.path.basename(file_path)}_key_values")
+                chunk_id = self._generate_sha1_hash(f"{os.path.basename(file_path)}_key_values")
                 
                 chunk_data = {
                     'input_file_path': file_path,
@@ -356,7 +325,8 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             'word_count': len(page.get('words', [])),
             'line_count': len(page.get('lines', [])),
             'words': page.get('words', []),
-            'lines': page.get('lines', [])
+            'lines': page.get('lines', []),
+            'paragraphs': page.get('paragraphs', [])
         }
 
     def _format_table_text(self, table: Dict[str, Any]) -> str:
@@ -451,15 +421,3 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         total_confidence = sum([self._calculate_page_confidence(page) for page in pages])
         return total_confidence / len(pages)
 
-    def generate_sha1_hash(self, input_string: str) -> str:
-        """
-        Generates a sha1 hash from a given string.
-        """
-        # Encode the string to bytes, as hash functions operate on bytes
-        encoded_string = input_string.encode('utf-8')
-        # Create a SHA1 hash object
-        sha1_hash = hashlib.sha1()
-        # Update the hash object with the encoded string
-        sha1_hash.update(encoded_string)
-        # Get the hexadecimal representation of the hash
-        return sha1_hash.hexdigest()

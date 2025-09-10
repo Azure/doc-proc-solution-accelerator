@@ -11,61 +11,70 @@ from datetime import datetime, timezone
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
-from app.services.queue_service import AzureQueueService
+from app.dependencies import get_queue_service
+from app.services.queue_service import AzureStorageQueueService
 from app.models.queue_models import QueueBatchExecutionRequest
-from app.models.execution import DocumentReference
 from app.logging import setup_logger
 
 
 async def quick_test():
     """Send a few test messages quickly"""
-    print("🚀 Quick Queue Test - Sending sample messages...")
+    print("🚀 Quick Queue Test - Sending sample messages...\n")
+    print("-" * 30)
     
     # Setup logging
     setup_logger()
     
     # Create queue service
-    queue_service = AzureQueueService()
+    queue_service = get_queue_service()
     
     try:
         # Connect to queue
         print("📡 Connecting to Azure Storage Queue...")
         await queue_service.connect()
-        print("✅ Connected successfully!")
+        print("✅ Connected successfully!\n")
+        print("-" * 30)
         
         # Create sample documents
         documents = [
-            DocumentReference(
-                container_name="test-docs",
-                blob_name="sample1.pdf",
-                url="https://example.blob.core.windows.net/test-docs/sample1.pdf",
-                content_type="application/pdf",
-                size_bytes=2048
-            ),
-            DocumentReference(
-                container_name="test-docs", 
-                blob_name="sample2.docx",
-                url="https://example.blob.core.windows.net/test-docs/sample2.docx",
-                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                size_bytes=4096
-            )
+            {
+                "id": "doc1",
+                "file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.pdf"
+            },
+            {
+                "id": "doc2",
+                "file_path": "/Users/nadeemis/temp/Lorem Ipsum Presentation.pptx"
+            },
+            {
+                "id": "doc3",
+                "blob_details": {"container": "documents", "blob": "Lorem Ipsum Sample Document.docx"}
+            },
+            {
+                "id": "doc4",
+                "blob_details": {"container": "documents", "blob": "retail_store_data.xlsx"}
+            }
         ]
         
         # Create and send test messages
         test_messages = [
             {
-                "pipeline_id": "entity_extraction_pipeline_001",
+                "pipeline": "pipeline_1",
                 "name": "Entity Extraction Test",
                 "priority": 1
             },
             {
-                "pipeline_id": "document_classification_pipeline_001", 
+                "pipeline": "pipeline_1",
                 "name": "Document Classification Test",
                 "priority": 2
             },
             {
-                "pipeline_id": "content_summarization_pipeline_001",
+                "pipeline": "pipeline_1",
                 "name": "Content Summarization Test", 
+                "priority": 0
+            },
+            {
+                "pipeline": "pipeline_1",
+                "name": "Content Summarization Test 2", 
                 "priority": 0
             }
         ]
@@ -73,11 +82,11 @@ async def quick_test():
         sent_messages = []
         
         for i, test_msg in enumerate(test_messages):
-            print(f"📤 Sending message {i+1}/3: {test_msg['name']}")
-            
+            print(f"📤 Sending message {i+1}/{len(test_messages)}: {test_msg['name']}")
+
             # Create batch execution request
             request = QueueBatchExecutionRequest(
-                pipeline_instance_id=test_msg["pipeline_id"],
+                pipeline_name=test_msg["pipeline"],
                 documents=documents,
                 batch_name=test_msg["name"],
                 priority=test_msg["priority"],
@@ -86,7 +95,7 @@ async def quick_test():
                     "sender": "quick_test_script",
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 },
-                submitted_at=datetime.now(timezone.utc).isoformat(),
+                sent_at=datetime.now(timezone.utc).isoformat(),
                 requested_by="test_user",
                 correlation_id=f"quick_test_{i+1}_{datetime.now(timezone.utc).strftime('%H%M%S')}"
             )
@@ -95,6 +104,7 @@ async def quick_test():
             message_id = await queue_service.send_message(request.model_dump())
             sent_messages.append(message_id)
             print(f"   ✅ Message sent with ID: {message_id}")
+            print("-" * 20)
         
         print(f"\n🎉 Successfully sent {len(sent_messages)} test messages!")
         print("📊 Queue status:")
