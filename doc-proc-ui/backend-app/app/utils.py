@@ -2,7 +2,7 @@ import logging
 
 from azure.identity import DefaultAzureCredential
 
-logger = logging.getLogger("doc-proc-worker.app.utils")
+logger = logging.getLogger("doc-proc-ui.app.utils")
 
 def get_azure_credential(credential=None):
     """
@@ -13,13 +13,13 @@ def get_azure_credential(credential=None):
     """
     if credential is None:
         try:
-            credential = DefaultAzureCredential()
-            logger.debug("[blob] Initialized DefaultAzureCredential.")
+            credential = DefaultAzureCredential(logging_enable=True)
+            logger.debug(f"Initialized DefaultAzureCredential.")
 
         except Exception as e:
-            logger.error(f"[blob] Failed to initialize DefaultAzureCredential: {e}")
+            logger.error(f"Failed to initialize DefaultAzureCredential: {e}")
             raise
     else:
-        logger.debug("[blob] Initialized BlobClient with provided credential.")
+        logger.debug("Initialized BlobClient with provided credential.")
 
     return credential

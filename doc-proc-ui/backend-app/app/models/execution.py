@@ -42,8 +42,8 @@ class DocumentReference(BaseModel):
 
 class BatchExecutionRequest(BaseModel):
     """Request model for batch execution"""
-    pipeline_instance_id: str = Field(..., description="ID of the pipeline instance to execute")
-    documents: List[DocumentReference] = Field(..., description="List of documents to process")
+    pipeline_name: str = Field(..., description="Name of the pipeline to execute")
+    documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
     batch_name: Optional[str] = Field(None, description="Optional name for the batch")
     priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
@@ -64,9 +64,8 @@ class StepOutput(BaseModel):
 
 class BatchExecution(BaseDoc):
     """Model for batch execution tracking"""
-    pipeline_instance_id: str = Field(..., description="ID of the pipeline instance")
     pipeline_name: str = Field(..., description="Name of the pipeline")
-    documents: List[DocumentReference] = Field(..., description="Documents in the batch")
+    documents: List[Dict[str, Any]] = Field(..., description="Documents in the batch")
     status: BatchStatus = Field(default=BatchStatus.PENDING, description="Current batch status")
     celery_task_id: Optional[str] = Field(None, description="Celery task ID for tracking")
     priority: int = Field(default=0, description="Execution priority")
@@ -77,10 +76,10 @@ class BatchExecution(BaseDoc):
     failed_documents: int = Field(default=0, description="Number of failed documents")
     
     # Timing information
-    started_at: Optional[datetime] = Field(None, description="Batch execution start time")
-    completed_at: Optional[datetime] = Field(None, description="Batch execution completion time")
-    estimated_completion: Optional[datetime] = Field(None, description="Estimated completion time")
-    
+    submitted_at: Optional[str] = Field(None, description="Batch execution submission time to Celery in utc tz iso-format")
+    started_at: Optional[str] = Field(None, description="Batch execution start time in utc tz iso-format")
+    completed_at: Optional[str] = Field(None, description="Batch execution completion time in utc tz iso-format")
+
     # Results and errors
     results: Dict[str, Any] = Field(default_factory=dict, description="Batch execution results")
     errors: List[str] = Field(default_factory=list, description="List of errors encountered")
@@ -118,6 +117,10 @@ class BatchExecutionStatus(BaseModel):
     total_documents: int
     completed_documents: int
     failed_documents: int
+    current_step: Optional[str] = Field(None, description="Current processing step")
+    started_at: Optional[str] = Field(None, description="Start time in ISO format")
+    estimated_completion: Optional[str] = Field(None, description="Estimated completion time in ISO format")
+    recent_activities: List[Dict[str, Any]] = Field(default_factory=list, description="Recent activities")
     started_at: Optional[datetime]
     estimated_completion: Optional[datetime]
     current_step: Optional[str] = None

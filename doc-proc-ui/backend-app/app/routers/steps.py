@@ -2,102 +2,78 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from ..models.step import Step, StepInstance, StepCatalogDefinition
-from ..services.step_service import StepCatalogService
-from ..dependencies import get_step_catalog_service
+from app.models.step import StepInstanceCreateRequest, StepInstanceUpdateRequest, StepInstance, StepCatalogDefinition
+from app.services.step_catalog_service import StepCatalogService
+from app.services.step_instance_service import StepInstanceService
+from app.dependencies import get_step_catalog_service, get_step_instance_service
+from app.exceptions import ApiException
 
-router = APIRouter()
+router = APIRouter(prefix="/api/steps", tags=["steps"])
 
-
+#######################################################
+# Step Catalog endpoints
 @router.get("/catalog", response_model=List[StepCatalogDefinition])
 async def list_step_catalog(service: StepCatalogService = Depends(get_step_catalog_service)):
     """List all steps from the step catalog"""
     catalog_steps = await service.list_catalog_steps()
     return [StepCatalogDefinition(**step) for step in catalog_steps]
 
-
-@router.get("/catalog/{step_id}", response_model=StepCatalogDefinition)
-async def get_catalog_step(step_id: str, service: StepCatalogService = Depends(get_step_catalog_service)):
+@router.get("/catalog/{step_catalog_id}", response_model=StepCatalogDefinition)
+async def get_catalog_step(step_catalog_id: str, service: StepCatalogService = Depends(get_step_catalog_service)):
     """Get a specific step from the catalog by ID"""
-    catalog_step = await service.get_catalog_step_by_id(step_id)
+    catalog_step = await service.get_catalog_step_by_id(step_catalog_id)
     if not catalog_step:
-        raise HTTPException(status_code=404, detail="Step not found in catalog")
+        raise ApiException(status_code=404, message="Step definition not found in catalog")
     return StepCatalogDefinition(**catalog_step)
 
+@router.post("/initialize")
+async def initialize_catalog_steps(service: StepCatalogService = Depends(get_step_catalog_service)):
+    """Initialize default steps from catalog"""
+    return await service.initialize_step_catalog()
 
-@router.get("/catalog/category/{category}", response_model=List[StepCatalogDefinition])
-async def get_steps_by_category(category: str, service: StepCatalogService = Depends(get_step_catalog_service)):
-    """Get all steps from catalog by category"""
-    steps = await service.get_steps_by_category(category)
-    return [StepCatalogDefinition(**step) for step in steps]
-
-
-@router.post("/catalog/tags", response_model=List[StepCatalogDefinition])
-async def get_steps_by_tags(tags: List[str], service: StepCatalogService = Depends(get_step_catalog_service)):
-    """Get all steps from catalog that match any of the provided tags"""
-    steps = await service.get_steps_by_tags(tags)
-    return [StepCatalogDefinition(**step) for step in steps]
-
-
-@router.get("/", response_model=List[StepInstance])
-async def list_step_instances(service: StepCatalogService = Depends(get_step_catalog_service)):
+#######################################################
+# Step Instance endpoints
+@router.get("/instances", response_model=List[StepInstance])
+async def list_step_instances(service: StepInstanceService = Depends(get_step_instance_service)):
     """List all step instances"""
     items = await service.list_all()
     return [StepInstance(**item) for item in items]
 
 
-@router.get("/{id}", response_model=StepInstance)
-async def get_step_instance(id: str, service: StepCatalogService = Depends(get_step_catalog_service)):
+@router.get("/instances/{id}", response_model=StepInstance)
+async def get_step_instance(id: str, service: StepInstanceService = Depends(get_step_instance_service)):
     """Get a specific step instance by ID"""
     item = await service.get_by_id(id)
     if not item:
-        raise HTTPException(status_code=404, detail="Step instance not found")
+        raise ApiException(status_code=404, message="Step instance not found")
     return StepInstance(**item)
 
-
-@router.post("/", response_model=StepInstance)
-async def create_step_instance(step_data: StepInstance, service: StepCatalogService = Depends(get_step_catalog_service)):
+@router.post("/instances", response_model=StepInstance)
+async def create_step_instance(step_instance_data: StepInstanceCreateRequest, service: StepInstanceService = Depends(get_step_instance_service)):
     """Create a new step instance"""
-    step_data.touch()
     try:
-        saved = await service.create_step_instance(step_data.model_dump())
+        saved = await service.create_step_instance(step_instance_data.model_dump())
         return StepInstance(**saved)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise ApiException(status_code=400, message="Failed to create step instance", details=str(e))
 
-
-@router.put("/{id}", response_model=StepInstance)
-async def update_step_instance(id: str, step_data: StepInstance, service: StepCatalogService = Depends(get_step_catalog_service)):
+@router.put("/instances/{id}", response_model=StepInstance)
+async def update_step_instance(id: str, step_instance_data: StepInstanceUpdateRequest, service: StepInstanceService = Depends(get_step_instance_service)):
     """Update an existing step instance"""
-    if id != step_data.id:
-        raise HTTPException(status_code=400, detail="ID mismatch")
-    step_data.touch()
-    saved = await service.update(step_data.model_dump())
-    return StepInstance(**saved)
+    existing = await service.get_by_id(id)
+    if not existing:
+        raise ApiException(status_code=404, message="Step instance not found")
+    
+    try:
+        saved = await service.update_step_instance(id, step_instance_data.model_dump(exclude_unset=True))
+        return StepInstance(**saved)
+    except Exception as e:
+        raise ApiException(status_code=400, message="Failed to update step instance", details=str(e))
 
-
-@router.delete("/{id}")
-async def delete_step_instance(id: str, service: StepCatalogService = Depends(get_step_catalog_service)):
+@router.delete("/instances/{id}")
+async def delete_step_instance(id: str, service: StepInstanceService = Depends(get_step_instance_service)):
     """Delete a step instance"""
     success = await service.delete(id)
     if not success:
-        raise HTTPException(status_code=404, detail="Step instance not found")
+        raise ApiException(status_code=404, message="Step instance not found or failed to delete")
     return {"message": "Step instance deleted successfully"}
-
-
-# Legacy endpoints for backward compatibility
-@router.post("/legacy", response_model=Step)
-async def create_legacy_step(step_data: Step, service: StepCatalogService = Depends(get_step_catalog_service)):
-    """Create a legacy step (backward compatibility)"""
-    step_data.touch()
-    saved = await service.create(step_data.model_dump())
-    return Step(**saved)
-
-
-@router.get("/legacy/{id}", response_model=Step)
-async def get_legacy_step(id: str, service: StepCatalogService = Depends(get_step_catalog_service)):
-    """Get a legacy step by ID (backward compatibility)"""
-    item = await service.get_by_id(id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Step not found")
-    return Step(**item)

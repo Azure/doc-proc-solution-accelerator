@@ -2,22 +2,27 @@ from typing import Dict, List, Optional, Any
 
 from pydantic import BaseModel, Field
 
-from .common import BaseDoc
+from app.models.common import BaseDoc
 
 
 class StepSettingsSchema(BaseModel):
     """Schema definition for step settings"""
     type: str
-    default: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    required: Optional[bool] = None
+    default: Optional[str | int | float | bool] = None
     ui_component: Optional[str] = None
+    service_type: Optional[str] = None
     enum: Optional[List[str]] = None
-    maximum: Optional[int] = None
-
+    min: Optional[int | float] = None
+    max: Optional[int | float] = None
+    multipleOf: Optional[int | float] = None
+    pattern: Optional[str] = None
 
 class StepUIMetadata(BaseModel):
     """UI metadata for step display"""
     icon: Optional[str] = None
-    color: Optional[str] = None
     description_short: Optional[str] = None
     description_long: Optional[str] = None
 
@@ -27,7 +32,6 @@ class StepCatalogDefinition(BaseModel):
     id: str
     name: str
     description: str
-    type: str
     module_name: str
     module_path: str
     class_name: str
@@ -41,33 +45,36 @@ class StepCatalogDefinition(BaseModel):
 class StepInstance(BaseDoc):
     """Step instance based on catalog definition"""
     step_catalog_id: str = Field(..., description="Reference to step catalog ID")
-    type: str = Field(..., description="Step type from catalog")
-    module_name: str = Field(..., description="Python module name")
-    module_path: str = Field(..., description="Path to module file")
-    class_name: str = Field(..., description="Class name to instantiate")
     enabled: bool = Field(default=True, description="Whether step is enabled")
     fail_pipeline_on_error: bool = Field(default=False, description="Fail pipeline if step fails")
-    retry_on_failure: bool = Field(default=False, description="Retry step on failure")
-    retries: int = Field(default=3, description="Number of retries")
     timeout: int = Field(default=600, description="Step timeout in seconds")
     services: List[str] = Field(default_factory=list, description="Referenced service instances")
     condition: Optional[str] = Field(None, description="Condition for step execution")
-    fail_step_on_document_error: bool = Field(default=False, description="Fail step on document error")
     debug_mode: bool = Field(default=False, description="Enable debug mode")
     settings: Dict[str, Any] = Field(default_factory=dict, description="Step-specific settings")
     catalog_definition: Optional[StepCatalogDefinition] = None
-    status: str = Field(default="active", description="Step instance status")
+    category: Optional[str] = None
+    version: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 
-# Legacy models for backward compatibility
-class StepIO(BaseModel):
-    inputs: Dict[str, str] = Field(default_factory=dict)
-    outputs: Dict[str, str] = Field(default_factory=dict)
+class StepInstanceCreateRequest(BaseModel):
+    """Request to create a new step instance"""
+    name: str
+    description: Optional[str] = None
+    step_catalog_id: str = Field(..., description="ID from step catalog")
+    settings: Dict[str, Any] = Field(default_factory=dict, description="Step settings")
+    enabled: bool = Field(default=True, description="Whether step is enabled")
+    fail_pipeline_on_error: bool = Field(default=False, description="Fail pipeline if step fails")
+    timeout: int = Field(default=30, description="Step timeout in seconds")
+    services: List[str] = Field(default_factory=list, description="Referenced service instances")
+    condition: Optional[str] = Field(None, description="Condition for step execution")
+    debug_mode: bool = Field(default=False, description="Enable debug mode")
 
 
-class Step(BaseDoc):
-    kind: str = Field(default="step")
-    type: str
-    service_id: Optional[str] = None
-    params: Dict[str, str] = Field(default_factory=dict)
-    io: StepIO = Field(default_factory=StepIO)
+class StepInstanceUpdateRequest(BaseModel):
+    """Request to update a step instance"""
+    description: Optional[str] = None
+    settings: Dict[str, Any] = Field(default_factory=dict, description="Step settings")
+    enabled: bool = Field(default=True, description="Whether step is enabled")
+

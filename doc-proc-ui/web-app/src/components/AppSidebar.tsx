@@ -1,5 +1,5 @@
 
-import { LayoutDashboard, Vault, Settings, Link, Workflow, Puzzle, Server, Cog } from "lucide-react";
+import { LayoutDashboard, Vault, Settings, Link, Workflow, Puzzle, Server, Cog, Database } from "lucide-react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -11,9 +11,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 
-const navigationItems = [
+const appNavigationItems = [
   {
     title: "Dashboard",
     url: "/",
@@ -57,7 +60,7 @@ const navigationItems = [
 
 ];
 
-const processingItems = [
+const appConfigItems = [
   {
     title: "Pipelines",
     url: "/pipeline",
@@ -77,12 +80,26 @@ const processingItems = [
     title: "Steps",
     url: "/steps",
     icon: Puzzle,
+    subItems: [
+      {
+        title: "Step Instances",
+        url: "/step-instances",
+        icon: Database,
+      },
+    ],
   },
   {
     title: "Services",
     url: "/services",
     icon: Server,
-  },
+    subItems: [
+      {
+        title: "Service Instances",
+        url: "/service-instances",
+        icon: Database,
+      },
+    ],
+  }
 ];
 
 export function AppSidebar() {
@@ -101,7 +118,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>App</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.map((item) => (
+              {appNavigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <RouterLink to={item.url}>
@@ -119,7 +136,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Configure</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {processingItems.map((item) => (
+              {appConfigItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <RouterLink to={item.url}>
@@ -127,6 +144,22 @@ export function AppSidebar() {
                       <span>{item.title}</span>
                     </RouterLink>
                   </SidebarMenuButton>
+
+                  {item.subItems && (
+                    <SidebarMenuSub>
+                      {item.subItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}>
+                            <RouterLink to={subItem.url}>
+                            <subItem.icon />
+                            <span>{subItem.title}</span>
+                          </RouterLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                    )}
+                  
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

@@ -1,53 +1,443 @@
-import os
-import sys
-import yaml
 from typing import Any, Dict, List, Optional
-from datetime import datetime
-
-# Add the doc-proc-lib to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../doc-proc-lib"))
+from datetime import datetime, timezone
+import uuid
 
 from .base import BaseService
+from .activity_log_service import ActivityLogService
 from ..db.cosmos import CosmosDb
 from ..models.execution import (
-    BatchExecution, ActivityLog, BatchStatus, ActivityType, 
-    StepOutput, DocumentReference, BatchExecutionRequest
+    BatchExecution, BatchStatus, ActivityType,
+    StepOutput, BatchExecutionRequest
 )
-from doc.proc.pipeline.pipeline_base import Pipeline
-from doc.proc.pipeline.pipeline_config import PipelineConfig
-from doc.proc.step.step_config import StepConfig
-from doc.proc.service.service_config import ServiceConfig
 
 
 class ExecutionService(BaseService):
     """Service for managing pipeline execution operations"""
-    
+
     def __init__(self, db: CosmosDb):
         super().__init__(db, "batch_executions")
-        self._pipeline_cache = {}
-        self._config_cache = None
-    
+        self._activity_log_service = ActivityLogService(db)
+
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate batch execution item"""
-        required_fields = ["id", "name", "pipeline_instance_id", "documents"]
+        required_fields = ["id", "name", "pipeline_name", "documents"]
         return all(field in item for field in required_fields)
     
     async def create_batch_execution(self, request: BatchExecutionRequest) -> BatchExecution:
         """Create a new batch execution"""
         
         # Generate batch ID
-        batch_id = f"batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{len(request.documents)}_docs"
-        
-        # Get pipeline instance info
-        pipeline_service = self._get_pipeline_service()
-        pipeline_instance = await pipeline_service.get_by_id(request.pipeline_instance_id)
-        if not pipeline_instance:
-            raise ValueError(f"Pipeline instance {request.pipeline_instance_id} not found")
+        batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{len(request.documents)}_docs"
         
         # Create batch execution
         batch = BatchExecution(
             id=batch_id,
-            name=request.batch_name or f"Batch execution for {pipeline_instance['name']}",
+            name=request.batch_name or f"Batch execution for {request.pipeline_name}",
+            pipeline_name=request.pipeline_name,
+            documents=request.documents,
+            total_documents=len(request.documents),
+            priority=request.priority,
+            metadata=request.metadata
+        )
+        
+        # Save to database
+        saved_batch = await self.create(batch.model_dump())
+        
+        # Log creation activity
+        await self._activity_log_service.log_activity(
+            batch_execution_id=batch_id,
+            activity_type=ActivityType.BATCH_CREATED,
+            status="Created",
+            message=f"Batch execution created with {len(request.documents)} documents",
+            details={
+                "pipeline_name": request.pipeline_name,
+                "document_count": len(request.documents),
+                "priority": request.priority
+            }
+        )
+        
+        return BatchExecution(**saved_batch)
+    
+    
+    async def get_batch_execution(self, batch_id: str) -> Optional[BatchExecution]:
+        """Get batch execution by ID"""
+        batch_data = await self.get_by_id(batch_id)
+        return BatchExecution(**batch_data) if batch_data else None
+
+    async def update_batch_status(
+        self,
+        batch_id: str,
+        status: BatchStatus,
+        celery_task_id: Optional[str] = None,
+        started_at: Optional[str] = None,
+        completed_at: Optional[str] = None,
+        results: Optional[Dict[str, Any]] = None,
+        errors: Optional[List[str]] = None
+    ) -> Optional[BatchExecution]:
+        """Update batch execution status"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return None
+
+        # Update fields
+        batch.status = status
+        if celery_task_id:
+            batch.celery_task_id = celery_task_id
+        if started_at:
+            batch.started_at = started_at
+        if completed_at:
+            batch.completed_at = completed_at
+        if results:
+            batch.results = results
+        if errors:
+            batch.errors = errors
+
+        batch.touch()
+        
+        updated_batch = await self.update(batch_id, batch.model_dump())
+        return BatchExecution(**updated_batch)
+
+    async def get_batch_activities(self, batch_id: str, limit: Optional[int] = None) -> List:
+        """Get activities for a batch execution"""
+        return await self._activity_log_service.get_batch_activities(batch_id, limit)
+
+    async def list_batch_executions(
+        self,
+        status: Optional[BatchStatus] = None,
+        limit: Optional[int] = None,
+        offset: int = 0
+    ) -> List[BatchExecution]:
+        """List batch executions with optional filtering"""
+        query = "SELECT * FROM c"
+        parameters = []
+        
+        if status:
+            query += " WHERE c.status = @status"
+            parameters.append({"name": "@status", "value": status.value})
+        
+        query += " ORDER BY c.created_at DESC"
+        
+        if limit:
+            query += f" OFFSET {offset} LIMIT {limit}"
+        
+        items = await self.query(query, parameters)
+        return [BatchExecution(**item) for item in items]
+
+    async def cancel_batch_execution(self, batch_id: str) -> bool:
+        """Cancel a batch execution"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return False
+
+        if batch.status in [BatchStatus.COMPLETED, BatchStatus.CANCELLED, BatchStatus.FAILED]:
+            return False  # Cannot cancel already finished batches
+
+        # Update status
+        await self.update_batch_status(
+            batch_id,
+            BatchStatus.CANCELLED,
+            completed_at=datetime.now(timezone.utc).isoformat()
+        )
+
+        # Log cancellation activity
+        await self._activity_log_service.log_activity(
+            batch_execution_id=batch_id,
+            activity_type=ActivityType.BATCH_CANCELLED,
+            status="Cancelled",
+            message="Batch execution cancelled by user"
+        )
+
+        return True
+
+    async def get_execution_stats(self) -> Dict[str, Any]:
+        """Get execution statistics"""
+        try:
+            # Get overall stats
+            total_query = "SELECT COUNT(1) as total FROM c"
+            total_result = await self.query(total_query)
+            total_executions = total_result[0]["total"] if total_result else 0
+
+            # Get status distribution
+            status_query = "SELECT c.status, COUNT(1) as count FROM c GROUP BY c.status"
+            status_results = await self.query(status_query)
+            
+            status_counts = {}
+            for result in status_results:
+                status_counts[result["status"]] = result["count"]
+
+            return {
+                "total_executions": total_executions,
+                "status_distribution": status_counts,
+                "pending": status_counts.get("pending", 0),
+                "running": status_counts.get("running", 0),
+                "completed": status_counts.get("completed", 0),
+                "failed": status_counts.get("failed", 0),
+                "cancelled": status_counts.get("cancelled", 0)
+            }
+        except Exception:
+            return {
+                "total_executions": 0,
+                "status_distribution": {},
+                "pending": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0
+            }
+    
+    
+    async def get_batch_execution(self, batch_id: str) -> Optional[BatchExecution]:
+        """Get batch execution by ID"""
+        batch_data = await self.get_by_id(batch_id)
+        return BatchExecution(**batch_data) if batch_data else None
+
+    async def update_batch_status(
+        self,
+        batch_id: str,
+        status: BatchStatus,
+        celery_task_id: Optional[str] = None,
+        started_at: Optional[str] = None,
+        completed_at: Optional[str] = None,
+        results: Optional[Dict[str, Any]] = None,
+        errors: Optional[List[str]] = None
+    ) -> Optional[BatchExecution]:
+        """Update batch execution status"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return None
+
+        # Update fields
+        batch.status = status
+        if celery_task_id:
+            batch.celery_task_id = celery_task_id
+        if started_at:
+            batch.started_at = started_at
+        if completed_at:
+            batch.completed_at = completed_at
+        if results:
+            batch.results = results
+        if errors:
+            batch.errors = errors
+
+        batch.touch()
+        
+        updated_batch = await self.update(batch_id, batch.model_dump())
+        return BatchExecution(**updated_batch)
+
+    async def get_batch_activities(self, batch_id: str, limit: Optional[int] = None) -> List:
+        """Get activities for a batch execution"""
+        return await self._activity_log_service.get_batch_activities(batch_id, limit)
+
+    async def list_batch_executions(
+        self,
+        status: Optional[BatchStatus] = None,
+        limit: Optional[int] = None,
+        offset: int = 0
+    ) -> List[BatchExecution]:
+        """List batch executions with optional filtering"""
+        query = "SELECT * FROM c"
+        parameters = []
+        
+        if status:
+            query += " WHERE c.status = @status"
+            parameters.append({"name": "@status", "value": status.value})
+        
+        query += " ORDER BY c.created_at DESC"
+        
+        if limit:
+            query += f" OFFSET {offset} LIMIT {limit}"
+        
+        items = await self.query(query, parameters)
+        return [BatchExecution(**item) for item in items]
+
+    async def cancel_batch_execution(self, batch_id: str) -> bool:
+        """Cancel a batch execution"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return False
+
+        if batch.status in [BatchStatus.COMPLETED, BatchStatus.CANCELLED, BatchStatus.FAILED]:
+            return False  # Cannot cancel already finished batches
+
+        # Update status
+        await self.update_batch_status(
+            batch_id,
+            BatchStatus.CANCELLED,
+            completed_at=datetime.now(timezone.utc).isoformat()
+        )
+
+        # Log cancellation activity
+        await self._activity_log_service.log_activity(
+            batch_execution_id=batch_id,
+            activity_type=ActivityType.BATCH_CANCELLED,
+            status="Cancelled",
+            message="Batch execution cancelled by user"
+        )
+
+        return True
+
+    async def get_execution_stats(self) -> Dict[str, Any]:
+        """Get execution statistics"""
+        try:
+            # Get overall stats
+            total_query = "SELECT COUNT(1) as total FROM c"
+            total_result = await self.query(total_query)
+            total_executions = total_result[0]["total"] if total_result else 0
+
+            # Get status distribution
+            status_query = "SELECT c.status, COUNT(1) as count FROM c GROUP BY c.status"
+            status_results = await self.query(status_query)
+            
+            status_counts = {}
+            for result in status_results:
+                status_counts[result["status"]] = result["count"]
+
+            return {
+                "total_executions": total_executions,
+                "status_distribution": status_counts,
+                "pending": status_counts.get("pending", 0),
+                "running": status_counts.get("running", 0),
+                "completed": status_counts.get("completed", 0),
+                "failed": status_counts.get("failed", 0),
+                "cancelled": status_counts.get("cancelled", 0)
+            }
+        except Exception:
+            return {
+                "total_executions": 0,
+                "status_distribution": {},
+                "pending": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0
+            }
+    
+    
+    async def get_batch_execution(self, batch_id: str) -> Optional[BatchExecution]:
+        """Get batch execution by ID"""
+        batch_data = await self.get_by_id(batch_id)
+        return BatchExecution(**batch_data) if batch_data else None
+
+    async def update_batch_status(
+        self,
+        batch_id: str,
+        status: BatchStatus,
+        celery_task_id: Optional[str] = None,
+        started_at: Optional[str] = None,
+        completed_at: Optional[str] = None,
+        results: Optional[Dict[str, Any]] = None,
+        errors: Optional[List[str]] = None
+    ) -> Optional[BatchExecution]:
+        """Update batch execution status"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return None
+
+        # Update fields
+        batch.status = status
+        if celery_task_id:
+            batch.celery_task_id = celery_task_id
+        if started_at:
+            batch.started_at = started_at
+        if completed_at:
+            batch.completed_at = completed_at
+        if results:
+            batch.results = results
+        if errors:
+            batch.errors = errors
+
+        batch.touch()
+        
+        updated_batch = await self.update(batch_id, batch.model_dump())
+        return BatchExecution(**updated_batch)
+
+    async def get_batch_activities(self, batch_id: str, limit: Optional[int] = None) -> List:
+        """Get activities for a batch execution"""
+        return await self._activity_log_service.get_batch_activities(batch_id, limit)
+
+    async def list_batch_executions(
+        self,
+        status: Optional[BatchStatus] = None,
+        limit: Optional[int] = None,
+        offset: int = 0
+    ) -> List[BatchExecution]:
+        """List batch executions with optional filtering"""
+        query = "SELECT * FROM c"
+        parameters = []
+        
+        if status:
+            query += " WHERE c.status = @status"
+            parameters.append({"name": "@status", "value": status.value})
+        
+        query += " ORDER BY c.created_at DESC"
+        
+        if limit:
+            query += f" OFFSET {offset} LIMIT {limit}"
+        
+        items = await self.query(query, parameters)
+        return [BatchExecution(**item) for item in items]
+
+    async def cancel_batch_execution(self, batch_id: str) -> bool:
+        """Cancel a batch execution"""
+        batch = await self.get_batch_execution(batch_id)
+        if not batch:
+            return False
+
+        if batch.status in [BatchStatus.COMPLETED, BatchStatus.CANCELLED, BatchStatus.FAILED]:
+            return False  # Cannot cancel already finished batches
+
+        # Update status
+        await self.update_batch_status(
+            batch_id,
+            BatchStatus.CANCELLED,
+            completed_at=datetime.now(timezone.utc).isoformat()
+        )
+
+        # Log cancellation activity
+        await self._activity_log_service.log_activity(
+            batch_execution_id=batch_id,
+            activity_type=ActivityType.BATCH_CANCELLED,
+            status="Cancelled",
+            message="Batch execution cancelled by user"
+        )
+
+        return True
+
+    async def get_execution_stats(self) -> Dict[str, Any]:
+        """Get execution statistics"""
+        try:
+            # Get overall stats
+            total_query = "SELECT COUNT(1) as total FROM c"
+            total_result = await self.query(total_query)
+            total_executions = total_result[0]["total"] if total_result else 0
+
+            # Get status distribution
+            status_query = "SELECT c.status, COUNT(1) as count FROM c GROUP BY c.status"
+            status_results = await self.query(status_query)
+            
+            status_counts = {}
+            for result in status_results:
+                status_counts[result["status"]] = result["count"]
+
+            return {
+                "total_executions": total_executions,
+                "status_distribution": status_counts,
+                "pending": status_counts.get("pending", 0),
+                "running": status_counts.get("running", 0),
+                "completed": status_counts.get("completed", 0),
+                "failed": status_counts.get("failed", 0),
+                "cancelled": status_counts.get("cancelled", 0)
+            }
+        except Exception:
+            return {
+                "total_executions": 0,
+                "status_distribution": {},
+                "pending": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0
+            }
             description=f"Batch execution of {len(request.documents)} documents",
             pipeline_instance_id=request.pipeline_instance_id,
             pipeline_name=pipeline_instance["name"],
@@ -55,7 +445,7 @@ class ExecutionService(BaseService):
             total_documents=len(request.documents),
             priority=request.priority,
             metadata=request.metadata
-        )
+        
         
         # Save to database
         saved_batch = await self.create(batch.model_dump())

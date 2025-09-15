@@ -27,28 +27,24 @@ class BlobService(ServiceBase):
         if not self.storage_account_name:
             raise ValueError("Settings key 'account_name' is required")
 
+        # Read the storage account name from environment variable if in ${ENV_VAR_NAME} format
         if self.storage_account_name.startswith('${') and self.storage_account_name.endswith('}'):
             env_var_name = self.storage_account_name[2:-1]
             self.storage_account_name = os.getenv(env_var_name)
             if not self.storage_account_name:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            raise ValueError("Settings key 'account_name' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
-
-
+        
         # Validate credential type
         if not self.credential_type:
             raise ValueError("Settings key 'credential_type' is required")
         
+        # Read the credential type from environment variable if in ${ENV_VAR_NAME} format
         if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
             env_var_name = self.credential_type[2:-1]
             self.credential_type = os.getenv(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            raise ValueError("Settings key 'credential_type' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
-
-
+        
         # Validate credential key based on credential type
         if self.credential_type == 'azure_key_credential':
             self.credential_key = settings.get('credential_key')
@@ -56,14 +52,13 @@ class BlobService(ServiceBase):
             if not self.credential_key:
                 raise ValueError("Settings key 'credential_key' is required for azure_key_credential")
             
-            # Read the credential key from environment variable
+            # Read the credential key from environment variable if in ${ENV_VAR_NAME} format
             if self.credential_key.startswith('${') and self.credential_key.endswith('}'):
                 env_var_name = self.credential_key[2:-1]
                 self.credential_key = os.getenv(env_var_name)
                 if not self.credential_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-            else:
-                raise ValueError("Settings key 'credential_key' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+            
 
         elif self.credential_type == 'default_azure_credential':
             self.credential_key = ''

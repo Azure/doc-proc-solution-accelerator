@@ -4,66 +4,147 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { RefreshCw, CheckCircle, XCircle, AlertTriangle, Database, Search, Zap } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, AlertTriangle, Server, Globe } from "lucide-react";
+import { ServiceIcon } from "@/components/service/ServiceIcon";
+import { healthApi, SystemHealth, ServiceHealth } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface ConnectionStatus {
   id: string;
   name: string;
-  type: 'database' | 'search' | 'ai';
-  status: 'connected' | 'error' | 'warning';
+  type: 'api' | 'database' | 'storage' | 'queue' | 'config';
+  status: 'connected' | 'error' | 'unknown';
   lastChecked: string;
+  message?: string;
   error?: string;
-  details?: string;
-  icon: typeof Database;
+  details?: Record<string, any>;
+  endpoint?: string;
+  responseTime?: number;
 }
 
 const Connections = () => {
-  const [connections, setConnections] = useState<ConnectionStatus[]>([
-    {
-      id: "cosmos-db",
-      name: "Azure Cosmos DB",
-      type: "database",
-      status: "connected",
-      lastChecked: "2024-06-20T07:30:00Z",
-      details: "Primary endpoint responding normally",
-      icon: Database
-    },
-    {
-      id: "ai-search",
-      name: "Azure AI Search",
-      type: "search",
-      status: "error",
-      lastChecked: "2024-06-20T07:29:45Z",
-      error: "Authentication failed: Invalid API key",
-      details: "Service endpoint is reachable but authentication is failing",
-      icon: Search
-    },
-    {
-      id: "ai-services",
-      name: "Azure AI Services",
-      type: "ai",
-      status: "warning",
-      lastChecked: "2024-06-20T07:28:30Z",
-      error: "Rate limit exceeded",
-      details: "Service is available but rate limits are being hit",
-      icon: Zap
-    }
-  ]);
-
+  const [connections, setConnections] = useState<ConnectionStatus[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
+  // Load connections on component mount
+  useEffect(() => {
+    loadConnections();
+  }, []);
+
+  const loadConnections = async () => {
+    setLoading(true);
+    await checkConnections();
+    setLoading(false);
+  };
+
+  const checkConnections = async () => {
+    const newConnections: ConnectionStatus[] = [];
+        
+    try {
+
+      const startTime = Date.now();
+
+      // Use the health check API
+      const systemHealth: SystemHealth = await healthApi.healthCheck();
+      
+      const responseTime = Date.now() - startTime;
+
+      // Add a connection status for the Backend Api as well
+      newConnections.push({
+          id: "web-app-backend-api",
+          name: "Web App Backend API",
+          type: "api",
+          status: "connected",
+          lastChecked: new Date().toISOString(),
+          message: `API responding - connected`,
+          endpoint: (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:8000",
+          responseTime
+        });
+
+      // Convert backend health data to frontend format
+      Object.entries(systemHealth.services).forEach(([serviceId, service]) => {
+        const connectionStatus: ConnectionStatus = {
+          id: serviceId,
+          name: service.name === 'cosmos_db' ? 'Azure Cosmos DB' :
+                service.name === 'storage_queue' ? 'Azure Storage Queue' :
+                service.name === 'app_config' ? 'Azure App Configuration' :
+                service.name,
+          type: service.name === 'cosmos_db' ? 'database' :
+                service.name === 'storage_queue' ? 'storage' :
+                service.name === 'app_config' ? 'config' :
+                'api' as const,
+          status: service.status === 'connected' ? 'connected' :
+                  service.status === 'error' ? 'error' :
+                  'unknown',
+          lastChecked: service.last_checked,
+          message: service.message,
+          details: service.details,
+          endpoint: service.endpoint,
+          responseTime: service.response_time_ms
+        };
+
+        if (service.status !== 'connected' && service.error) {
+          connectionStatus.error = service.error;
+        }
+
+        newConnections.push(connectionStatus);
+      });
+
+    } catch (error) {
+      console.error("Health check failed:", error);
+      
+      newConnections.push({
+          id: "backend-api",
+          name: "Backend API",
+          type: "api",
+          status: "error",
+          lastChecked: new Date().toISOString(),
+          error: error instanceof Error ? error.message : "Connection failed",
+          message: "Unable to reach backend API service",
+          endpoint: (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:8000"
+        });
+      }
+
+      setConnections(newConnections);
+
+  };
+
+    
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate API call to check connections
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Update last checked times
-    setConnections(prev => prev.map(conn => ({
-      ...conn,
-      lastChecked: new Date().toISOString()
-    })));
-    
+    try {
+      await checkConnections();
+      toast({
+        title: "Connections Refreshed",
+        description: "All connection statuses have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Some connections could not be checked.",
+        variant: "destructive",
+      });
+    }
     setIsRefreshing(false);
+  };
+
+  const getServiceIconType = (type: string): string => {
+    switch (type) {
+      case 'api':
+        return 'api';
+      case 'database':
+        return 'cosmosdb';
+      case 'storage':
+        return 'azureblob';
+      case 'queue':
+        return 'queue';
+      case 'config':
+        return 'settings';
+      default:
+        return 'server';
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -104,27 +185,46 @@ const Connections = () => {
           <h1 className="text-3xl font-bold">Connections</h1>
           <p className="text-muted-foreground">Monitor the status of backend service connections</p>
         </div>
-        <Button onClick={handleRefresh} disabled={isRefreshing}>
+        <Button onClick={handleRefresh} disabled={isRefreshing || loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh All
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {connections.map((connection) => {
-          const IconComponent = connection.icon;
-          return (
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Checking connections...</span>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {connections.map((connection) => (
             <Card key={connection.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <IconComponent className="h-5 w-5 text-muted-foreground" />
+                    <ServiceIcon 
+                      iconName={getServiceIconType(connection.type)}
+                      category={connection.type}
+                      type={connection.type}
+                      className="h-5 w-5 text-muted-foreground" 
+                    />
                     <CardTitle className="text-lg">{connection.name}</CardTitle>
                   </div>
                   {getStatusIcon(connection.status)}
                 </div>
                 <CardDescription>
                   Last checked: {formatLastChecked(connection.lastChecked)}
+                  {connection.endpoint && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {connection.endpoint}
+                    </div>
+                  )}
+                  {connection.responseTime && (
+                    <div className="text-xs text-muted-foreground">
+                      Response time: {connection.responseTime}ms
+                    </div>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -133,9 +233,9 @@ const Connections = () => {
                   {getStatusBadge(connection.status)}
                 </div>
                 
-                {connection.details && (
+                {connection.message && (
                   <div className="text-sm text-muted-foreground">
-                    {connection.details}
+                    {connection.message}
                   </div>
                 )}
                 
@@ -150,9 +250,9 @@ const Connections = () => {
                 )}
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -160,7 +260,7 @@ const Connections = () => {
           <CardDescription>Overview of all service connections</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div className="space-y-2">
               <div className="text-2xl font-bold text-green-600">
                 {connections.filter(c => c.status === 'connected').length}
@@ -168,16 +268,16 @@ const Connections = () => {
               <div className="text-sm text-muted-foreground">Connected</div>
             </div>
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-yellow-600">
-                {connections.filter(c => c.status === 'warning').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Warnings</div>
-            </div>
-            <div className="space-y-2">
               <div className="text-2xl font-bold text-red-600">
                 {connections.filter(c => c.status === 'error').length}
               </div>
               <div className="text-sm text-muted-foreground">Errors</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-blue-600">
+                {connections.filter(c => c.status === 'unknown').length}
+              </div>
+              <div className="text-sm text-muted-foreground">Unknown</div>
             </div>
           </div>
         </CardContent>

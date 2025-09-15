@@ -35,8 +35,16 @@ def setup_logger():
     # Clear any existing handlers to prevent duplicates
     logger.handlers.clear()
     
-    if app_settings.LOG_LEVEL == "DEBUG":
+    # Set logging level based on app_settings, default to INFO if empty or invalid
+    log_level = getattr(app_settings, 'LOG_LEVEL', '').upper()
+    if log_level == "DEBUG":
         logger.setLevel(logging.DEBUG)
+    elif log_level == "WARNING":
+        logger.setLevel(logging.WARNING)
+    elif log_level == "ERROR":
+        logger.setLevel(logging.ERROR)
+    elif log_level == "CRITICAL":
+        logger.setLevel(logging.CRITICAL)
     else:
         logger.setLevel(logging.INFO)
     
@@ -52,7 +60,7 @@ def setup_logger():
     
     # # Disable the App Insights VERY verbose logger
     logging.getLogger('azure.core').setLevel(logging.WARNING)
-    logging.getLogger('azure.identity').setLevel(logging.WARNING)
+    logging.getLogger('azure.identity').setLevel(logging.DEBUG if app_settings.DEBUG else logging.INFO)
     logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
     # # Configure OpenTelemetry to use Azure Monitor with the 

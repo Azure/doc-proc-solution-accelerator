@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from ..db.cosmos import CosmosDb
+from app.db.cosmos import CosmosDb
 
 
 class BaseService(ABC):
@@ -22,6 +22,11 @@ class BaseService(ABC):
     async def list_all(self, query: Optional[str] = None, parameters: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """List all items"""
         return self.db.list(self.container_name, query, parameters)
+    
+    async def query(self, query: str, parameters: Optional[List[Dict[str, Any]]] = None, container: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Execute a query"""
+        target_container = container or self.container_name
+        return self.db.list(target_container, query, parameters)
     
     async def update(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing item"""

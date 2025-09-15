@@ -29,6 +29,24 @@ class PipelineSettings(BaseModel):
     max_concurrent_runs: int = 5
 
 
+class PipelineConfig(BaseModel):
+    """Pipeline configuration model"""
+    name: str
+    description: Optional[str] = None
+    version: str = Field(default="1.0")
+    steps: List[PipelineStepDefinition] = Field(default_factory=list)
+    execution_sequence: List[str] = Field(default_factory=list)
+    settings: PipelineSettings = Field(default_factory=PipelineSettings)
+
+
+class PipelineCreateRequest(BaseModel):
+    """Request to create a new pipeline"""
+    name: str
+    description: Optional[str] = None
+    config: Optional[PipelineConfig] = None
+    steps: List[str] = Field(default_factory=list, description="Ordered list of step ids (legacy)")
+
+
 class PipelineInstance(BaseDoc):
     """Pipeline instance based on configuration"""
     version: str = Field(default="1.0", description="Pipeline version")

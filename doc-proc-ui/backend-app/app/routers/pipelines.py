@@ -2,9 +2,9 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from ..models.pipeline import Pipeline, PipelineInstance, PipelineStepDefinition
-from ..services.pipeline_service import PipelineService
-from ..dependencies import get_pipeline_service
+from app.models.pipeline import Pipeline, PipelineInstance, PipelineStepDefinition
+from app.services.pipeline_service import PipelineService
+from app.dependencies import get_pipeline_service
 
 router = APIRouter()
 

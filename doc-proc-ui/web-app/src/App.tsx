@@ -18,7 +18,9 @@ import Pipeline from "./pages/Pipeline";
 import Pipeline2 from "./pages/Pipeline2";
 import PipelineConfigDemo from "./pages/PipelineConfigDemo";
 import Step from "./pages/Steps";
+import StepInstances from "./pages/StepInstances";
 import Service from "./pages/Services";
+import ServiceInstances from "./pages/ServiceInstances";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,7 +45,9 @@ const App = () => (
               <Route path="pipeline2" element={<Pipeline2 />} />
               <Route path="pipeline-config" element={<PipelineConfigDemo />} />
               <Route path="steps" element={<Step />} />
+              <Route path="step-instances" element={<StepInstances />} />
               <Route path="services" element={<Service />} />
+              <Route path="service-instances" element={<ServiceInstances />} />
               <Route path="connections" element={<Connections />} />
               
             </Route>
