@@ -19,7 +19,6 @@ class AzureAISearchService(ServiceBase):
 
         self.account_name = settings.get('account_name')
         self.credential_type = settings.get('credential_type')
-        self.credential_key = ''
         self.api_key = settings.get('api_key')
         self.api_version = settings.get('api_version')
         self.index_name = settings.get('index_name')
@@ -33,8 +32,7 @@ class AzureAISearchService(ServiceBase):
             self.account_name = os.getenv(env_var_name)
             if not self.account_name:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            raise ValueError("Settings key 'account_name' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+        
 
         self.endpoint = f"https://{self.account_name}.search.windows.net"
 
@@ -47,8 +45,9 @@ class AzureAISearchService(ServiceBase):
             self.credential_type = os.getenv(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            raise ValueError("Settings key 'credential_type' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+            
+            self.credential_type = self.credential_type.lower()
+        
 
         # Validate API key based on credential type
         if self.credential_type == 'azure_key_credential':
@@ -63,8 +62,7 @@ class AzureAISearchService(ServiceBase):
                 self.api_key = os.getenv(env_var_name)
                 if not self.api_key:
                     raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-            else:
-                raise ValueError("Settings key 'api_key' must be in the format '${ENV_VAR_NAME}' and be present as an environment variable")
+            
 
         elif self.credential_type == 'default_azure_credential':
             self.api_key = ''
@@ -73,8 +71,8 @@ class AzureAISearchService(ServiceBase):
             raise ValueError(f"Unsupported credential type: {self.credential_type}. Supported types are 'azure_key_credential' and 'default_azure_credential'.")
 
         # Validate api version
-        if self.api_version not in ['2024-07-01', '2023-11-01', '2025-05-01-preview']:
-            raise ValueError(f"Unsupported API version: {self.api_version}. Supported versions are '2024-07-01', '2023-11-01', and '2025-05-01-preview'.")
+        if self.api_version in ['', None]:
+            raise ValueError(f"Settings key 'api_version' is required")
 
         # Validatre index name
         if self.index_name in ['', None]:

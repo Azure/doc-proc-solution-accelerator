@@ -52,6 +52,20 @@ pipelines:
     # PIPELINE STEP INSTANCES
     # Define the steps in the pipeline, referencing the step catalog and providing custom settings
     steps:
+      ## STEP 0: File Downloader (First step to download files from blob storage)
+      - name: file_downloader_1
+        step_catalog_id: file_downloader # Reference to step in catalog
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [primary_blob_storage] # References to service instances
+        condition:
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          temp_folder: "./tmp/docproc_downloads" # Temporary folder to download files to
+
       ## STEP 1: Sample Step
       - name: sample_step_1
         step_catalog_id: sample_step # Reference to step in catalog
@@ -62,7 +76,6 @@ pipelines:
         timeout: 600
         services: [] # References to service instances
         condition:
-        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           key1: "custom_value1"
@@ -76,9 +89,8 @@ pipelines:
         retry_on_failure: false
         retries: 3
         timeout: 600
-        services: [] # References to service instances
+        services: [] # No longer needs blob storage service
         condition:
-        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           identification_methods: "magic_bytes, file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
@@ -91,12 +103,11 @@ pipelines:
         retry_on_failure: false
         retries: 3
         timeout: 600
-        services: [primary_blob_storage, primary_ai_inference_service] # References to service instances
+        services: [primary_ai_inference_service] # References to service instances
         condition: "document_type.primary_type == 'pdf'" # Only run this step if the document type is PDF
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/pdf-output/png"
           num_pages: 1 # Maximum number of pages to convert (-1 = all pages)
           prompts:
             system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
@@ -127,10 +138,9 @@ pipelines:
         timeout: 600
         services: [primary_ai_inference_service] # References to service instances
         condition: "document_type.primary_type == 'word_document'" # Only run this step if the document type is Word document
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/word_output/png"
           extract_images: false # Whether to extract text from images in slides
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
           extract_tables: false # Whether to extract tables from slides
@@ -164,10 +174,9 @@ pipelines:
         timeout: 600
         services: [primary_ai_inference_service] # References to service instances
         condition: "document_type.primary_type == 'powerpoint_presentation'" # Only run this step if the document type is PowerPoint presentation
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/pptx_output/png"
           num_slides: 3 # Maximum number of slides to convert (-1 = all slides)
           extract_images: false # Whether to extract text from images in slides
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
@@ -201,10 +210,9 @@ pipelines:
         retries: 3
         timeout: 600
         condition: "document_type.primary_type == 'excel_spreadsheet'" # Only run this step if the document type is Excel spreadsheet
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: false # Enable debug mode for this step
+        debug_mode: true # Enable debug mode for this step
         settings:
-          png_output_folder: "./output/png"
+          png_output_folder: "./tmp/excel_output/png"
           extract_images: true # Whether to extract text from images in sheets
           extract_charts: true # Whether to extract charts from sheets
           max_rows_per_sheet: -1 # Maximum number of rows to extract from each sheet (-1 = all rows)
@@ -222,8 +230,7 @@ pipelines:
         timeout: 600
         services: [primary_document_intelligence_service] # References to service instances
         condition: "document_type.primary_type in ['pdf']" # Only run this step if the document type is PDF
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
           model_id: "prebuilt-layout" # Model to use for document intelligence extraction
           extract_tables: false # Whether to extract tables from documents
@@ -241,31 +248,47 @@ pipelines:
         timeout: 600
         services: [primary_document_intelligence_service] # References to service instances
         condition: "document_type.primary_type in ['powerpoint_presentation']" # Only run this step if the document type is PowerPoint
-        fail_step_on_document_error: true # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: true # Enable debug mode for this step
+        debug_mode: false # Enable debug mode for this step
         settings:
           model_id: "prebuilt-layout" # Model to use for document intelligence extraction
           extract_tables: false # Whether to extract tables from documents
           extract_key_value_pairs: false # Whether to extract key-value pairs from documents
           extract_paragraphs: false # Whether to extract paragraphs from documents
           chunk_by_pages: false # Whether to chunk the content by pages
-          output_format: "markdown" # Format for the extracted content
+          output_format: "markdown" # Format for the extracted content, valid values are ['structured', 'markdown', 'json']
 
+      - name: document_intelligence_extractor_for_docx
+        step_catalog_id: azure_document_intelligence_extractor
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [primary_document_intelligence_service] # References to service instances
+        condition: "document_type.primary_type in ['word_document']" # Only run this step if the document type is Word
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          model_id: "prebuilt-layout" # Model to use for document intelligence extraction
+          extract_tables: false # Whether to extract tables from documents
+          extract_key_value_pairs: false # Whether to extract key-value pairs from documents
+          extract_paragraphs: false # Whether to extract paragraphs from documents
+          chunk_by_pages: false # Whether to chunk the content by pages
+          output_format: "markdown" # Format for the extracted content, valid values are ['structured', 'markdown', 'json']
 
       ## STEP 5: Custom AI Prompt
       - name: custom_ai_prompt_1
         step_catalog_id: custom_ai_prompt
-        enabled: false
+        enabled: true
         fail_pipeline_on_error: false
         retry_on_failure: false
         retries: 3
         timeout: 600
         services: [primary_ai_inference_service] # References to service instances
         condition:
-        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
-          chunk_field_to_apply_prompt_on: markdown_text
+          chunks_iterator_field: chunks
+          chunk_field_to_apply_prompt_on: "markdown_text,text"
           output_field_name: custom_ai_prompt_output
           prompts:
             system: "You are an AI assistant. Please process the input accordingly."
@@ -276,7 +299,7 @@ pipelines:
           frequency_penalty: 0.0
           presence_penalty: 0.0
 
-      ## STEP 5: AI Search Index Writer
+      ## STEP 6: AI Search Index Writer
       - name: ai_search_index_writer_1
         step_catalog_id: ai_search_index_writer
         enabled: false
@@ -286,7 +309,6 @@ pipelines:
         timeout: 600
         services: [primary_ai_search_service] # References to service instances
         condition:
-        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
         debug_mode: false # Enable debug mode for this step
         settings:
           index_name: "documents_index"
@@ -303,8 +325,8 @@ pipelines:
     ##########################################################
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
-    ## execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx]
+    ## execution_sequence: [file_downloader_1, document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
+    execution_sequence: [file_downloader_1, document_type_identifier_1, pdf_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1]
 
     ##########################################################
     # PIPELINE SETTINGS

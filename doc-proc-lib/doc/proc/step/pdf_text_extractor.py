@@ -30,7 +30,7 @@ class PDFTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "output_pngs")
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/pdf_output_pngs")
         self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
 
         # get prompts from settings
@@ -62,97 +62,66 @@ class PDFTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
-        # Implement your PDF to PNG conversion logic
+    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+        """
+        Run the step processing logic for PDF text extraction.
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
+        Args:
+            document: Input document to analyze
+            context: Pipeline execution context
+
+        Returns:
+            StepInputOutput: Output with text extracted from PDF
+        """
+
+        # Check if document has the required data structure
+        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
 
         # get Azure AI Model Inference Service from context
-        ai_model_inference_service = self.get_ai_inference_service(context)
+        ai_model_inference_service = self._get_ai_inference_service(context)
         if not ai_model_inference_service:
             logger.error("Azure AI Model Inference Service not found in context.")
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "skipped_documents": 0,
-            "failed_documents": 0,
-        }
-
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-        
-        _stats["total_documents"] = len(documents)        
-
-        # Iterate through each filtered document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
+        # get document from input data
+        doc_to_process = document.data
+        if not doc_to_process or not isinstance(doc_to_process, dict):
+            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
             
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_to_process}")
                 
-                # Check if the document is a dictionary and has the 'file_path' key
-                if not isinstance(document, dict) or 'file_path' not in document:
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
+            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
+            # Validate required fields - now only file_path is required
+            if "file_path" not in doc_to_process:
+                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
                 
-                # Evaluate condition if present
-                if self.condition:
-                    condition_met = self.evaluate_document_condition(document, input_data)
-                    if not condition_met:
-                        _stats["skipped_documents"] += 1
-                        logger.info(f"Document skipped due to condition not met: {self.condition}")
-                        continue
-            
-                # Process each document
-                # This will extend the document with extracted text and images for each page/chunk
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_model_inference_service=ai_model_inference_service)
+            # Process the document
+            # This will extend the document with extracted text and images for each page/chunk
+            result_data = await self._process_document(document=doc_to_process, 
+                                                       context=context, 
+                                                       ai_model_inference_service=ai_model_inference_service)
 
-                _stats["successful_documents"] += 1
+                
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {doc_to_process}")
+            else:
+                logger.info(f"Successfully processed document: {doc_to_process.get('file_path', 'unknown')}")
+                
+            # Return the updated StepInputOutput
+            return StepInputOutput(summary_data = {**document.summary_data}, 
+                                   data = result_data)
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
-                else:
-                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
+           
 
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
-
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
-
-        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
-        
-        # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-    
-
-    def get_ai_inference_service(self, context: "PipelineExecutionContext"):
+    def _get_ai_inference_service(self, context: "PipelineExecutionContext"):
         """
         Get the AI Model Inference Service from the context.
 
@@ -171,7 +140,7 @@ class PDFTextExtractorStep(StepBase):
         return None
 
 
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single document to extract text and images.
         
@@ -199,7 +168,7 @@ class PDFTextExtractorStep(StepBase):
 
         # STEP 1: Convert PDF to PNG
         logger.debug(f"Converting PDF file {pdf_file_path} to PNG images...")
-        chunks_data = self.convert_pdf_to_png(pdf_file_path)
+        chunks_data = self._convert_pdf_to_png(pdf_file_path)
 
         # Step 2: Convert PNG files to Markdown using AI Model Inference Service
         logger.debug(f"Converting {len(chunks_data)} PNG files to Markdown...")
@@ -221,13 +190,13 @@ class PDFTextExtractorStep(StepBase):
                 # chunk['page_image_base64'] = png_base64
                 # Call the AI Model Inference Service chat completion method with the PNG file
 
-                markdown = self.convert_png_to_markdown(chunk['png'], ai_model_inference_service)
-                chunk['markdown'] = markdown
+                markdown = self._convert_png_to_markdown(chunk['png'], ai_model_inference_service)
+                chunk['markdown_text'] = markdown
 
                 # Extract text sections from the markdown
                 if markdown:
-                    chunk['page_text'] = self.extract_text_section(markdown)
-                    chunk['page_image_descriptions'] = self.extract_image_sections(markdown)
+                    chunk['page_text'] = self._extract_text_section(markdown)
+                    chunk['page_image_descriptions'] = self._extract_image_sections(markdown)
                     chunk['text'] = chunk.get('page_text', '') + chunk.get('page_image_descriptions', '')  # Append to existing text if any
 
             except Exception as e:
@@ -236,9 +205,11 @@ class PDFTextExtractorStep(StepBase):
 
         # Update the document with the processed chunks data
         document['chunks'] = chunks_data
+        
+        return document
 
     
-    def convert_pdf_to_png(self, pdf_file_path: str) -> List[dict]:
+    def _convert_pdf_to_png(self, pdf_file_path: str) -> List[dict]:
         """
         Convert PDF pages to PNG images.
         
@@ -266,7 +237,7 @@ class PDFTextExtractorStep(StepBase):
             pix.save(png_file_path)
 
             # generate a unique identifier for the page by hashing the file path and page number
-            page_id = self.generate_sha1_hash(f"{os.path.basename(pdf_file_path)}_page_{page_num+1}")
+            page_id = self._generate_sha1_hash(f"{os.path.basename(pdf_file_path)}_page_{page_num+1}")
 
             # Append the page number and PNG file path to the list
             chunks_data.append({'input_file_path': pdf_file_path, 'chunk_id': page_id, 'chunk_num': page_num+1, 'chunk_type': 'page', 'page_num': page_num+1, 'png': png_file_path})
@@ -274,21 +245,7 @@ class PDFTextExtractorStep(StepBase):
         return chunks_data
 
 
-    def generate_sha1_hash(self, input_string):
-        """
-        Generates a sha1 hash from a given string.
-        """
-        # Encode the string to bytes, as hash functions operate on bytes
-        encoded_string = input_string.encode('utf-8')
-        # Create a SHA1 hash object
-        sha1_hash = hashlib.sha1()
-        # Update the hash object with the encoded string
-        sha1_hash.update(encoded_string)
-        # Get the hexadecimal representation of the hash
-        return sha1_hash.hexdigest()
-
-
-    def convert_png_to_base64(self, png_path: str) -> str:
+    def _convert_png_to_base64(self, png_path: str) -> str:
         """
         Convert a PNG file to a base64 encoded string.
         
@@ -300,7 +257,7 @@ class PDFTextExtractorStep(StepBase):
             return base64.b64encode(png_data).decode('ascii')
 
 
-    def convert_png_to_markdown(self, png_file_path: str, ai_model_inference_service) -> str:
+    def _convert_png_to_markdown(self, png_file_path: str, ai_model_inference_service) -> str:
         """
         Convert a PNG file to Markdown using AI Model Inference Service.
         
@@ -333,7 +290,7 @@ class PDFTextExtractorStep(StepBase):
         return response.choices[0].message.content
 
 
-    def extract_text_section(self, markdown:str):
+    def _extract_text_section(self, markdown:str):
         """
         Extract text section from the markdown content.
         
@@ -355,7 +312,7 @@ class PDFTextExtractorStep(StepBase):
         return ""
 
 
-    def extract_image_sections(self, markdown: str) -> str:
+    def _extract_image_sections(self, markdown: str) -> str:
         """
         Extract image sections from the markdown content.
 

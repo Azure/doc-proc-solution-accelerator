@@ -159,6 +159,9 @@ async def main():
         logger.info(f"Pipeline '{pipeline.name}' executed successfully.")
         logger.info(f"Pipeline result: {result}")
 
+        with open(f"pipeline_result.json", 'w') as f:
+            f.write(result.model_dump_json())
+
     except Exception as e:
         logger.error(f"Error executing pipeline: {e}.")
         logger.error("Pipeline execution failed. Please check the logs for more details.")
@@ -168,9 +171,9 @@ def generate_documents():
     """Generate a list of documents to process."""
     # This is a placeholder function. In a real application, this would fetch documents from a source.
     return [
-            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.pdf"},
-            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Presentation.pptx"},
-            {"file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.docx"}
+            {"id": "doc_1", "file_path": "/Users/nadeemis/temp/Lorem Ipsum Sample Document.pdf"},
+            {"id": "doc_2", "file_path": "/Users/nadeemis/temp/Lorem Ipsum Presentation.pptx"},
+            {"id": "doc_3", "blob_details": {"container": "documents", "blob": "Lorem Ipsum Sample Document.docx"}}
         ]
 
 

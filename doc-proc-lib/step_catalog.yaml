@@ -3,11 +3,36 @@
 step_catalog:
 
   ########################################################
+  # File Downloader Step
+  - id: file_downloader
+    name: "File Downloader"
+    description: "Downloads files from Azure Blob Storage to local temporary directory"
+    module_name: file_downloader
+    module_path: ./doc/proc/step/file_downloader.py
+    class_name: FileDownloaderStep
+    tags: [file, download, azure, blob, storage]
+    category: "Input"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      temp_folder:
+        type: string
+        title: "Temporary Folder"
+        description: "Path to temporary folder for downloaded files. Uses system temp if not specified."
+        default: "./tmp/docproc_downloads"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "download"
+      description_short: "Downloads files from Azure Blob Storage to local storage."
+      description_long: "Downloads files from Azure Blob Storage using blob details or SAS URLs to a configurable temporary directory. Essential first step for processing remote files."
+
+  ########################################################
   # Sample step for development and testing purposes
   - id: sample_step
     name: "Sample Development Step"
     description: "Sample step for development and testing"
-    type: script
     module_name: sample
     module_path: ./doc/proc/step/sample.py
     class_name: SampleStep
@@ -31,7 +56,6 @@ step_catalog:
     # UI metadata for dynamic form generation
     ui_metadata:
       icon: "gear"
-      color: "#6B7280"
       description_short: "A sample step used for development and testing purposes."
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
@@ -40,12 +64,11 @@ step_catalog:
   - id: document_type_identifier
     name: "Document Type Identifier"
     description: "Identifies the type of documents based on various methods"
-    type: script
     module_name: document_type_identifier
     module_path: ./doc/proc/step/document_type_identifier.py
     class_name: DocumentTypeIdentifierStep
     tags: [document, identification, classification]
-    category: "Processing"
+    category: "Processor"
     version: "1.0"
 
     # Settings schema for UI generation and validation
@@ -60,7 +83,6 @@ step_catalog:
     # UI metadata for dynamic form generation
     ui_metadata:
       icon: "file-question-mark"
-      color: "#F59E0B"
       description_short: "Identifies document types based on file properties."
       description_long: "This step identifies the type of documents based on various methods such as magic bytes and file extensions. It helps in classifying documents for further processing."  
 
@@ -70,12 +92,11 @@ step_catalog:
   - id: pdf_text_extractor
     name: "PDF Text Extractor"
     description: "Extract text and metadata from PDF documents"
-    type: script
     module_name: pdf_text_extractor
     module_path: ./doc/proc/step/pdf_text_extractor.py
     class_name: PDFTextExtractorStep
     tags: [pdf, text, extraction, azure_blob]
-    category: "Document Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -98,7 +119,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/pdf-output/png"
         required: true
         pattern: "^\\.\\/.*"
       num_pages:
@@ -162,7 +183,6 @@ step_catalog:
 
     ui_metadata:
       icon: "file-text"
-      color: "#10B981"
       description_short: "Extracts text from PDF document pages into markdown."
       description_long: "Extracts text from PDF document pages into PNG image files and then uses Azure AI Inference Service to convert them to markdown."
 
@@ -172,12 +192,11 @@ step_catalog:
   - id: word_text_extractor
     name: "WORD Text Extractor"
     description: "Extract text and metadata from WORD documents"
-    type: script
     module_name: word_text_extractor
     module_path: ./doc/proc/step/word_text_extractor.py
     class_name: WordTextExtractorStep
     tags: [word, text, extraction]
-    category: "Document Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -193,7 +212,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/word_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -272,7 +291,6 @@ step_catalog:
 
     ui_metadata:
       icon: "book-text"
-      color: "#10B981"
       description_short: "Extracts text from WORD documents into markdown."
       description_long: "Extracts text, tables, shapes from WORD document slides and uses Azure AI Inference Service to convert them to markdown."
 
@@ -282,12 +300,11 @@ step_catalog:
   - id: pptx_text_extractor
     name: "PPTX Text Extractor"
     description: "Extract text and metadata from PPTX presentations"
-    type: script
     module_name: pptx_text_extractor
     module_path: ./doc/proc/step/pptx_text_extractor.py
     class_name: PowerPointTextExtractorStep
     tags: [pptx, text, extraction]
-    category: "Document Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -303,7 +320,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/pptx_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -387,7 +404,6 @@ step_catalog:
 
     ui_metadata:
       icon: "presentation"
-      color: "#10B981"
       description_short: "Extracts text from PPTX document slides into markdown."
       description_long: "Extracts text, tables, shapes from PPTX document slides and uses Azure AI Inference Service to convert them to markdown."
 
@@ -397,12 +413,11 @@ step_catalog:
   - id: excel_text_extractor
     name: "Excel Text Extractor"
     description: "Extract text and metadata from Excel spreadsheets"
-    type: script
     module_name: excel_text_extractor
     module_path: ./doc/proc/step/excel_text_extractor.py
     class_name: ExcelTextExtractorStep
     tags: [excel, text, extraction, spreadsheet]
-    category: "Document Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -411,7 +426,7 @@ step_catalog:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./output/png"
+        default: "./tmp/excel_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -448,7 +463,6 @@ step_catalog:
       
     ui_metadata:
       icon: "table"
-      color: "#059669"
       description_short: "Extracts text from Excel spreadsheet sheets into markdown."
       description_long: "Extracts text, images, and charts from Excel spreadsheet sheets and uses Azure AI Inference Service to convert them to markdown."
 
@@ -458,12 +472,11 @@ step_catalog:
   - id: ai_search_index_writer
     name: "AI Search Index Writer"
     description: "Writes AI-generated summaries and metadata to search index"
-    type: script
     module_name: ai_search_index_writer
     module_path: ./doc/proc/step/ai_search_index_writer.py
     class_name: AISearchIndexWriterStep
     tags: [ai, search, index, azure_search]
-    category: "AI Processing"
+    category: "Output"
     version: "1.0"
     
     # Settings schema for UI generation and validation
@@ -506,7 +519,6 @@ step_catalog:
       
     ui_metadata:
       icon: "text-search"
-      color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
@@ -516,12 +528,11 @@ step_catalog:
   - id: custom_ai_prompt
     name: "Custom AI Prompt Step"
     description: "Custom step to execute AI prompts with dynamic configuration"
-    type: script
     module_name: custom_ai_prompt
     module_path: ./doc/proc/step/custom_ai_prompt.py
     class_name: CustomAIPromptStep
     tags: [ai, prompt, custom]
-    category: "AI Processing"
+    category: "AI"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -533,11 +544,17 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
+      chunks_iterator_field:
+        type: string
+        title: "Chunks Iterator Field"
+        description: "Field in document that include list of chunks that will be iterated"
+        default: "chunks"
+        ui_component: "input"
       chunk_field_to_apply_prompt_on:
         type: string
-        title: "Field to Apply Prompt On"
-        description: "The field key in document.chunks.chunk which the AI prompt will be applied to"
-        default: "markdown_text"
+        title: "Fields to Apply Prompt On."
+        description: "Comma separated list of field keys in document.chunks.chunk which the AI prompt will be applied to. The first field with a value will be used."
+        default: "markdown_text,text"
         ui_component: "input"
       output_field_name:
         type: string
@@ -599,7 +616,6 @@ step_catalog:
       
     ui_metadata:
       icon: "brain"
-      color: "#8B5CF6"
       description_short: "Writes AI-generated summaries and metadata to search index."
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
@@ -609,12 +625,11 @@ step_catalog:
   - id: entity_extractor
     name: "Entity Extractor Step"
     description: "Extract named entities and relationships from document content"
-    type: script
     module_name: entity_extractor
     module_path: ./doc/proc/step/entity_extractor.py
     class_name: EntityExtractorStep
     tags: [ai, nlp, entities, relationships, ner]
-    category: "AI Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -747,7 +762,6 @@ step_catalog:
 
     ui_metadata:
       icon: "list-tree"
-      color: "#10B981"
       description_short: "Extracts named entities and relationships from text."
       description_long: "Uses AI to identify and extract people, places, organizations, and custom entities along with their relationships from document content."
 
@@ -757,12 +771,11 @@ step_catalog:
   - id: azure_document_intelligence_extractor
     name: "Azure Document Intelligence Extractor"
     description: "Extract structured content from documents using Azure Document Intelligence service"
-    type: script
     module_name: azure_document_intelligence_extractor
     module_path: ./doc/proc/step/azure_document_intelligence_extractor.py
     class_name: AzureDocumentIntelligenceExtractorStep
     tags: ["azure", "document intelligence", "extraction"]
-    category: "Document Processing"
+    category: "Extractor"
     version: "1.0"
         
     # Settings schema for UI generation and validation
@@ -814,6 +827,5 @@ step_catalog:
 
     ui_metadata:
       icon: "document-search"
-      color: "#FF6900"
       description_short: "Extract structured content using Azure Document Intelligence."
       description_long: "Uses Azure Document Intelligence service to extract text, tables, key-value pairs, and structured content from various document formats including PDFs, images, and Office documents."

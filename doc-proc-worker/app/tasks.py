@@ -1,0 +1,215 @@
+import asyncio
+import logging
+from datetime import datetime, timezone
+from typing import Dict, List, Any
+from celery import current_task
+import traceback
+
+from app.celery_app import celery_app
+from app.dependencies import get_execution_service
+from app.models.execution import ActivityType, StepOutput
+
+from doc.proc.step.step_base import StepInputOutput
+
+logger = logging.getLogger("doc-proc-worker.app.tasks")
+
+
+@celery_app.task(bind=True, name="doc_proc_worker.tasks.execute_pipeline_batch")
+def execute_pipeline_batch(self, batch_execution_id: str) -> Dict[str, Any]:
+    """
+    Celery task to execute a pipeline batch.
+    
+    Args:
+        batch_execution_id: ID of the batch execution to process
+        
+    Returns:
+        Dict containing execution results
+    """
+    try:
+        # Run the async execution in the event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(_execute_pipeline_batch_async(batch_execution_id, self.request.id))
+            return result
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to execute pipeline batch {batch_execution_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # # Update batch status to failed
+        # try:
+        #     loop = asyncio.new_event_loop()
+        #     asyncio.set_event_loop(loop)
+        #     loop.run_until_complete(_handle_batch_failure(batch_execution_id, str(e)))
+        #     loop.close()
+        # except Exception as update_error:
+        #     logger.error(f"Failed to update batch status after failure: {str(update_error)}")
+        #     logger.error(traceback.format_exc())
+        # raise
+
+async def _execute_pipeline_batch_async(batch_execution_id: str, task_id: str) -> Dict[str, Any]:
+    """Async function to execute a pipeline batch."""
+
+    logger.debug(f"Executing pipeline batch {batch_execution_id} with task ID {task_id}")
+        
+    execution_service = get_execution_service()
+
+    result = await execution_service.execute_batch(batch_execution_id, task_id)
+
+    logger.debug(f"Pipeline batch {batch_execution_id} execution result: {result}")
+
+    return result
+    # return {
+    #     "batch_id": batch_execution_id,
+    #     "status": result.status,
+    #     "completed_documents": result.completed_documents,
+    #     "failed_documents": result.failed_documents
+    #     # }
+        
+    
+
+# async def _handle_batch_failure(batch_execution_id: str, error_message: str):
+#     """Handle batch execution failure."""
+
+#     print("In _handle_batch_failure")
+#     execution_service = get_execution_service()
+#     await execution_service.signal_batch_failure(batch_execution_id, error_message)
+
+
+
+@celery_app.task(bind=True, name="doc_proc_worker.tasks.process_single_document")
+def process_single_document(self, batch_execution_id: str, pipeline_instance_id: str, 
+                          document_ref: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Celery task to process a single document through a pipeline.
+    
+    Args:
+        batch_execution_id: ID of the batch execution
+        pipeline_instance_id: ID of the pipeline instance
+        document_ref: Document reference dict
+        
+    Returns:
+        Dict containing processing results
+    """
+    try:
+        # Run the async processing in the event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(_process_single_document_async(
+                batch_execution_id, pipeline_instance_id, document_ref, self.request.id
+            ))
+            return result
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to process document {document_ref.get('blob_name', 'unknown')}: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Log the failure
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(_handle_document_failure(
+                batch_execution_id, document_ref, str(e)
+            ))
+            loop.close()
+        except Exception as update_error:
+            logger.error(f"Failed to log document failure: {str(update_error)}")
+        
+        raise
+
+async def _process_single_document_async(batch_execution_id: str, pipeline_instance_id: str, 
+                                       document_ref: Dict[str, Any], task_id: str) -> Dict[str, Any]:
+    """Async function to process a single document."""
+
+    execution_service = get_execution_service()
+
+    doc_ref = DocumentReference(**document_ref)
+    
+    try:
+        # Load pipeline
+        pipeline = await execution_service.load_pipeline(pipeline_instance_id)
+        
+        # Create input data
+        input_data = StepInputOutput(
+            summary_data={
+                "batch_id": batch_execution_id,
+                "document_ref": doc_ref.model_dump(),
+                "pipeline_id": pipeline_instance_id,
+                "task_id": task_id
+            },
+            data={
+                "documents": [doc_ref.model_dump()]
+            }
+        )
+        
+        # Execute pipeline
+        result = await pipeline.run(input_data)
+        
+        # Store step outputs
+        step_outputs = []
+        for step_result in result.step_execution_results:
+            step_output = StepOutput(
+                step_name=step_result.step_name,
+                step_instance_id=step_result.step_name,
+                document_id=doc_ref.blob_name,
+                output_data=result.data,
+                summary_data=result.summary_data,
+                execution_time_ms=int(step_result.elapsed_time_secs * 1000),
+                status=step_result.result,
+                error_message=step_result.error_message
+            )
+            await execution_service.store_step_output(step_output)
+            step_outputs.append(step_output)
+        
+        # Log document processing
+        if result.result in ["Succeeded", "PartialSucceeded"]:
+            await execution_service.log_activity(
+                batch_execution_id=batch_execution_id,
+                activity_type=ActivityType.DOCUMENT_PROCESSED,
+                document_id=doc_ref.blob_name,
+                status="completed",
+                message="Document processed successfully",
+                details={"result_status": result.result, "task_id": task_id}
+            )
+        else:
+            await execution_service.log_activity(
+                batch_execution_id=batch_execution_id,
+                activity_type=ActivityType.DOCUMENT_FAILED,
+                document_id=doc_ref.blob_name,
+                status="failed",
+                message="Document processing failed",
+                error_message=result.reason,
+                details={"result_status": result.result, "task_id": task_id}
+            )
+        
+        return {
+            "document_id": doc_ref.blob_name,
+            "status": result.result,
+            "step_outputs_count": len(step_outputs)
+        }
+        
+    except Exception as e:
+        await _handle_document_failure(batch_execution_id, doc_ref.model_dump(), str(e))
+        raise
+
+
+async def _handle_document_failure(batch_execution_id: str, document_ref: Dict[str, Any], error_message: str):
+    """Handle document processing failure."""
+    execution_service = get_execution_service()
+
+    await execution_service.log_activity(
+        batch_execution_id=batch_execution_id,
+        activity_type=ActivityType.DOCUMENT_FAILED,
+        document_id=document_ref.get("blob_name", "unknown"),
+        status="failed",
+        message="Document processing failed",
+        error_message=error_message
+    )

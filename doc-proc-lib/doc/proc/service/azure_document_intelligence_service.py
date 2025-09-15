@@ -34,8 +34,7 @@ class AzureDocumentIntelligenceService(ServiceBase):
             self.endpoint = os.getenv(env_var_name)
             if not self.endpoint:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            self.endpoint = self.endpoint
+        
 
         # Validate credential type
         if not self.credential_type:
@@ -46,9 +45,10 @@ class AzureDocumentIntelligenceService(ServiceBase):
             self.credential_type = os.getenv(env_var_name)
             if not self.credential_type:
                 raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        else:
-            self.credential_type = self.credential_type
+            
+            self.credential_type = self.credential_type.lower()
 
+        
         # Validate API key based on credential type
         if self.credential_type == 'azure_key_credential':
             self.api_key = settings.get('api_key', '').strip()
@@ -69,9 +69,10 @@ class AzureDocumentIntelligenceService(ServiceBase):
         else:
             raise ValueError(f"Unsupported credential type: {self.credential_type}. Supported types are 'azure_key_credential' and 'default_azure_credential'.")
 
+
         # Validate API version
         if self.api_version not in ['2023-07-31', '2022-08-31', '2021-09-30-preview']:
-            raise ValueError(f"Unsupported API version: {self.api_version}. Supported versions are '2023-07-31', '2022-08-31', and '2021-09-30-preview'.")
+            logger.warning(f"Unsupported API version: {self.api_version}. Supported versions are '2023-07-31', '2022-08-31', and '2021-09-30-preview'.")
 
         # Validate model ID
         supported_models = [
@@ -105,16 +106,22 @@ class AzureDocumentIntelligenceService(ServiceBase):
         try:
             # Test with a simple operation - get account information
             cred = DefaultAzureCredential() if self.credential_type == 'default_azure_credential' else AzureKeyCredential(self.api_key)
-            document_intelligence_admin_client = DocumentIntelligenceAdministrationClient(endpoint=self.endpoint, credential=cred)
-            async with document_intelligence_admin_client:
+
+            result = False
             
+            # Use the administration client to list models as a connectivity test
+            async with DocumentIntelligenceAdministrationClient(endpoint=self.endpoint, credential=cred) as document_intelligence_admin_client:
                 # Try to get info about the service models
                 async for model in document_intelligence_admin_client.list_models():
                     # If we can list at least one model, the connection is working
                     logger.debug(f"Connected to Azure Document Intelligence Service: {self.name}. Found model: {model.model_id}")
-                    return True
+                    result = True
+                    break  # No need to list all models, just confirm connectivity
+
+                if isinstance(cred, DefaultAzureCredential):
+                    await cred.close()
             
-            return False   
+            return result
         except Exception as e:
             logger.error(f"Failed to connect to Azure Document Intelligence Service: {str(e)}")
             raise ServiceExecutionError(f"Failed to connect to Azure Document Intelligence Service: {str(e)}")
