@@ -28,8 +28,6 @@ import PipelineWorkflow from "../components/pipeline/PipelineWorkflow";
 import PipelineMetrics from "../components/pipeline/PipelineMetrics";
 import PipelineSettings from "../components/pipeline/PipelineSettings";
 import NewPipelineDialog from "../components/pipeline/NewPipelineDialog";
-import StepCatalogBrowser from "../components/StepCatalogBrowser";
-import PipelineBuilder from "../components/PipelineBuilder";
 import { useConfigLoader } from "../hooks/useConfigLoader";
 import { pipelinesApi, Pipeline as PipelineModel, CreatePipelineRequest, ApiError } from "../lib/api";
 

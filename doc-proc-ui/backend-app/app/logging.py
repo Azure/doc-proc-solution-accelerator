@@ -60,7 +60,8 @@ def setup_logger():
     
     # # Disable the App Insights VERY verbose logger
     logging.getLogger('azure.core').setLevel(logging.WARNING)
-    logging.getLogger('azure.identity').setLevel(logging.DEBUG if app_settings.DEBUG else logging.INFO)
+    # logging.getLogger('azure.identity').setLevel(logging.DEBUG if app_settings.DEBUG else logging.INFO)
+    logging.getLogger('azure.identity').setLevel(logging.INFO)
     logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
     # # Configure OpenTelemetry to use Azure Monitor with the 

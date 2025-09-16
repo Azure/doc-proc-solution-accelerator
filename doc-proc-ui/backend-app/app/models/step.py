@@ -77,4 +77,8 @@ class StepInstanceUpdateRequest(BaseModel):
     description: Optional[str] = None
     settings: Dict[str, Any] = Field(default_factory=dict, description="Step settings")
     enabled: bool = Field(default=True, description="Whether step is enabled")
-
+    fail_pipeline_on_error: bool = Field(default=False, description="Fail pipeline if step fails")
+    timeout: int = Field(default=30, description="Step timeout in seconds")
+    services: List[str] = Field(default_factory=list, description="Referenced service instances")
+    condition: Optional[str] = Field(None, description="Condition for step execution")
+    debug_mode: bool = Field(default=False, description="Enable debug mode")

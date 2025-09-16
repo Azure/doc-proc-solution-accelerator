@@ -2,15 +2,14 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from ..models.vault import (
+from app.models.vault import (
     Vault, VaultCreateRequest, VaultUpdateRequest, VaultProcessingRequest,
     VaultStatus, DocumentInfo
 )
-from ..services.vault_service import VaultService
-from ..dependencies import get_vault_service
+from app.services.vault_service import VaultService
+from app.dependencies import get_vault_service
 
-router = APIRouter()
-
+router = APIRouter(prefix="/api/vaults", tags=["vaults"])
 
 @router.post("/", response_model=Vault)
 async def create_vault(

@@ -225,6 +225,27 @@ const Connections = () => {
                       Response time: {connection.responseTime}ms
                     </div>
                   )}
+                  {connection.details?.credential_type && (
+                    <div className="text-xs text-muted-foreground">
+                      Credential type: {connection.details.credential_type}
+                    </div>
+                  )}
+                  {connection.details?.credential_details?.client_id && (
+                    <div className="text-xs text-muted-foreground">
+                      Client ID: {JSON.stringify(connection.details.credential_details.client_id)}
+                    </div>
+                  )}
+                  {connection.details?.credential_details?.object_id && (
+                    <div className="text-xs text-muted-foreground">
+                      Object ID: {JSON.stringify(connection.details.credential_details.object_id)}
+                    </div>
+                  )}
+                  {connection.details?.credential_details?.upn && (
+                    <div className="text-xs text-muted-foreground">
+                      UPN: {JSON.stringify(connection.details.credential_details.upn)}
+                    </div>
+                  )}
+                  
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">

@@ -307,6 +307,7 @@ const CreateStepInstanceDialog = ({
                 value={value}
                 min={field.min}
                 max={field.max}
+                step={field.type === 'integer' ? 1 : 0.1}
                 onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
                 placeholder={`Enter ${label.toLowerCase()}`}
               />

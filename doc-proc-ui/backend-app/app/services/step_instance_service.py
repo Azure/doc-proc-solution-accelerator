@@ -42,7 +42,8 @@ class StepInstanceService(BaseService):
 
         # Generate unique ID if not provided
         instance_id = step_data.get("id") or f"{step_data.get('name')}_{int(time.time())}"
-
+        instance_id = instance_id.replace(" ", "_").lower()
+        
         # Merge catalog definition with instance settings
         instance = {
             "id": instance_id,
