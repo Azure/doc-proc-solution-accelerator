@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { StepCatalogDefinition, StepInstanceCreateRequest, stepsApi } from "@/lib/api";
+import { StepCatalogDefinition, StepInstanceCreateRequest, stepsApi, servicesApi, ServiceInstance } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface CreateStepInstanceDialogProps {
@@ -25,6 +25,8 @@ const CreateStepInstanceDialog = ({
   onStepInstanceCreated 
 }: CreateStepInstanceDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const [serviceInstances, setServiceInstances] = useState<ServiceInstance[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
   const { toast } = useToast();
   
   const [formData, setFormData] = useState<StepInstanceCreateRequest>({
@@ -34,7 +36,7 @@ const CreateStepInstanceDialog = ({
     settings: {},
     enabled: true,
     fail_pipeline_on_error: false,
-    timeout: 600,
+    timeout: 30,
     services: [],
     condition: "",
     debug_mode: false,
@@ -49,6 +51,53 @@ const CreateStepInstanceDialog = ({
       ...schema,
     }));
   }, [stepCatalog.settings_schema]);
+
+  // Fetch service instances when dialog opens and when it has service-type fields
+  useEffect(() => {
+    const hasServiceFields = settingsFields.some(field => 
+      field.ui_component === 'service_selector' || field.service_type
+    );
+
+    if (isOpen && hasServiceFields) {
+      const loadServiceInstances = async () => {
+        setLoadingServices(true);
+        try {
+          const instances = await servicesApi.getInstances();
+          setServiceInstances(instances);
+        } catch (error) {
+          console.error('Error loading service instances:', error);
+          toast({
+            title: "Warning",
+            description: "Failed to load service instances. Service dropdowns may not work correctly.",
+            variant: "destructive",
+          });
+        } finally {
+          setLoadingServices(false);
+        }
+      };
+
+      loadServiceInstances();
+    }
+  }, [isOpen, settingsFields, toast]);
+
+  // Reset form when dialog is closed or step catalog changes
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData({
+        name: "",
+        description: "",
+        step_catalog_id: stepCatalog.id,
+        settings: {},
+        enabled: true,
+        fail_pipeline_on_error: false,
+        timeout: 30,
+        services: [],
+        condition: "",
+        debug_mode: false,
+      });
+      setServiceInstances([]); // Clear service instances
+    }
+  }, [isOpen, stepCatalog.id]);
 
   const handleInputChange = (field: keyof StepInstanceCreateRequest, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -97,52 +146,70 @@ const CreateStepInstanceDialog = ({
     }
   };
 
-  const renderSettingField = (field: { key: string; type: string; title?: string; description?: string; required?: boolean; default?: any; enum?: string[]; min?: number; max?: number; pattern?: string }) => {
+  const renderSettingField = (field: { key: string; type: string; title?: string; description?: string; required?: boolean; default?: any; enum?: string[]; min?: number; max?: number; pattern?: string; ui_component?: string; service_type?: string }) => {
     const value = formData.settings[field.key] ?? field.default ?? '';
     const label = field.title || field.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-    switch (field.type) {
-      case 'boolean':
-        return (
-          <div key={field.key} className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id={field.key}
-                checked={Boolean(value)}
-                onCheckedChange={(checked) => handleSettingChange(field.key, checked)}
+    // Handle service selector fields first (before type-based switch)
+    if (field.ui_component === 'service_selector' || field.service_type) {
+      const filteredServices = serviceInstances.filter(service => 
+        !field.service_type || service.type === field.service_type
+      );
+
+      return (
+        <div key={field.key} className="space-y-2">
+          <Label htmlFor={field.key}>
+            {label}
+            {field.required && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          <Select 
+            value={value} 
+            onValueChange={(newValue) => handleSettingChange(field.key, newValue)}
+            disabled={loadingServices}
+          >
+            <SelectTrigger>
+              <SelectValue 
+                placeholder={
+                  loadingServices 
+                    ? "Loading services..." 
+                    : filteredServices.length === 0 
+                      ? `No ${field.service_type || 'services'} available`
+                      : `Select ${label.toLowerCase()}`
+                } 
               />
-              <Label htmlFor={field.key}>{label}</Label>
-              {field.required && <span className="text-red-500">*</span>}
-            </div>
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
+            </SelectTrigger>
+            <SelectContent>
+              {filteredServices.map((service) => (
+                <SelectItem key={service.id} value={service.id}>
+                  <div className="flex flex-col">
+                    <span>{service.name}</span>
+                    {service.description && (
+                      <span className="text-xs text-muted-foreground">{service.description}</span>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {field.description && (
+            <p className="text-sm text-muted-foreground">{field.description}</p>
+          )}
+          {field.service_type && (
+            <p className="text-xs text-muted-foreground">
+              Service type: {field.service_type} • Found {filteredServices.length} service(s)
+            </p>
+          )}
+          {field.required && filteredServices.length === 0 && !loadingServices && (
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+              ⚠️ No services of type "{field.service_type}" are available. Please create a service instance first.
+            </p>
+          )}
+        </div>
+      );
+    }
 
-      case 'number':
-      case 'integer':
-        return (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={field.key}
-              type="number"
-              value={value}
-              min={field.min}
-              max={field.max}
-              onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
-              placeholder={`Enter ${label.toLowerCase()}`}
-            />
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
-
+    switch (field.ui_component) {
+      
       case 'select':
       case 'enum':
         return (
@@ -181,7 +248,7 @@ const CreateStepInstanceDialog = ({
               value={value}
               onChange={(e) => handleSettingChange(field.key, e.target.value)}
               placeholder={`Enter ${label.toLowerCase()}`}
-              rows={3}
+              rows={4}
             />
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -209,26 +276,67 @@ const CreateStepInstanceDialog = ({
           </div>
         );
 
-      default: // string type and fallback
-        return (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={field.key}
-              type="text"
-              value={value}
-              pattern={field.pattern}
-              onChange={(e) => handleSettingChange(field.key, e.target.value)}
-              placeholder={`Enter ${label.toLowerCase()}`}
-            />
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
+      default: // input ui_component and fallback
+        if (field.type === 'boolean') {
+          return (
+            <div key={field.key} className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={field.key}
+                  checked={Boolean(value)}
+                  onCheckedChange={(checked) => handleSettingChange(field.key, checked)}
+                />
+                <Label htmlFor={field.key}>{label}</Label>
+                {field.required && <span className="text-red-500">*</span>}
+              </div>
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );
+        } else if (field.type === 'number' || field.type === 'integer') {
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={field.key}>
+                {label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <Input
+                id={field.key}
+                type="number"
+                value={value}
+                min={field.min}
+                max={field.max}
+                step={field.type === 'integer' ? 1 : 0.1}
+                onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );
+        } else { // Default to string input
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={field.key}>
+                {label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <Input
+                id={field.key}
+                type="text"
+                value={value}
+                pattern={field.pattern}
+                onChange={(e) => handleSettingChange(field.key, e.target.value)}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );  
+        }
     }
   };
 

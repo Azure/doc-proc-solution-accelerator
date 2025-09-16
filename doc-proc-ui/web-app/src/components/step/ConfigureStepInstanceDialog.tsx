@@ -97,52 +97,11 @@ const ConfigureStepInstanceDialog = ({
     }
   };
 
-  const renderSettingField = (field: { key: string; type: string; title?: string; description?: string; required?: boolean; default?: any; enum?: string[]; min?: number; max?: number; pattern?: string }) => {
+  const renderSettingField = (field: { key: string; type: string; title?: string; description?: string; required?: boolean; default?: any; enum?: string[]; min?: number; max?: number; pattern?: string, ui_component?: string }) => {
     const value = formData.settings![field.key] ?? field.default ?? '';
     const label = field.title || field.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-    switch (field.type) {
-      case 'boolean':
-        return (
-          <div key={field.key} className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id={field.key}
-                checked={Boolean(value)}
-                onCheckedChange={(checked) => handleSettingChange(field.key, checked)}
-              />
-              <Label htmlFor={field.key}>{label}</Label>
-              {field.required && <span className="text-red-500">*</span>}
-            </div>
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
-
-      case 'number':
-      case 'integer':
-        return (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={field.key}
-              type="number"
-              value={value}
-              min={field.min}
-              max={field.max}
-              onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
-              placeholder={`Enter ${label.toLowerCase()}`}
-            />
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
-
+    switch (field.ui_component) {
       case 'select':
       case 'enum':
         return (
@@ -209,26 +168,67 @@ const ConfigureStepInstanceDialog = ({
           </div>
         );
 
-      default: // string type and fallback
-        return (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              id={field.key}
-              type="text"
-              value={value}
-              pattern={field.pattern}
-              onChange={(e) => handleSettingChange(field.key, e.target.value)}
-              placeholder={`Enter ${label.toLowerCase()}`}
-            />
-            {field.description && (
-              <p className="text-sm text-muted-foreground">{field.description}</p>
-            )}
-          </div>
-        );
+      default: // input ui_component and fallback
+        if (field.type === 'boolean') {
+          return (
+            <div key={field.key} className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={field.key}
+                  checked={Boolean(value)}
+                  onCheckedChange={(checked) => handleSettingChange(field.key, checked)}
+                />
+                <Label htmlFor={field.key}>{label}</Label>
+                {field.required && <span className="text-red-500">*</span>}
+              </div>
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );
+        } else if (field.type === 'integer' || field.type === 'number') {
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={field.key}>
+                {label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <Input
+                id={field.key}
+                type="number"
+                value={value}
+                min={field.min}
+                max={field.max}
+                step={field.type === 'integer' ? 1 : 0.1}
+                onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );
+        } else {
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={field.key}>
+                {label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <Input
+                id={field.key}
+                type="text"
+                value={value}
+                pattern={field.pattern}
+                onChange={(e) => handleSettingChange(field.key, e.target.value)}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+              {field.description && (
+                <p className="text-sm text-muted-foreground">{field.description}</p>
+              )}
+            </div>
+          );
+        }
     }
   };
 

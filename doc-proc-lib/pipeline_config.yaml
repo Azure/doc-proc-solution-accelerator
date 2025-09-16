@@ -333,8 +333,9 @@ pipelines:
     # Global settings for the pipeline execution
     settings:
       enabled: true
+      timeout: 600
       retry_delay: 5
-      timeout: 300
+      retries: 3
       max_concurrent_runs: 5
 
   

@@ -12,14 +12,13 @@ class PipelineSettingsConfig(BaseModel):
     enabled: Optional[bool] = True # Whether the pipeline is enabled
     retry_delay: Optional[int] = 5  # Delay in seconds between retries
     timeout: Optional[int] = 300  # Timeout for the entire pipeline execution in seconds
-    max_concurrent_runs: Optional[int] = 5  # Maximum number of concurrent runs for the pipeline
-
+    max_concurrent_runs: Optional[int] = 5  # Maximum number of concurrent documents processed by the pipeline
+    retries: Optional[int] = 3  # Number of retries for failed steps
 
 class ServiceInstanceConfig(BaseModel):
     name: str  # Instance name in the pipeline
     service_catalog_id: str  # Reference to service id in the service catalog
     settings: Optional[dict] = None  # Additional settings for the service instance
-
 
 class PipelineConfig(BaseModel):
     """Configuration for a single pipeline."""

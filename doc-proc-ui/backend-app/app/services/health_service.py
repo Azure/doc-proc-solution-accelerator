@@ -15,7 +15,7 @@ from azure.core.exceptions import ServiceRequestError, ResourceNotFoundError
 from pydantic import BaseModel
 
 from app.settings import app_settings
-from app.utils import get_azure_credential
+from app.utils import get_azure_credential, get_azure_credential_with_details
 
 logger = logging.getLogger("doc-proc-ui.app.services.health_service")
 
@@ -29,6 +29,7 @@ class ServiceHealth(BaseModel):
     response_time_ms: Optional[int] = None
     last_checked: str
     endpoint: Optional[str] = None
+    
 
 class SystemHealth(BaseModel):
     """Model for overall system health"""
@@ -109,9 +110,10 @@ class HealthService:
                     endpoint="Not configured"
                 )
             
+            credential, token_details = get_azure_credential_with_details()
+            
             # Create client if not exists
             if not self.cosmos_client:
-                credential = get_azure_credential()
                 self.cosmos_client = CosmosClient(
                     url=app_settings.COSMOS_DB_ENDPOINT,
                     credential=credential
@@ -133,7 +135,8 @@ class HealthService:
                     "database_name": app_settings.COSMOS_DB_NAME,
                     "database_id": database_properties.get("id"),
                     "container_count": len(app_settings.get_cosmos_db_containers()),
-                    "credential_type": "managed_identity"
+                    "credential_type": "default_azure_credential",
+                    "credential_details": token_details
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
@@ -170,6 +173,9 @@ class HealthService:
         start_time = datetime.now(timezone.utc)
         
         try:
+            
+            logger.debug(f"Checking storage queue health with URL: {app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL} and queue name: {app_settings.STORAGE_WORKER_QUEUE_NAME}")
+            
             if not app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL:
                 return ServiceHealth(
                     name="storage_queue",
@@ -180,15 +186,11 @@ class HealthService:
                     endpoint="Not configured"
                 )
             
+            credential, token_details = get_azure_credential_with_details()
             # Create client if not exists
             if not self.queue_client:
-                credential = get_azure_credential()
                 # Extract account URL from queue URL
-                queue_url = app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
-                if "//" in queue_url:
-                    account_url = "/".join(queue_url.split("/")[:3])
-                else:
-                    account_url = queue_url
+                account_url = app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
                 
                 self.queue_client = QueueServiceClient(
                     account_url=account_url,
@@ -209,7 +211,8 @@ class HealthService:
                     "queue_name": app_settings.STORAGE_WORKER_QUEUE_NAME,
                     "approximate_message_count": properties.approximate_message_count,
                     "metadata": properties.metadata,
-                    "credential_type": "managed_identity"
+                    "credential_type": "default_azure_credential",
+                    "credential_details": token_details
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
@@ -259,13 +262,16 @@ class HealthService:
                     endpoint="Not configured"
                 )
             
+            # declare here to capture
+            credential, token_details = None, None
+            
             # Create client if not exists
             if not self.app_config_client:
                 if connection_string:
                     self.app_config_client = AzureAppConfigurationClient.from_connection_string(connection_string)
                     endpoint_display = "Connection String"
                 else:
-                    credential = get_azure_credential()
+                    credential, token_details = get_azure_credential_with_details()
                     self.app_config_client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
                     endpoint_display = endpoint
             else:
@@ -285,7 +291,8 @@ class HealthService:
                 details={
                     "config_items_count": len(items),
                     "key_prefix": "doc-proc-ui.app.*",
-                    "credential_type": "connection_string" if connection_string else "managed_identity"
+                    "credential_type": "connection_string" if connection_string else "default_azure_credential",
+                    "credential_details": token_details if credential else None
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),

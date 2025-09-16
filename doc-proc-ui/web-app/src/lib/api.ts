@@ -172,6 +172,45 @@ export interface StepInstanceUpdateRequest {
   debug_mode?: boolean;
 }
 
+// Pipeline types based on backend models
+export interface PipelineSettings {
+  enabled: boolean;
+  retry_delay: number;
+  timeout: number;
+  retries: number;
+  max_concurrent_runs: number;
+}
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  description?: string;
+  steps: string[];
+  execution_sequence: string[];
+  version?: string;
+  settings?: PipelineSettings;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreatePipelineRequest {
+  id?: string;
+  name: string;
+  description?: string;
+  steps?: string[];
+  execution_sequence?: string[];
+  version?: string;
+  settings?: PipelineSettings;
+}
+
+export interface PipelineUpdateRequest {
+  description?: string;
+  steps?: string[];
+  execution_sequence?: string[];
+  version?: string;
+  settings?: PipelineSettings;
+}
+
 export interface ApiError {
   message: string;
   status_code: number;
@@ -365,11 +404,33 @@ export class ApiManager {
   async deleteStepInstance(id: string): Promise<{ message: string }> {
     return this.delete(`/api/steps/instances/${id}`);
   }
+
+  // ##################################
+  // Pipeline Methods
+  async getPipelines(): Promise<Pipeline[]> {
+    return this.get('/api/pipelines');
+  }
+
+  async getPipeline(idOrName: string): Promise<Pipeline> {
+    return this.get(`/api/pipelines/${idOrName}`);
+  }
+
+  async createPipeline(pipelineData: CreatePipelineRequest): Promise<Pipeline> {
+    return this.post('/api/pipelines', pipelineData);
+  }
+
+  async updatePipeline(id: string, pipelineData: Pipeline): Promise<Pipeline> {
+    return this.put(`/api/pipelines/${id}`, pipelineData);
+  }
+
+  async deletePipeline(id: string): Promise<{ message: string }> {
+    return this.delete(`/api/pipelines/${id}`);
+  }
 }
 
 // Create singleton instance
 const apiManager = new ApiManager(
-  (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000'
+  (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8010'
 );
 
 // Export individual service functions for convenience
@@ -409,6 +470,15 @@ export const stepsApi = {
   createInstance: (data: StepInstanceCreateRequest) => apiManager.createStepInstance(data),
   updateInstance: (id: string, data: StepInstanceUpdateRequest) => apiManager.updateStepInstance(id, data),
   deleteInstance: (id: string) => apiManager.deleteStepInstance(id),
+};
+
+export const pipelinesApi = {
+  // Pipeline Methods
+  getPipelines: () => apiManager.getPipelines(),
+  getPipeline: (idOrName: string) => apiManager.getPipeline(idOrName),
+  createPipeline: (data: CreatePipelineRequest) => apiManager.createPipeline(data),
+  updatePipeline: (id: string, data: Pipeline) => apiManager.updatePipeline(id, data),
+  deletePipeline: (id: string) => apiManager.deletePipeline(id),
 };
 
 // Export the manager instance for advanced usage
