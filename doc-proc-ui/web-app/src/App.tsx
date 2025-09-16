@@ -15,8 +15,6 @@ import Vaults5 from "./pages/Vaults5";
 import Vaults6 from "./pages/Vaults6";
 import Connections from "./pages/Connections";
 import Pipeline from "./pages/Pipeline";
-import Pipeline2 from "./pages/Pipeline2";
-import PipelineConfigDemo from "./pages/PipelineConfigDemo";
 import Step from "./pages/Steps";
 import StepInstances from "./pages/StepInstances";
 import Service from "./pages/Services";
@@ -42,8 +40,6 @@ const App = () => (
               <Route path="vaults5" element={<Vaults5 />} />
               <Route path="vaults6" element={<Vaults6 />} />
               <Route path="pipeline" element={<Pipeline />} />
-              <Route path="pipeline2" element={<Pipeline2 />} />
-              <Route path="pipeline-config" element={<PipelineConfigDemo />} />
               <Route path="steps" element={<Step />} />
               <Route path="step-instances" element={<StepInstances />} />
               <Route path="services" element={<Service />} />

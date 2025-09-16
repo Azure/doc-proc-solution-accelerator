@@ -10,7 +10,7 @@ import { Save } from "lucide-react";
 interface NewPipelineDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (pipeline: { name: string; description: string }) => void;
+  onSave: (pipeline: { name: string; description: string }) => Promise<void>;
 }
 
 const NewPipelineDialog = ({ isOpen, onClose, onSave }: NewPipelineDialogProps) => {
@@ -18,11 +18,21 @@ const NewPipelineDialog = ({ isOpen, onClose, onSave }: NewPipelineDialogProps) 
     name: '',
     description: ''
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    onSave(formData);
-    setFormData({ name: '', description: '' });
-    onClose();
+  const handleSave = async () => {
+    if (!formData.name.trim()) return;
+    
+    try {
+      setSaving(true);
+      await onSave(formData);
+      setFormData({ name: '', description: '' });
+    } catch (error) {
+      console.error('Error creating pipeline:', error);
+      // Keep dialog open on error
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -57,10 +67,15 @@ const NewPipelineDialog = ({ isOpen, onClose, onSave }: NewPipelineDialogProps) 
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave}>
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave}
+              disabled={!formData.name.trim() || saving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              Create Pipeline
+              {saving ? 'Creating...' : 'Create Pipeline'}
             </Button>
           </div>
         </div>

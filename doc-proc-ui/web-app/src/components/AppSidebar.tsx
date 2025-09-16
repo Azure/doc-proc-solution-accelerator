@@ -67,16 +67,6 @@ const appConfigItems = [
     icon: Workflow,
   },
   {
-    title: "Pipelines2",
-    url: "/pipeline2",
-    icon: Workflow,
-  },
-  {
-    title: "Pipeline Config",
-    url: "/pipeline-config",
-    icon: Cog,
-  },
-  {
     title: "Steps",
     url: "/steps",
     icon: Puzzle,

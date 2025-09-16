@@ -16,11 +16,19 @@ step_catalog:
 
     # Settings schema for UI generation and validation
     settings_schema:
+      storage_service:
+        type: string
+        title: "Storage Service"
+        description: "Reference to the storage service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_blob_storage"
       temp_folder:
         type: string
         title: "Temporary Folder"
         description: "Path to temporary folder for downloaded files. Uses system temp if not specified."
         default: "./tmp/docproc_downloads"
+        ui_component: "input"
 
     # UI metadata for dynamic form generation
     ui_metadata:
@@ -47,11 +55,13 @@ step_catalog:
         title: "Custom Key 1"
         description: "First custom configuration key"
         default: "value1"
+        ui_component: "input"
       key2:
         type: string
         title: "Custom Key 2"
         description: "Second custom configuration key"
         default: "value2"
+        ui_component: "input"
 
     # UI metadata for dynamic form generation
     ui_metadata:
@@ -101,13 +111,6 @@ step_catalog:
         
     # Settings schema for UI generation and validation
     settings_schema:
-      storage_service:
-        type: string
-        title: "Storage Service"
-        description: "Reference to the storage service instance to use"
-        required: true
-        ui_component: "service_selector"
-        service_type: "azure_blob"
       ai_model_inference_service:
         type: string
         title: "AI Inference Service"
@@ -122,6 +125,7 @@ step_catalog:
         default: "./tmp/pdf-output/png"
         required: true
         pattern: "^\\.\\/.*"
+        ui_component: "input"
       num_pages:
         type: integer
         title: "Number of Pages"
@@ -129,6 +133,7 @@ step_catalog:
         default: -1
         min: -1
         max: 200
+        ui_component: "input"
       system_prompt:
         type: string
         title: "System Prompt"
@@ -148,6 +153,7 @@ step_catalog:
         default: 4000
         min: 100
         max: 8000
+        ui_component: "input"
       temperature:
         type: number
         title: "Temperature"
@@ -156,6 +162,7 @@ step_catalog:
         min: 0.0
         max: 2.0
         multipleOf: 0.1
+        ui_component: "input"
       top_p:
         type: number
         title: "Top P"
@@ -164,6 +171,7 @@ step_catalog:
         min: 0.0
         max: 1.0
         multipleOf: 0.1
+        ui_component: "input"
       frequency_penalty:
         type: number
         title: "Frequency Penalty"
@@ -172,6 +180,7 @@ step_catalog:
         min: -2.0
         max: 2.0
         multipleOf: 0.1
+        ui_component: "input"
       presence_penalty:
         type: number
         title: "Presence Penalty"
@@ -180,6 +189,7 @@ step_catalog:
         min: -2.0
         max: 2.0
         multipleOf: 0.1
+        ui_component: "input"
 
     ui_metadata:
       icon: "file-text"
@@ -488,13 +498,6 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_search"
-      storage_service:
-        type: string
-        title: "Storage Service"
-        description: "Reference to the storage service instance to use"
-        required: true
-        ui_component: "service_selector"
-        service_type: "azure_blob"
       index_name:
         type: string
         title: "Azure AI Index Name"
