@@ -18,7 +18,7 @@ config = get_config()
 cosmos = CosmosDBClient(config)
 
 async def load_source_catalog_config(source_catalog_yaml_file: str) -> SourceConfig:
-    source = config.get("source_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_source_catalog_config_from_file(source_catalog_yaml_file)
     elif source == "cosmos":
@@ -28,12 +28,13 @@ async def load_source_catalog_config(source_catalog_yaml_file: str) -> SourceCon
 
 async def load_source_catalog_config_from_cosmos(document_id: str) -> SourceConfig:
 
-    container_name = config.get("source_catalog_source_container", "doc-proc")
-    document = cosmos.get_document(container_name, document_id)
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
+    document = cosmos.get_document(container_name, document_id.replace(".yaml", ""))
+    yaml = document.get("system_prompt", "")
 
     try:
         # Load source configuration
-        source_catalog = SourceConfig.from_dict(document)
+        source_catalog = SourceConfig.from_yaml(yaml)
         logger.info(f"Source configuration loaded successfully.")
         logger.debug(f"Source configuration: {source_catalog}")
 
@@ -62,7 +63,10 @@ async def load_source_catalog_config_from_file(source_catalog_yaml_file: str) ->
         logger.error(f"Error loading source catalog: {e}")
 
 async def load_services_catalog_config(services_catalog_yaml_file: str) -> ServiceConfig:
-    source = config.get("services_catalog_source", "file")
+
+    logger.info(f"Loading services catalog from: {services_catalog_yaml_file}")
+
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_services_catalog_config_from_file(services_catalog_yaml_file)
     elif source == "cosmos":
@@ -72,12 +76,13 @@ async def load_services_catalog_config(services_catalog_yaml_file: str) -> Servi
 
 async def load_services_catalog_config_from_cosmos(document_id: str) -> ServiceConfig:
 
-    container_name = config.get("services_catalog_source_container", "doc-proc")
-    document = cosmos.get_document(container_name, document_id)
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
+    document = cosmos.get_document(container_name, document_id.replace(".yaml", ""))
+    yaml = document.get("system_prompt", "")
 
     try:
         # Load services configuration
-        service_catalog = ServiceConfig.from_dict(document)
+        service_catalog = ServiceConfig.from_yaml(yaml)
         logger.info(f"Service configuration loaded successfully.")
         logger.debug(f"Service configuration: {service_catalog}")
         
@@ -106,7 +111,7 @@ async def load_services_catalog_config_from_file(services_catalog_yaml_file: str
         logger.error(f"Error loading service catalog: {e}")
 
 async def load_step_catalog_config(step_catalog_yaml_file: str) -> StepConfig:
-    source = config.get("step_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_step_catalog_config_from_file(step_catalog_yaml_file)
     elif source == "cosmos":
@@ -116,12 +121,13 @@ async def load_step_catalog_config(step_catalog_yaml_file: str) -> StepConfig:
 
 async def load_step_catalog_config_from_cosmos(document_id: str) -> StepConfig:
 
-    container_name = config.get("step_catalog_source_container", "doc-proc")
-    document = cosmos.get_document(container_name, document_id)
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
+    document = cosmos.get_document(container_name, document_id.replace(".yaml", ""))
+    yaml = document.get("system_prompt", "")
 
     try:
         # Load steps configuration
-        step_catalog = StepConfig.from_dict(document)
+        step_catalog = StepConfig.from_yaml(yaml)
         logger.info(f"Step configuration loaded successfully.")
         logger.debug(f"Step configuration: {step_catalog}")
 
@@ -153,7 +159,7 @@ async def load_pipeline_config(pipeline_config_yaml_file: str,
                                step_catalog_config: List[StepConfig] = None, 
                                service_catalog_config: List[ServiceConfig] = None, 
                                source_catalog_config: List[SourceConfig] = None) -> PipelineConfig:
-    source = config.get("pipeline_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_pipeline_config_from_file(pipeline_config_yaml_file, step_catalog_config, service_catalog_config, source_catalog_config)
     elif source == "cosmos":
@@ -164,12 +170,13 @@ async def load_pipeline_config(pipeline_config_yaml_file: str,
 async def load_pipeline_config_from_cosmos(document_id: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None, source_catalog_config: List[SourceConfig] = None) -> PipelineConfig:
     """Load pipeline configuration from a YAML file."""
 
-    container_name = config.get("pipeline_catalog_source_container", "doc-proc")
-    document = cosmos.get_document(container_name, document_id)
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
+    document = cosmos.get_document(container_name, document_id.replace(".yaml", ""))
+    yaml = document.get("system_prompt", "")
 
     try:
         # Load pipeline configuration
-        pipeline_config = PipelineConfig.from_dict(document, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
+        pipeline_config = PipelineConfig.from_yaml(yaml, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
         logger.info(f"Pipeline configuration loaded successfully.")
         logger.debug(f"Pipeline configuration: {pipeline_config}")
 

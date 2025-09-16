@@ -12,3 +12,4 @@ from .types import (
     SemanticModelConfig,
 )
 from .doc_intelligence import DocumentIntelligenceClient
+from .postgres import PostgresClient

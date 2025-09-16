@@ -71,7 +71,7 @@ def setup_logging(logger: logging.Logger):
     logger.addHandler(handler)
 
 async def load_source_catalog_config(source_catalog_yaml_file: str) -> SourceConfig:
-    source = config.get("source_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_source_catalog_config_from_file(source_catalog_yaml_file)
     elif source == "cosmos":
@@ -81,7 +81,7 @@ async def load_source_catalog_config(source_catalog_yaml_file: str) -> SourceCon
 
 async def load_source_catalog_config_from_cosmos(document_id: str) -> SourceConfig:
 
-    container_name = config.get("source_catalog_source_container", "doc-proc")
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
     document = cosmos.get_document(container_name, document_id)
 
     try:
@@ -115,7 +115,7 @@ async def load_source_catalog_config_from_file(source_catalog_yaml_file: str) ->
         logger.error(f"Error loading source catalog: {e}")
 
 async def load_services_catalog_config(services_catalog_yaml_file: str) -> ServiceConfig:
-    source = config.get("services_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_services_catalog_config_from_file(services_catalog_yaml_file)
     elif source == "cosmos":
@@ -125,7 +125,7 @@ async def load_services_catalog_config(services_catalog_yaml_file: str) -> Servi
 
 async def load_services_catalog_config_from_cosmos(document_id: str) -> ServiceConfig:
 
-    container_name = config.get("services_catalog_source_container", "doc-proc")
+    container_name = config.get("DOCPROC_CONTAINER_NAME", "docproc")
     document = cosmos.get_document(container_name, document_id)
 
     try:
@@ -159,7 +159,7 @@ async def load_services_catalog_config_from_file(services_catalog_yaml_file: str
         logger.error(f"Error loading service catalog: {e}")
 
 async def load_step_catalog_config(step_catalog_yaml_file: str) -> StepConfig:
-    source = config.get("step_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_step_catalog_config_from_file(step_catalog_yaml_file)
     elif source == "cosmos":
@@ -206,7 +206,7 @@ async def load_pipeline_config(pipeline_config_yaml_file: str,
                                step_catalog_config: List[StepConfig] = None, 
                                service_catalog_config: List[ServiceConfig] = None, 
                                source_catalog_config: List[SourceConfig] = None) -> PipelineConfig:
-    source = config.get("pipeline_catalog_source", "file")
+    source = config.get("CATALOG_SOURCE", "file")
     if source == "file":
         return await load_pipeline_config_from_file(pipeline_config_yaml_file, step_catalog_config, service_catalog_config, source_catalog_config)
     elif source == "cosmos":

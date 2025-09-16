@@ -195,11 +195,11 @@ Write-Host ""
 #endregion
 
 #region Build or ACR build image
-$fullImageName = "$($values.CONTAINER_REGISTRY_LOGIN_SERVER)/azure-gpt-rag/dataingest:$tag"
+$fullImageName = "$($values.CONTAINER_REGISTRY_LOGIN_SERVER)/azure-gpt-rag/data-ingestion:$tag"
 Write-Green "🛠️  Building Docker image…"
 if (Get-Command docker -ErrorAction SilentlyContinue) {
     try {
-        docker build -t $fullImageName .
+        docker build -t $fullImageName ./doc-proc-lib
         Write-Green "✅ Docker build succeeded."
     } catch {
         $errMsg = $_.Exception.Message
@@ -211,7 +211,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
     try {
         az acr build `
             --registry $values.CONTAINER_REGISTRY_NAME `
-            --image "azure-gpt-rag/ingest:$tag" `
+            --image "azure-gpt-rag/data-ingestion:$tag" `
             --file Dockerfile `
             .
         Write-Green "✅ ACR cloud build succeeded."

@@ -17,6 +17,7 @@ class ExcludeTraceLogsFilter(logging.Filter):
         filter_out = 'applicationinsights' not in record.getMessage().lower()
         filter_out = filter_out and 'response status' not in record.getMessage().lower()
         filter_out = filter_out and 'transmission succeeded' not in record.getMessage().lower()
+        filter_out = filter_out and 'httpcore.http11' not in record.getMessage().lower()
         return filter_out
 
 class Telemetry:

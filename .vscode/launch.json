@@ -11,13 +11,15 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "cwd": "${workspaceFolder}/doc-proc-lib",
             "python": "${command:python.interpreterPath}",
             "env": {
                 "AZURE_TENANT_ID" : "",
                 "AZURE_CLIENT_ID" : "",
-                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
-                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+                "APP_CONFIGURATION_URI" : "https://appcs-REPLACE_ME.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-REPLACE_ME.azconfig.io",
+                //"GRAPHRAG_API_KEY": ""
             }
         },
         {
@@ -26,13 +28,15 @@
             "request": "launch",
             "program": "worker.py",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "cwd": "${workspaceFolder}/doc-proc-lib",
             "python": "${command:python.interpreterPath}",
             "env": {
                 "AZURE_TENANT_ID" : "",
                 "AZURE_CLIENT_ID" : "",
-                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
-                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+                "APP_CONFIGURATION_URI" : "https://appcs-REPLACE_ME.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-REPLACE_ME.azconfig.io",
+                //"GRAPHRAG_API_KEY": ""
             }
         },
         {
@@ -41,13 +45,14 @@
             "request": "launch",
             "program": "crawler.py",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "cwd": "${workspaceFolder}/doc-proc-lib",
             "python": "${command:python.interpreterPath}",
             "env": {
                 "AZURE_TENANT_ID" : "",
                 "AZURE_CLIENT_ID" : "",
-                "APP_CONFIGURATION_URI" : "https://appcs-stj7zaow7ldi2.azconfig.io",
-                "APP_CONFIG_ENDPOINT" : "https://appcs-stj7zaow7ldi2.azconfig.io"
+                "APP_CONFIGURATION_URI" : "https://appcs-REPLACE_ME.azconfig.io",
+                "APP_CONFIG_ENDPOINT" : "https://appcs-REPLACE_ME.azconfig.io"
             }
         }
     ]

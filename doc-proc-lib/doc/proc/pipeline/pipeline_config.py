@@ -23,6 +23,7 @@ class ServiceInstanceConfig(BaseModel):
 class SourceInstanceConfig(BaseModel):
     name: str  # Instance name in the pipeline
     source_catalog_id: str  # Reference to source id in the source catalog
+    enabled : Optional[bool] = True  # Whether the source instance is enabled
     settings: Optional[dict] = None  # Additional settings for the source instance
 
 

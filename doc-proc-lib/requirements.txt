@@ -1,10 +1,13 @@
-aiohttp==3.12.13
-azure-ai-inference==1.0.0b9
-azure-core==1.34.0
-azure-identity==1.23.1
-azure-storage-blob==12.25.1
-azure-ai-documentintelligence==1.0.2
+aiohttp==3.12.3
+azure-ai-inference
+azure-core
+azure-identity
+azure-storage-blob
+azure-ai-documentintelligence
 azure-storage-queue
+azure-cosmos
+azure.appconfiguration
+azure.appconfiguration.provider
 
 PyYAML==6.0.2
 python-dotenv==1.1.1
@@ -12,7 +15,7 @@ pydantic==2.11.7
 
 PyMuPDF==1.26.1
 python-magic==0.4.27
-python-magic-bin
+#python-magic-bin
 python-docx==1.2.0
 python-pptx==1.0.2
 openpyxl==3.1.2
@@ -27,13 +30,16 @@ tiktoken
 openai
 pandas
 pyodbc
-
-azure.cosmos
-
-azure.appconfiguration
-azure.appconfiguration.provider
+psycopg2
+psycopg2-binary
+sqlalchemy
 
 azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter
 opentelemetry-instrumentation-httpx==0.52b1
 opentelemetry-instrumentation-fastapi
+
+flair
+graphrag
+pgvector
+networkx

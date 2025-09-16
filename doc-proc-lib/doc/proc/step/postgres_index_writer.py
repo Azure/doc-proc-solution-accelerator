@@ -1,18 +1,19 @@
 import logging
-import base64
-from datetime import datetime
+
+import json
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 from doc.proc.models.docproc_request import DocProcRequest
 from doc.proc.models.docproc_state import DocProcState
 
-logger = logging.getLogger("doc.proc.step.ai_search_index_writer")
+from psycopg2.extensions import register_adapter, AsIs
 
-class AISearchIndexWriterStep(StepBase):
+logger = logging.getLogger("doc.proc.step.postgres_index_writer")
+
+class PostgresIndexWriterStep(StepBase):
     """
-    Step to write to Azure AI Search Index.
-    
+    Step to write to PostgreSQL database.
     """
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
@@ -23,14 +24,7 @@ class AISearchIndexWriterStep(StepBase):
             self.settings = {}
 
         # get search index name from settings
-        self.index_name = self.settings.get("index_name", "")
-        if not self.index_name:
-            logger.error("Index name not found in settings.")
-            raise ValueError("Index name not found in settings.")
-
-        if self.index_name.startswith('${') and self.index_name.endswith('}'):
-            env_var_name = self.index_name[2:-1]
-            self.index_name = self.config.get(env_var_name)
+        self.database = self._parse_env(self.settings.get("database", ""))
 
         self.index_field_mappings = self.settings.get("index_field_mappings", "")
         if not self.index_field_mappings:
@@ -39,7 +33,7 @@ class AISearchIndexWriterStep(StepBase):
         
         self.index_field_mappings = self.parse_index_field_mappings(self.index_field_mappings)
 
-        logger.debug(f"Initialized AISearchIndexWriterStep with index_name: {self.index_name}, "
+        logger.debug(f"Initialized PostgresIndexWriterStep with database: {self.database}, "
                      f"index_field_mappings: {self.index_field_mappings}")
 
 
@@ -52,12 +46,10 @@ class AISearchIndexWriterStep(StepBase):
         """
         try:
             # Assuming the mappings are in JSON format
-            import json
             return json.loads(mappings_str)
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing index field mappings: {e}")
             raise ValueError("Invalid index field mappings format.")
-
     
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", request: DocProcRequest, state: DocProcState, **kwargs) -> StepInputOutput:
 
@@ -67,11 +59,11 @@ class AISearchIndexWriterStep(StepBase):
             raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
 
-        # get Azure AI Search Service from context
-        ai_search_service = self.get_ai_search_service(context)
-        if not ai_search_service:
-            logger.error("Azure AI Search Service not found in context.")
-            raise StepExecutionError("Azure AI Search Service not found in context.")
+        # get PostgreSQL Service from context
+        postgres_service = self.get_postgres_service(context)
+        if not postgres_service:
+            logger.error("PostgreSQL Service not found in context.")
+            raise StepExecutionError("PostgreSQL Service not found in context.")
 
         # get documents from input data
         document = input_data.data.get("documents", [])[0]
@@ -87,7 +79,7 @@ class AISearchIndexWriterStep(StepBase):
             # Process each document
             await self.process_document(document=document, 
                                         context=context, 
-                                        ai_search_service=ai_search_service)
+                                        postgres_service=postgres_service)
 
 
             if self.debug_mode:
@@ -107,31 +99,31 @@ class AISearchIndexWriterStep(StepBase):
                                     })
 
 
-    def get_ai_search_service(self, context: "PipelineExecutionContext"):
+    def get_postgres_service(self, context: "PipelineExecutionContext"):
         """
-        Get the AI Search Service from the context.
+        Get the PostgreSQL Service from the context.
 
-        This method searches for a service of type 'azure_ai_search' in the provided context.
+        This method searches for a service of type 'postgres' in the provided context.
         :param context: PipelineExecutionContext instance.
-        :return: AI Search Service instance.
+        :return: PostgreSQL Service instance.
         """
 
         for name in self.services:
             cs = context.get_service(name)
             
-            if cs and cs.type == 'azure_ai_search':
+            if cs and cs.type == 'azure_postgres':
                 return cs
 
         return None
 
 
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_search_service) -> None:
-        """Process a single document and write it to the Azure AI Search Index.
+    async def process_document(self, document: dict, context: "PipelineExecutionContext", postgres_service) -> None:
+        """Process a single document and write it to the PostgreSQL database.
 
         Args:
             document (dict): The document to process.
             context (PipelineExecutionContext): The pipeline execution context.
-            ai_search_service: The Azure AI Search Service instance.
+            postgres_service: The PostgreSQL Service instance.
         """
 
         try:
@@ -169,44 +161,28 @@ class AISearchIndexWriterStep(StepBase):
                     if value is not None:
                         index_doc[index_field] = value
 
+                metadata = document.get("metadata", {})
                 index_doc['id'] = document.get('id', None)
+                index_doc['chunk_id'] = chunk.get('chunk_id', None)
+                index_doc["parent_id"] = document.get("parent_id", None)
+                index_doc['entity_ids'] = metadata.get('entity_ids', [])
+                index_doc['relationship_ids'] = metadata.get('relationship_ids', [])
+                index_doc['document_ids'] = metadata.get('document_ids', [])
 
-                #cut off the content to 32766
-                index_doc['content'] = index_doc['content'][:32766]
-                if 'content_vector' in index_doc:
-                    index_doc['contentVector'] = index_doc['content_vector']
-                    index_doc.pop('content_vector')
-
-                if 'metadata_storage_last_modified' in index_doc:
-                    s = index_doc['metadata_storage_last_modified']
-                    dttm = datetime.strptime(s, "%Y-%m-%d %H:%M:%S%z")
-                    dttm2 = dttm.strftime("%Y-%m-%dT%H:%M:%S.%fZ") # Prints "2020-01-03T05:30:44.201000Z"
-                    index_doc['metadata_storage_last_modified'] = dttm2
-
+                index_doc['content'] = index_doc['content']
                 index_documents.append(index_doc)
 
 
-            # Write documents to Azure AI Search Index
-            logger.debug(f"Writing {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
-            indexing_result = await ai_search_service.write_documents(index_name=self.index_name, documents=index_documents)
+            # Write documents to PostgreSQL database
+            logger.debug(f"Writing {len(index_documents)} documents to PostgreSQL database")
+            indexing_result = await postgres_service.write_documents(self.database, documents=index_documents)
 
             if self.debug_mode:
                 logger.debug(f"Indexing result: {indexing_result}")
 
-            logger.debug(f"Successfully wrote {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
+            logger.debug(f"Successfully wrote {len(index_documents)} documents to PostgreSQL database")
 
         except Exception as e:
-            logger.error(f"Error writing to Azure AI Search Index: {e}")
-            raise StepExecutionError(f"Error writing to Azure AI Search Index: {e}")
-
-
-    def convert_png_to_base64(self, png_path: str) -> str:
-        """
-        Convert a PNG file to a base64 encoded string.
+            logger.error(f"Error writing to PostgreSQL database: {e}")
+            raise StepExecutionError(f"Error writing to PostgreSQL database: {e}")
         
-        :param png_path: Path to the PNG file.
-        :return: Base64 encoded string of the PNG file.
-        """
-        with open(png_path, "rb") as png_file:
-            png_data = png_file.read()
-            return base64.b64encode(png_data).decode('ascii')

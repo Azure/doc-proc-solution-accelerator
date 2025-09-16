@@ -36,6 +36,76 @@ step_catalog:
       description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
 
   ########################################################
+  # Flair step for Named Entity Recognition (NER)
+  - id: flair_step
+    name: "Flair NER Step"
+    description: "Named Entity Recognition using Flair"
+    type: script
+    module_name: flair_step
+    module_path: ./doc/proc/step/flair.py
+    class_name: FlairStep
+    tags: [flair, ner, extraction]
+    category: "Development"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      key1:
+        type: string
+        title: "Custom Key 1"
+        description: "First custom configuration key"
+        default: "value1"
+      key2:
+        type: string
+        title: "Custom Key 2"
+        description: "Second custom configuration key"
+        default: "value2"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "gear"
+      color: "#6B7280"
+      description_short: "A sample step used for development and testing purposes."
+      description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
+  
+  ########################################################
+  # Graphrag step for document processing
+  - id: graphrag_step
+    name: "Graphrag Document Processing Step"
+    description: "Document processing using Graphrag"
+    type: script
+    enabled: true
+    module_name: graphrag_step
+    module_path: ./doc/proc/step/graphrag.py
+    class_name: GraphRagStep
+    tags: [graphrag, document, processing]
+    category: "Development"
+    version: "1.0"
+    settings:
+      key1: "value1"
+      key2: "value2"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      key1:
+        type: string
+        title: "Custom Key 1"
+        description: "First custom configuration key"
+        default: "value1"
+      key2:
+        type: string
+        title: "Custom Key 2"
+        description: "Second custom configuration key"
+        default: "value2"
+
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "gear"
+      color: "#6B7280"
+      description_short: "A sample step used for development and testing purposes."
+      description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
+  
+  ########################################################
   # Extract Content Step
   - id: content_extractor
     name: "Extract Content"
@@ -536,6 +606,70 @@ step_catalog:
       description_short: "Extracts text from Excel spreadsheet sheets into markdown."
       description_long: "Extracts text, images, and charts from Excel spreadsheet sheets and uses Azure AI Inference Service to convert them to markdown."
 
+  ########################################################
+  # Postgres Index Writer step
+  - id: postgres_index_writer
+    name: "Postgres Index Writer"
+    description: "Writes AI-generated summaries and metadata to Postgres database"
+    type: script
+    module_name: postgres_index_writer
+    module_path: ./doc/proc/step/postgres_index_writer.py
+    class_name: PostgresIndexWriterStep
+    tags: [ai, search, index, postgres]
+    category: "AI Processing"
+    version: "1.0"
+    
+    # Settings schema for UI generation and validation
+    settings_schema:
+      postgres_service:
+        type: string
+        title: "Postgres Service"
+        description: "Reference to the Postgres service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "postgres"
+      database:
+        type: string
+        title: "Postgres Database Name"
+        description: "Name of the Postgres database to write to"
+        default: "vectorstore"
+        ui_component: "input"
+      index_field_mappings:
+        type: string
+        title: "Index Field Mappings"
+        description: "Mappings of document fields to index fields. Document fields are mapped from the StepInputOutput object model."
+        default: |
+                  {
+                    "id": "id",
+                    "parent_id": "parent_id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "filepath": "file_path",
+                    "url": "file_path",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "content_vector": "content_vector",
+                    "caption_vector": "caption_vector"
+                  }
+        ui_component: "textarea"
+      
+    ui_metadata:
+      icon: "text-search"
+      color: "#8B5CF6"
+      description_short: "Writes AI-generated summaries and metadata to search index."
+      description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
   ########################################################
   # AI Search Index Writer step

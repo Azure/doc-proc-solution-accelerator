@@ -43,9 +43,22 @@ service_instances:
       api_version: "2025-05-01-preview" # Updated to the latest version
       index_name: ${SEARCH_RAG_INDEX_NAME} # Name of the search index to use
 
+  - name: primary_postgres_service
+    service_catalog_id: azure_postgres_service_01
+    settings:
+      host: ${POSTGRES_HOST}
+      username: ${POSTGRES_USERNAME}
+      password: ${POSTGRES_PASSWORD}
+      sslmode: ${POSTGRES_SSLMODE}
+      auth_type: ${POSTGRES_SERVICE_CREDENTIAL_TYPE} # Valid values are password, azure_key_credential or default_azure_credential
+      database: ${POSTGRES_DATABASE_NAME} # Name of the PostgreSQL database to use
+      dimensions: 3072 # Dimension of the vector field
+      initialize: false # Whether to initialize the database and create the table if it doesn't exist
+
 source_instances:
   - name: sharepoint_01
     source_catalog_id: sharepoint_01 # Reference to source in catalog
+    enabled: false
     settings:
       reindex : true
       account_name: ${STORAGE_ACCOUNT_NAME}
@@ -54,7 +67,10 @@ source_instances:
   
   - name: primary_blob_storage
     source_catalog_id: azure_storage_01 # Reference to source in catalog
+    enabled: true
     settings:
+      container_name: "graphrag"
+      prefix: "input"
       reindex : true
       account_name: ${STORAGE_ACCOUNT_NAME}
       credential_type: ${STORAGE_ACCOUNT_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
@@ -82,6 +98,38 @@ pipelines:
       ## STEP 1: Sample Step
       - name: sample_step_1
         step_catalog_id: sample_step # Reference to step in catalog
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          key1: "custom_value1"
+          key2: "custom_value2"
+
+      ## Flair Step
+      - name: flair
+        step_catalog_id: flair_step # Reference to step in catalog
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          key1: "custom_value1"
+          key2: "custom_value2"
+
+      ## Graphrag Step
+      - name: graphrag
+        step_catalog_id: graphrag_step # Reference to step in catalog
         enabled: true
         fail_pipeline_on_error: false
         retry_on_failure: false
@@ -383,8 +431,55 @@ pipelines:
                     "relatedImages": "relatedImages",
                     "relatedFiles": "relatedFiles",
                     "source": "source",
-                    "contentVector": "contentVector",
-                    "captionVector": "captionVector"
+                    "content_vector": "content_vector",
+                    "caption_vector": "caption_vector"
+                    }
+      
+      ## STEP 5: Postgres Index Writer
+      - name: postgres_index_writer_1
+        step_catalog_id: postgres_index_writer
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: [primary_postgres_service] # References to service instances
+        condition:
+        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
+        debug_mode: false # Enable debug mode for this step
+        settings:
+          database: "${POSTGRES_DATABASE_NAME}"
+          properties:
+            azure_ml_scoring_endpoint: "${AI_FOUNDRY_ACCOUNT_ENDPOINT}"
+            azure_ml_endpoint_key: "${AI_FOUNDRY_ACCOUNT_APIKEY}"
+            azure_ml_deployment: "documents"
+            azure_openai_endpoint: "id"
+            azure_openai_endpoint_key: "id"
+            azure_openai_deployment: "id"
+          index_field_mappings: | 
+                    {
+                    "id": "id",
+                    "id": "parent_id",
+                    "metadata_storage_path": "metadata_storage_path",
+                    "metadata_storage_name": "metadata_storage_name",
+                    "metadata_storage_last_modified": "metadata_storage_last_modified",
+                    "metadata_security_id": "metadata_security_id",
+                    "chunk_id": "chunk_id",
+                    "content": "content",
+                    "imageCaptions": "imageCaptions",
+                    "page_num": "page",
+                    "offset": "offset",
+                    "length": "length",
+                    "title": "title",
+                    "category": "category",
+                    "file_path": "filepath",
+                    "url": "url",
+                    "summary": "summary",
+                    "relatedImages": "relatedImages",
+                    "relatedFiles": "relatedFiles",
+                    "source": "source",
+                    "content_vector": "content_vector",
+                    "caption_vector": "caption_vector"
                     }
       
       ## STEP 5: AI Search Index Writer
@@ -423,8 +518,8 @@ pipelines:
                     "relatedImages": "relatedImages",
                     "relatedFiles": "relatedFiles",
                     "source": "source",
-                    "contentVector": "contentVector",
-                    "captionVector": "captionVector"
+                    "content_vector": "content_vector",
+                    "caption_vector": "caption_vector"
                     }
 
       
@@ -432,7 +527,7 @@ pipelines:
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
     ## execution_sequence: [document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_chunker, content_embed,ai_search_index_writer_1,ai_search_purge]
+    execution_sequence: [content_extractor, document_type_identifier_1, document_intelligence_extractor_for_pdf, document_intelligence_extractor_for_pptx,content_chunker, flair, graphrag, content_embed,postgres_index_writer_1]
 
     ##########################################################
     # PIPELINE SETTINGS

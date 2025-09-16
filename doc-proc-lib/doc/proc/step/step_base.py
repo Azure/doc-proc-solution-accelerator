@@ -2,8 +2,10 @@ from __future__ import annotations
 from abc import abstractmethod
 import pydantic
 import logging
+import json
+import base64
 import hashlib
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Dict
 from dependencies import get_config
 from connectors import CosmosDBClient
 from datetime import datetime, timedelta, timezone
@@ -104,6 +106,117 @@ class StepBase:
         else:
             self.condition_evaluator = None
 
+    def _get_model(self, model_name: str = 'CHAT_DEPLOYMENT_NAME') -> Dict:
+        model_deployments = self.config.get("MODEL_DEPLOYMENTS", default='[]').replace("'", "\"")
+
+        try:
+            print(f"Model deployments: {model_deployments}")
+            logging.info(f"Model deployments: {model_deployments}")
+
+            json_model_deployments = json.loads(model_deployments)
+
+            #get the canonical_name of 'CHAT_DEPLOYMENT_NAME'
+            for deployment in json_model_deployments:
+                if deployment.get("canonical_name") == model_name:
+                    return deployment
+        except json.JSONDecodeError as e:
+            logging.error(f"Error decoding JSON for model deployments: {e}")
+            raise ValueError(f"Invalid model deployments configuration: {model_deployments}")
+            
+        return None
+    
+    async def _get_source_isntance  (self, document: dict, context) -> object:
+        source = document.get("source_name")
+
+        if not source:
+            logger.error(f"No source found in document: {document}.")
+            raise StepExecutionError(f"No source found in document: {document}.")
+
+        # Find the source by name by iterating
+        source_instance = None
+        for src in context.sources:
+            if src["instance"].name == source:
+                source_instance = src["instance"]
+                break
+
+        if not source_instance:
+            logger.error(f"No source instance found for: {document['source_name']}.")
+            raise StepExecutionError(f"No source instance found for: {document['source_name']}.")
+
+        return source_instance
+    
+    async def _get_source_content(self, document: dict, context) -> str:
+        
+        source_instance = self._get_source_isntance(document, context)
+
+        content = await source_instance.get_content(document["content_uri"])
+
+        if not content:
+            logger.error(f"No content found for: {document['content_uri']}.")
+            raise StepExecutionError(f"No content found for: {document['content_uri']}.")
+        
+        return content
+    
+    async def _get_content_metadata(self, document: dict, context) -> dict:
+        source_instance = self._get_source_isntance(document, context)
+
+        content_metadata = await source_instance.get_content_metadata(document["content_uri"])
+
+        if not content_metadata:
+            logger.error(f"No content metadata found for: {document['content_uri']}.")
+
+        return content_metadata
+    
+    async def _get_content_security(self, document: dict, context) -> dict:
+        source_instance = self._get_source_isntance(document, context)
+
+        content_metadata_security = await source_instance.get_content_security(document["content_uri"])
+
+        if not content_metadata_security:
+            logger.error(f"No content metadata security found for: {document['content_uri']}.")
+
+        return content_metadata_security
+
+    def _get_content(self, document: dict) -> str:
+        content = ""
+        chunks = document.get("chunks", [])
+        if len(chunks) > 0:
+            for chunk in chunks:
+                content += chunk.get("text", "")
+        else:
+            encoding = document.get("encoding", "base64")
+            temp = document.get("content", "")
+
+            if type(temp) == bytes:
+                if encoding == "base64":
+                    content = temp.decode('utf-8')
+                else:
+                    content = temp.decode(encoding)
+            elif type(temp) == str:
+                content = temp
+
+        return content
+    
+    def _parse_settings(self, settings: Dict) -> Dict:
+        """Parse environment variables in the given settings dictionary."""
+        parsed_settings = {}
+        for key, value in settings.items():
+            parsed_settings[key] = self._parse_env(value)
+        return parsed_settings
+     
+    def _parse_env(self, value: str) -> str:
+        """Parse environment variables in the given value."""
+        if not value:
+            return value
+        
+        if isinstance(value, str) and value.startswith("$"):
+            env_var = value[1:].replace("{", "").replace("}", "")
+            value = self.config.get(env_var, value)
+        
+            if not value:
+                raise ValueError(f"Environment variable '{env_var}' is not set or empty. Ensure it is defined in your environment or .env file.")
+
+        return value
 
     @abstractmethod
     async def run(self, step_input: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
@@ -264,3 +377,15 @@ class StepBase:
 
     def __str__(self):
         return f"StepBase(step_catalog_id={self.step_catalog_id}, name={self.name}, description={self.description}, tags={self.tags}, params={self.params})"
+    
+    
+    def convert_png_to_base64(self, png_path: str) -> str:
+        """
+        Convert a PNG file to a base64 encoded string.
+        
+        :param png_path: Path to the PNG file.
+        :return: Base64 encoded string of the PNG file.
+        """
+        with open(png_path, "rb") as png_file:
+            png_data = png_file.read()
+            return base64.b64encode(png_data).decode('ascii')

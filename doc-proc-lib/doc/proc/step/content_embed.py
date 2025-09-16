@@ -43,7 +43,7 @@ class ContentEmbedStep(StepBase):
         #embed content
         for chunk in chunks:
             chunk["content"] = chunk.get("text", "")
-            chunk["contentVector"] = await self.embed_content(context, chunk["text"])
+            chunk["content_vector"] = await self.embed_content(context, chunk["text"])
 
         return input_data
     

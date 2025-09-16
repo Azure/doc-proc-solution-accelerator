@@ -274,20 +274,6 @@ class PDFTextExtractorStep(StepBase):
         return chunks_data
 
 
-    def generate_sha1_hash(self, input_string):
-        """
-        Generates a sha1 hash from a given string.
-        """
-        # Encode the string to bytes, as hash functions operate on bytes
-        encoded_string = input_string.encode('utf-8')
-        # Create a SHA1 hash object
-        sha1_hash = hashlib.sha1()
-        # Update the hash object with the encoded string
-        sha1_hash.update(encoded_string)
-        # Get the hexadecimal representation of the hash
-        return sha1_hash.hexdigest()
-
-
     def convert_png_to_base64(self, png_path: str) -> str:
         """
         Convert a PNG file to a base64 encoded string.

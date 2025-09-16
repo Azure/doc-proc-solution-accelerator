@@ -161,6 +161,11 @@ class Pipeline:
             return
 
         for source_instance_config in self.pipeline_config.source_instances:
+
+            if source_instance_config.enabled == False:
+                logger.info(f"Source instance \"{source_instance_config.name}\" is disabled. Skipping loading.")
+                continue
+            
             logger.debug(f"Loading pipeline source instance configuration: \"{source_instance_config.name}\" that references source catalog id \"{source_instance_config.source_catalog_id}\"")
 
             if not isinstance(source_instance_config, SourceInstanceConfig):
@@ -252,6 +257,10 @@ class Pipeline:
                 raise PipelineConfigError(f"Step with catalog id \"{step_instance_config.step_catalog_id}\" not found in step catalog configuration.")
 
             # Initialize the step with the instance configuration
+            if step_instance_config.enabled == False:
+                logger.info(f"Step instance \"{step_instance_config.name}\" is disabled. Skipping loading.")
+                continue
+
             step_instance = Pipeline.__init_step(step_config=step_config, step_instance_config=step_instance_config)
             
             self.pipeline_step_instances.append(step_instance)
@@ -319,9 +328,15 @@ class Pipeline:
 
         ordered_steps = []
         for step_name in self.execution_sequence:
+
             step = next((s for s in self.pipeline_step_instances if s.name == step_name), None)
+            
             if not step:
                 raise PipelineConfigError(f"Execution sequence step \"{step_name}\" not found in pipeline steps")
+            
+            if step.enabled == False:
+                logger.info(f"Execution sequence step \"{step_name}\" is disabled. Skipping adding to execution steps.")
+                continue
 
             ordered_steps.append(step)
 

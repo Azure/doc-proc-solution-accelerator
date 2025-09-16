@@ -232,7 +232,6 @@ services_catalog:
       description_short: "Azure AI Embedding for document processing"
       description_long: "Azure AI Embedding service for natural language processing, document analysis, and content generation."
 
-
   # Azure Document Intelligence Service for advanced document analysis
   - id: azure_document_intelligence_service_01
     name: "Azure Document Intelligence Service"
@@ -341,6 +340,71 @@ services_catalog:
       color: "#FF6B35"
       description_short: "Azure AI Search for document indexing and retrieval"
       description_long: "Azure AI Search service for full-text search, semantic search, and vector search capabilities."
+
+  # Azure PostgreSQL Service for managing database operations
+  - id: azure_postgres_service_01
+    name: "PostgreSQL Service"
+    description: "PostgreSQL service for managing database operations"
+    type: azure_postgres
+    module_name: azure_postgres_service
+    module_path: ./doc/proc/service/postgres_service.py
+    class_name: PostgresService
+    test_connection: true
+    category: "Database"
+    version: "1.0"
+    tags: [azure, postgres, database]
+    
+    settings_schema:
+      host:
+        type: string
+        title: "PostgreSQL Server Name"
+        description: "Name of the Azure PostgreSQL server"
+        required: true
+        env_var: "POSTGRES_HOST"
+        default: ${POSTGRES_HOST}
+      username:
+        type: string
+        title: "PostgreSQL Username"
+        description: "Username for the Azure PostgreSQL server"
+        required: true
+        env_var: "POSTGRES_USERNAME"
+        default: ${POSTGRES_USERNAME}
+      password:
+        type: string
+        title: "PostgreSQL Password"
+        description: "Password for the Azure PostgreSQL server"
+        required: true
+        env_var: "POSTGRES_PASSWORD"
+        default: ${POSTGRES_PASSWORD}
+      sslmode:
+        type: string
+        title: "PostgreSQL SSL Mode"
+        description: "SSL mode for the Azure PostgreSQL server"
+        required: true
+        env_var: "POSTGRES_SSLMODE"
+        default: ${POSTGRES_SSLMODE}
+      auth_type:
+        type: string
+        title: "Authentication Type"
+        description: "Type of authentication used for connecting to the database"
+        default: "azure_key_credential"
+        enum: ["password", "azure_key_credential", "default_azure_credential"]
+        env_var: "POSTGRES_SERVICE_CREDENTIAL_TYPE"
+        default: ${POSTGRES_SERVICE_CREDENTIAL_TYPE}
+      database:
+        type: string
+        title: "Database Name"
+        description: "Name of the PostgreSQL database to use"
+        required: true
+        env_var: "POSTGRES_DATABASE_NAME"
+        default: "${POSTGRES_DATABASE_NAME}"
+
+    ui_metadata:
+      icon: "search"
+      color: "#FF6B35"
+      description_short: "Postgres for document indexing and retrieval"
+      description_long: "Postgres service for full-text search, semantic search, and vector search capabilities."
+
 
 
   # Azure Cosmos DB for storing processed document metadata and results

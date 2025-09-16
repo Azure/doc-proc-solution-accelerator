@@ -31,7 +31,28 @@ class ServiceBase:
         
         if not self.type:
             raise ValueError("Service type cannot be empty")
+
+    def _parse_settings(self, settings: Dict) -> Dict:
+        """Parse environment variables in the given settings dictionary."""
+        parsed_settings = {}
+        for key, value in settings.items():
+            parsed_settings[key] = self._parse_env(value)
+        return parsed_settings
+     
+    def _parse_env(self, value: str) -> str:
+        """Parse environment variables in the given value."""
+        if not value:
+            return value
         
+        if isinstance(value, str) and value.startswith("$"):
+            env_var = value[1:].replace("{", "").replace("}", "")
+            value = self.config.get(env_var, value)
+        
+            if not value:
+                raise ValueError(f"Environment variable '{env_var}' is not set or empty. Ensure it is defined in your environment or .env file.")
+
+        return value
+    
     def _get_credentials(self):
         try:
             self.tenant_id = os.environ.get('AZURE_TENANT_ID', "*")

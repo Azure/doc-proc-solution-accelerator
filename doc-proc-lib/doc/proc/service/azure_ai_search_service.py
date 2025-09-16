@@ -126,7 +126,7 @@ class AzureAISearchService(ServiceBase):
                                        headers={"content-type": "application/json",
                                                 **await self.get_auth_header_for_http_request()}) as resp:
                     status = resp.status
-                    result = await resp.json()
+                    result = await resp.json(content_type=None)
 
             logger.debug(f"Connection test result: {result}")
             if status != 200:

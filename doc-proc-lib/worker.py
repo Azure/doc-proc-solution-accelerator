@@ -69,6 +69,7 @@ wait_time = int(config.get("QUEUE_WAIT_TIME", 5))
 max_threads = int(config.get("WORKER_MAX_THREADS", 5))
 
 Telemetry.setup_logging(logger)
+Telemetry.configure_monitoring(config, APPLICATION_INSIGHTS_CONNECTION_STRING, APP_NAME)
 
 worker = None
 
@@ -197,7 +198,7 @@ class Worker:
                 state.request.last_successful_step_time = datetime.now(timezone.utc)
                 await pipeline.docproc_state_service.save_state(state)
 
-                if input_data.remove_state:
+                if input_data and input_data.remove_state:
                     await pipeline.docproc_state_service.delete_state(state)
 
             except StepExecutionError as error:
@@ -225,7 +226,8 @@ class Worker:
             if step_instance.condition:
                 if not step_instance.evaluate_document_condition(state.content_identifier.metadata, input_data):
                     return input_data
-                
+
+            print(f'Running {step_instance.name} for {state.content_identifier.canonical_id}...')
             input_data = await step_instance.run(input_data=input_data, context=context, request=request, state=state)
         except StepExecutionError as e:
             logging.error(e)
@@ -250,6 +252,7 @@ async def lifespan(app: FastAPI):
         trigger=trigger,
         id=f"pipeline_worker",
         replace_existing=True,
+        max_instances=3
     )
     
     yield

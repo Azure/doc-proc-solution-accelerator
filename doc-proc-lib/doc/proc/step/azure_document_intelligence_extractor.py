@@ -120,7 +120,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         """
 
         # Check if the file is a supported format
-        supported_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.docx', '.xlsx', '.pptx', '.heic']
+        supported_extensions = ['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'docx', 'xlsx', 'pptx', 'heic']
         file_extension = document.get("document_type").get("primary_type")
         if file_extension not in supported_extensions:
             logger.warning(f"File format '{file_extension}' may not be supported. Supported formats: {supported_extensions}")

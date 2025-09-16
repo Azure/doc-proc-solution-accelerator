@@ -11,7 +11,7 @@ sources_catalog:
     module_path: ./doc/proc/source/sharepoint.py
     class_name: SharePointSource
     test_connection: false
-    enabled: true
+    enabled: false
     category: "Storage"
     version: "1.0"
     tags: [storage, sharepoint, documents]
@@ -27,6 +27,7 @@ sources_catalog:
     module_name: doc.proc.source.blob
     module_path: ./doc/proc/source/blob.py
     class_name: BlobSource
+    container_name: "graphrag"
     test_connection: true
     enabled: false
     category: "Storage"

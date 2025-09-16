@@ -32,6 +32,81 @@ var appKeys = [
     value: resourceToken
     contentType: 'text/plain'
   }
+  {
+    key: 'AI_FOUNDRY_ACCOUNT_CREDENTIAL_TYPE'
+    value: 'default_azure_credential'
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SEARCH_SERVICE_CREDENTIAL_TYPE'
+    value: 'default_azure_credential'
+    contentType: 'text/plain'
+  }
+  {
+    key: 'STORAGE_ACCOUNT_CREDENTIAL_TYPE'
+    value: 'default_azure_credential'
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_TENANT_ID'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_CLIENT_ID'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_SITE_DOMAIN'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_SITE_NAME'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_SUB_SITE_NAME'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_DRIVE_NAME'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_SUBFOLDERS_REGEX'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_SUBFOLDERS_NAMES'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_CLIENT_SECRET_NAME'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'AZURE_SEARCH_SHAREPOINT_INDEX_NAME'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_FILES_FORMAT'
+    value: ''
+    contentType: 'text/plain'
+  }
+  {
+    key: 'SHAREPOINT_FILES_TO_IGNORE'
+    value: ''
+    contentType: 'text/plain'
+  }
 ]
 
 //add app config key

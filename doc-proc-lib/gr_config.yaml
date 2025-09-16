@@ -1,0 +1,195 @@
+### This config file contains required core defaults that must be set, along with a handful of common optional settings.
+### For a full list of available settings, see https://microsoft.github.io/graphrag/config/yaml/
+
+### LLM settings ###
+## There are a number of settings to tune the threading and token limits for LLM calls - check the docs.
+
+models:
+  default_chat_model:
+    type: azure_openai_chat # or azure_openai_chat
+    api_base: https://aif-REPLACE_ME.openai.azure.com/
+    api_version: 2024-05-01-preview
+    auth_type: api_key # or azure_managed_identity
+    api_key: ${AI_FOUNDRY_ACCOUNT_APIKEY} # set this in the generated .env file
+    # audience: "https://cognitiveservices.azure.com/.default"
+    # organization: <organization_id>
+    model: gpt-4o
+    deployment_name: chat
+    # encoding_model: cl100k_base # automatically set by tiktoken if left undefined
+    model_supports_json: true # recommended if this is available for your model.
+    concurrent_requests: 25 # max number of simultaneous LLM requests allowed
+    async_mode: threaded # or asyncio
+    retry_strategy: native
+    max_retries: 10
+    tokens_per_minute: auto              # set to null to disable rate limiting
+    requests_per_minute: auto            # set to null to disable rate limiting
+  default_embedding_model:
+    type: azure_openai_embedding # or azure_openai_embedding
+    api_base: https://aif-REPLACE_ME.openai.azure.com/
+    api_version: 2024-05-01-preview
+    auth_type: api_key # or azure_managed_identity
+    api_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
+    # audience: "https://cognitiveservices.azure.com/.default"
+    # organization: <organization_id>
+    model: text-embedding-3-large
+    deployment_name: text-embedding
+    # encoding_model: cl100k_base # automatically set by tiktoken if left undefined
+    model_supports_json: true # recommended if this is available for your model.
+    concurrent_requests: 25 # max number of simultaneous LLM requests allowed
+    async_mode: threaded # or asyncio
+    retry_strategy: native
+    max_retries: 10
+    tokens_per_minute: auto              # set to null to disable rate limiting
+    requests_per_minute: auto            # set to null to disable rate limiting
+    dimensions: 3072
+
+### Input settings ###
+
+input:
+  storage:
+    type: blob # or blob
+    base_dir: "input"
+    connection_string: ""
+    container_name: "graphrag"
+    storage_account_blob_url: "https://stREPLACE_ME.blob.core.windows.net" # optional, used for blob storage
+  file_type: text # [csv, text, json, pdf]
+  
+
+chunks:
+  size: 1200
+  overlap: 100
+  group_by_columns: [id]
+
+### Output/storage settings ###
+## If blob storage is specified in the following four sections,
+## connection_string and container_name must be provided
+
+output:
+  type: blob # [file, blob, cosmosdb]
+  base_dir: "output"
+  connection_string: ""
+  container_name: "graphrag"
+  storage_account_blob_url: "https://stREPLACE_ME.blob.core.windows.net" # optional, used for blob storage
+    
+cache:
+  type: blob # [file, blob, cosmosdb]
+  base_dir: "cache"
+  connection_string: ""
+  container_name: "graphrag"
+  storage_account_blob_url: "https://stREPLACE_ME.blob.core.windows.net" # optional, used for blob storage
+
+reporting:
+  type: blob # [file, blob, cosmosdb]
+  base_dir: "logs"
+  connection_string: ""
+  container_name: "graphrag"
+  storage_account_blob_url: "https://stREPLACE_ME.blob.core.windows.net" # optional, used for blob storage
+
+vector_store:
+  default_vector_store:
+    type: cosmosdb
+    connection_string: "REPLACE_ME"
+    database_name: vectorstore
+    #db_uri: output\lancedb
+    url: "https://cosmos-REPLACE_ME.documents.azure.com"
+    container_name: graphrag
+    overwrite: True
+    settings:
+      dimensions: 3072
+  postgres_vector_store:
+    type: postgresql
+    host: psql-REPLACE_ME.postgres.database.azure.com
+    port: 5432
+    username: givenscj
+    password: REPLACE_ME
+    sslmode: require
+    app_identity_name: your_app_identity_name # if using managed identity auth
+    connection_string: "REPLACE_ME"
+    database: vectorstore
+    #db_uri: output\lancedb
+    container_name: graphrag
+    overwrite: True
+    properties:
+      azure_ml_scoring_endpoint: https://aif-REPLACE_ME.openai.azure.com/
+      azure_ml_endpoint_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
+      azure_ml_deployment: ${AI_FOUNDRY_ACCOUNT_APIKEY}
+      azure_openai_endpoint: "https://aif-REPLACE_ME.openai.azure.com/"
+      azure_openai_endpoint_key: ${AI_FOUNDRY_ACCOUNT_APIKEY}
+      azure_openai_deployment: "chat"
+      index_type: diskann # [hnsw, diskann]
+      run_post_embedding: true
+      dimensions: 3072
+
+### Workflow settings ###
+
+embed_text:
+  model_id: default_embedding_model
+  vector_store_id: postgres_vector_store
+
+extract_graph:
+  model_id: default_chat_model
+  prompt: "prompts/extract_graph.txt"
+  entity_types: [organization,person,geo,event]
+  max_gleanings: 1
+
+summarize_descriptions:
+  model_id: default_chat_model
+  prompt: "prompts/summarize_descriptions.txt"
+  max_length: 500
+
+extract_graph_nlp:
+  text_analyzer:
+    extractor_type: regex_english # [regex_english, syntactic_parser, cfg]
+
+cluster_graph:
+  max_cluster_size: 10
+
+extract_claims:
+  enabled: false
+  model_id: default_chat_model
+  prompt: "prompts/extract_claims.txt"
+  description: "Any claims or facts that could be relevant to information discovery."
+  max_gleanings: 1
+
+community_reports:
+  model_id: default_chat_model
+  graph_prompt: "prompts/community_report_graph.txt"
+  text_prompt: "prompts/community_report_text.txt"
+  max_length: 2000
+  max_input_length: 8000
+
+embed_graph:
+  enabled: false # if true, will generate node2vec embeddings for nodes
+
+umap:
+  enabled: false # if true, will generate UMAP embeddings for nodes (embed_graph must also be enabled)
+
+snapshots:
+  graphml: false
+  embeddings: false
+
+### Query settings ###
+## The prompt locations are required here, but each search method has a number of optional knobs that can be tuned.
+## See the config docs: https://microsoft.github.io/graphrag/config/yaml/#query
+
+local_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/local_search_system_prompt.txt"
+
+global_search:
+  chat_model_id: default_chat_model
+  map_prompt: "prompts/global_search_map_system_prompt.txt"
+  reduce_prompt: "prompts/global_search_reduce_system_prompt.txt"
+  knowledge_prompt: "prompts/global_search_knowledge_system_prompt.txt"
+
+drift_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/drift_search_system_prompt.txt"
+  reduce_prompt: "prompts/drift_search_reduce_prompt.txt"
+
+basic_search:
+  chat_model_id: default_chat_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/basic_search_system_prompt.txt"

@@ -46,6 +46,7 @@ class StepConfig(pydantic.BaseModel):
     name: str
     description: Optional[str] = None
     type: str
+    enabled: bool = True
     module_name: str  # Name of the module containing the step implementation
     module_path: str  # Path to the module file
     class_name: str  # Name of the class implementing the step

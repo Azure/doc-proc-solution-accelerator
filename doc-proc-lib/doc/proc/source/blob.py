@@ -22,6 +22,7 @@ class BlobSource(SourceBase):
 
         self.container_name = settings.get("container_name")
         self.file_types = settings.get("file_types", [])
+        self.prefix = settings.get("prefix", "")
         self.paths = settings.get("paths")
         self.include_metadata = settings.get("include_metadata", False)
         self.recursive = settings.get("recursive", False)
@@ -55,8 +56,11 @@ class BlobSource(SourceBase):
             "name": blob.name,
             "size": blob.size,
             "modified": str(blob.last_modified),
+            "metadata_storage_last_modified": str(blob.last_modified),
             "created": str(blob.creation_time),
             "content_uri": id,
+            "metadata_storage_name": self.storage_account_name,
+            "metadata_storage_path": file_path,
             "file_path": file_path,
             "metadata" : {}
         }
@@ -76,7 +80,7 @@ class BlobSource(SourceBase):
         container_client = await self.async_blob_service.get_container_client(self.container_name)
         
         # Process each blob
-        async for blob in container_client.list_blobs():
+        async for blob in container_client.list_blobs(name_starts_with=self.prefix):
 
             #check if blob has file type
             if not self.file_types or any(blob.name.endswith(ext) for ext in self.file_types):
@@ -144,7 +148,7 @@ class BlobSource(SourceBase):
     def get_items(self)->Iterator:
         container_client = self.blob_service.get_container_client(self.container_name)
         
-        for blob in container_client.list_blobs():
+        for blob in container_client.list_blobs(name_starts_with=self.prefix):
             id = f"{self.storage_account_name}::{self.container_name}::{blob.name}"
             ci = ContentIdentifier(data_source_object_id=self.name,
                                    canonical_id=f"{self.storage_account_name}::{self.container_name}::{blob.name}",
