@@ -108,6 +108,72 @@ export interface StepSettingsSchema {
   pattern?: string;
 }
 
+// Vault types based on backend models
+export interface VaultStats {
+  total_documents: number;
+  processed_documents: number;
+  pending_documents: number;
+  failed_documents: number;
+  total_size_bytes: number;
+  last_activity?: string;
+}
+
+export interface DocumentProcessingConfig {
+  auto_process_documents: boolean;
+  supported_formats: string[];
+}
+
+export interface StorageConfig {
+  account_name: string;
+  container_name: string;
+  credential_type: string;
+  connection_string?: string;
+}
+
+export interface Vault {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'inactive' | 'error';
+  pipeline_name?: string;
+  processing_config: DocumentProcessingConfig;
+  storage_config: StorageConfig;
+  stats: VaultStats;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+// Vault request types
+export interface VaultCreateRequest {
+  name: string;
+  description?: string;
+  pipeline_name: string;
+  document_processing_config?: DocumentProcessingConfig;
+  storage_config?: StorageConfig;
+  metadata?: Record<string, any>;
+}
+
+export interface VaultUpdateRequest {
+  name?: string;
+  description?: string;
+  pipeline_name?: string;
+  document_processing_config?: DocumentProcessingConfig;
+  storage_config?: StorageConfig;
+  metadata?: Record<string, any>;
+}
+
+export interface DocumentInfo {
+  id: string;
+  name: string;
+  size_bytes: number;
+  content_type: string;
+  upload_date: string;
+  processed_date?: string;
+  status: string;
+  metadata: Record<string, any>;
+}
+
 export interface StepUIMetadata {
   icon?: string;
   description_short?: string;
@@ -211,10 +277,32 @@ export interface PipelineUpdateRequest {
   settings?: PipelineSettings;
 }
 
+
 export interface ApiError {
   message: string;
   status_code: number;
   details?: string;
+}
+
+export class ErrorWithData extends Error {
+  error?: string;
+  details?: any;
+  data?: any;
+  status_code?: number;
+
+  constructor(message: string, status_code?: number, data?: any) {
+    super(message);
+    this.error = data?.error;
+    this.details = data?.details;
+    this.status_code = status_code;
+    this.data = data;
+  }
+}
+
+export interface UploadDocumentResponse {
+  filename: string;
+  document?: DocumentInfo;
+  error?: string;
 }
 
 /**
@@ -246,6 +334,16 @@ export class ApiManager {
       ...options,
     };
 
+    // If body is FormData, browser will set the Content-Type including boundary.
+    // Remove any explicit Content-Type so fetch can set the correct multipart header.
+    if (config.body instanceof FormData) {
+      const headers = config.headers as Record<string, any>;
+      if (headers) {
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+      }
+    }
+
     // Add timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -265,7 +363,7 @@ export class ApiManager {
             status_code: response.status,
           };
         }
-        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+        throw new ErrorWithData(errorData.message || `Request failed with status ${response.status}`, response.status, errorData);
       }
 
       // Handle empty responses
@@ -274,10 +372,10 @@ export class ApiManager {
       }
 
       return await response.json();
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
       
-      if (error.name === 'AbortError') {
+      if (error && error.name === 'AbortError') {
         throw new Error(`Request timeout after ${this.timeout}ms`);
       }
       
@@ -317,6 +415,16 @@ export class ApiManager {
    */
   private async delete<T = any>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  /**
+   * POST FormData request helper
+   */
+  private async postForm<T = any>(endpoint: string, formData: FormData): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: formData,
+    });
   }
 
   // ##################################
@@ -426,6 +534,101 @@ export class ApiManager {
   async deletePipeline(id: string): Promise<{ message: string }> {
     return this.delete(`/api/pipelines/${id}`);
   }
+
+  // Vault methods
+  async getVaults(): Promise<Vault[]> {
+    return this.get('/api/vaults');
+  }
+
+  async getVault(id: string): Promise<Vault> {
+    return this.get(`/api/vaults/${id}`);
+  }
+
+  async createVault(vaultData: VaultCreateRequest): Promise<Vault> {
+    return this.post('/api/vaults', vaultData);
+  }
+
+  async updateVault(id: string, vaultData: VaultUpdateRequest): Promise<Vault> {
+    return this.put(`/api/vaults/${id}`, vaultData);
+  }
+
+  async deleteVault(id: string): Promise<{ message: string }> {
+    return this.delete(`/api/vaults/${id}`);
+  }
+
+  async getVaultDocuments(vaultId: string): Promise<DocumentInfo[]> {
+    return this.get(`/api/vaults/${vaultId}/documents`);
+  }
+
+  async uploadVaultDocuments(vaultId: string, files: File[], overwrite: boolean = false): Promise<UploadDocumentResponse[]> {
+    const formData = new FormData();
+    // Backend expects the field name 'files' for multiple uploads
+    files.forEach((file) => formData.append('files', file));
+    formData.append('overwrite', overwrite.toString());
+    return this.postForm(`/api/vaults/${vaultId}/upload`, formData);
+  }
+
+  /**
+   * Upload a single document with progress callback using XMLHttpRequest
+   * Returns the server response for the single-file upload (the backend returns an array; we resolve the first item)
+   */
+  async uploadVaultDocumentWithProgress(
+    vaultId: string,
+    file: File,
+    onProgress?: (percent: number) => void
+  ): Promise<UploadDocumentResponse> {
+    return new Promise((resolve) => {
+      const url = `${this.baseUrl}/api/vaults/${vaultId}/upload`;
+      const xhr = new XMLHttpRequest();
+
+      xhr.open('POST', url);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            // Backend returns a list of results for files; return the first entry when uploading one file
+            if (Array.isArray(json) && json.length > 0) {
+              resolve(json[0]);
+              return;
+            }
+            resolve(json as UploadDocumentResponse);
+          } catch (e) {
+            resolve({ filename: file.name, error: 'Invalid server response' });
+          }
+        } else {
+          let message = `HTTP ${xhr.status}: ${xhr.statusText}`;
+          try {
+            const err = JSON.parse(xhr.responseText);
+            if (err && err.message) message = err.message;
+          } catch {}
+          resolve({ filename: file.name, error: message });
+        }
+      };
+
+      xhr.onerror = () => {
+        resolve({ filename: file.name, error: 'Network error' });
+      };
+
+      xhr.upload.onprogress = (event: ProgressEvent<EventTarget>) => {
+        if (event.lengthComputable && onProgress) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+
+      const formData = new FormData();
+      formData.append('files', file);
+      xhr.send(formData);
+    });
+  }
+
+  async processVault(id: string, documentIds?: string[], forceReprocess = false): Promise<any> {
+    return this.post(`/api/vaults/${id}/process`, { 
+      document_ids: documentIds, 
+      force_reprocess: forceReprocess 
+    });
+  }
 }
 
 // Create singleton instance
@@ -479,6 +682,19 @@ export const pipelinesApi = {
   createPipeline: (data: CreatePipelineRequest) => apiManager.createPipeline(data),
   updatePipeline: (id: string, data: Pipeline) => apiManager.updatePipeline(id, data),
   deletePipeline: (id: string) => apiManager.deletePipeline(id),
+};
+
+export const vaultsApi = {
+  // Vault Methods
+  getVaults: () => apiManager.getVaults(),
+  getVault: (id: string) => apiManager.getVault(id),
+  createVault: (data: VaultCreateRequest) => apiManager.createVault(data),
+  updateVault: (id: string, data: VaultUpdateRequest) => apiManager.updateVault(id, data),
+  deleteVault: (id: string) => apiManager.deleteVault(id),
+  getVaultDocuments: (vaultId: string) => apiManager.getVaultDocuments(vaultId),
+  uploadVaultDocuments: (vaultId: string, files: File[], overwrite?: boolean) => apiManager.uploadVaultDocuments(vaultId, files, overwrite),
+  uploadVaultDocumentWithProgress: (vaultId: string, file: File, onProgress?: (p:number)=>void) => apiManager.uploadVaultDocumentWithProgress(vaultId, file, onProgress),
+  processVault: (id: string, documentIds?: string[], forceReprocess?: boolean) => apiManager.processVault(id, documentIds, forceReprocess),
 };
 
 // Export the manager instance for advanced usage

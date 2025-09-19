@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, RefreshCw, Settings } from "lucide-react";
+import { Plus, Search, RefreshCw, Settings, Activity } from "lucide-react";
 import { stepsApi, StepCatalogDefinition } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import StepCatalogCard from "@/components/step/StepCatalogCard";
@@ -129,7 +129,10 @@ const Steps = () => {
 
       {loading && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading steps...</p>
+           <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading steps...</p>
+            </div>
         </div>
       )}
 
@@ -167,7 +170,7 @@ const Steps = () => {
             setIsDialogOpen(false);
             setSelectedStep(undefined);
           }}
-          stepCatalog={selectedStep}
+          stepCatalogDefinition={selectedStep}
           onStepInstanceCreated={handleStepInstanceCreated}
         />
       )}

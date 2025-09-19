@@ -59,6 +59,11 @@ class CosmosDb():
             return False
     
     def list(self, container: str, query: Optional[str] = None, parameters: Optional[Iterable[Dict[str, Any]]] = None):
+        _container_proxy = self.containers.get(container)
+        if not _container_proxy:
+            _container_proxy = self._ensure_container(container)
+            self.containers[container] = _container_proxy
+        
         if query:
-            return list(self.containers[container].query_items(query=query, parameters=parameters or [], enable_cross_partition_query=True))
-        return list(self.containers[container].read_all_items())
+            return list(_container_proxy.query_items(query=query, parameters=parameters or [], enable_cross_partition_query=True))
+        return list(_container_proxy.read_all_items())

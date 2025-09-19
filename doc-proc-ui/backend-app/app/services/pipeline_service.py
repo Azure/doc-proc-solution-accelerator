@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
-import time
 from typing import Any, Dict, List, Optional
-import yaml
-import os
+import uuid
+
 
 from app.services.base import BaseService
 from app.db.cosmos import CosmosDb
@@ -13,7 +12,6 @@ class PipelineService(BaseService):
     
     def __init__(self, db: CosmosDb, container_name: str = "pipelines"):
         super().__init__(db, container_name)
-        self._pipeline_cache = None
     
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate pipeline item"""
@@ -22,18 +20,13 @@ class PipelineService(BaseService):
     
     async def list_pipelines(self) -> List[Dict[str, Any]]:
         """List all pipelines from configuration"""
-        if self._pipeline_cache is None:
-            pipelines = await self.list_all()
-            self._pipeline_cache = pipelines
-        return self._pipeline_cache
+        pipelines = await self.list_all()
+        return pipelines
     
     async def get_pipeline_by_id(self, pipeline_id: str) -> Optional[Dict[str, Any]]:
         """Get pipeline definition from config by id"""
-        pipelines = await self.list_pipelines()
-        for pipeline in pipelines:
-            if pipeline.get("id") == pipeline_id:
-                return pipeline
-        return None
+        return self.get_by_id(pipeline_id)
+        
         
     async def get_pipeline_by_name(self, pipeline_name: str) -> Optional[Dict[str, Any]]:
         """Get pipeline definition from config by name"""
@@ -46,8 +39,14 @@ class PipelineService(BaseService):
     async def create_pipeline(self, pipeline_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a pipeline instance based on configuration"""
         
+        # check is a pipeline with the same name already exists
+        existing = await self.get_pipeline_by_name(pipeline_data.get("name"))
+        if existing:
+            raise ValueError(f"A pipeline with the name '{pipeline_data.get('name')}' already exists.")
+        
         # Generate unique ID if not provided
-        pipeline_id = pipeline_data.get("id") or f"{pipeline_data.get('name')}_{int(time.time())}"
+        pipeline_id = pipeline_data.get("id") or f"{pipeline_data.get('name')}_{uuid.uuid4().hex[:8]}"
+        pipeline_id = pipeline_id.replace(" ", "_").lower()
         
         pipeline = {
             "id": pipeline_id,
@@ -88,3 +87,36 @@ class PipelineService(BaseService):
             return updated
         else:
             raise ValueError("Invalid pipeline data")
+
+
+    async def delete_pipeline_by_id(self, pipeline_id: str) -> bool:
+        """Delete a pipeline instance by ID"""
+        existing = await self.get_by_id(pipeline_id)
+        if not existing:
+            return False
+        
+        # check if pipeline is in use by any vault
+        from app.dependencies import get_vault_service
+        vault_service = get_vault_service()
+        
+        in_use_vaults = await vault_service.check_pipeline_in_use_by_vault(existing["name"])
+        if in_use_vaults:
+            raise ValueError(f"Pipeline is in use by vaults: {in_use_vaults}")
+
+        return await self.delete(pipeline_id)
+        
+    
+    async def check_step_instance_in_use(self, step_instance_id: str) -> List[str]:
+        """Check if a step instance is used in any pipeline"""
+        # query = "SELECT * FROM c WHERE c.name=@name"
+        # params = [{"name": "@name", "value": name}]
+        # items = await self.query(query, params)
+        
+        pipelines = await self.list_pipelines()
+        in_use_pipelines = []
+        for pipeline in pipelines:
+            steps = pipeline.get("steps", [])
+            if step_instance_id in steps:
+                in_use_pipelines.append(pipeline.get("name"))
+        
+        return in_use_pipelines

@@ -6,21 +6,16 @@ import os
 from app.models.execution import (
     ActivityLog, ActivityType
 )
-from app.services.cosmos_db_service import CosmosDBService
-from app.db.cosmos import CosmosDb
+from app.proxy.cosmos import CosmosDb
 
 
-class ActivityLogService(CosmosDBService):
-    """Service for managing activity logs"""
+class ActivityLogManager():
+    """Manages activity log operations"""
 
     def __init__(self, db: CosmosDb):
-        super().__init__(db, "activity_logs")
+        self._db = db
         self._config_cache = None
     
-    async def validate_item(self, item: Dict[str, Any]) -> bool:
-        """Validate activity log item"""
-        required_fields = ["id", "name", "timestamp", "status", "message"]
-        return all(field in item for field in required_fields)
     
     async def log_activity(self, batch_execution_id: str, activity_type: ActivityType, 
                           status: str, message: str, **kwargs) -> ActivityLog:

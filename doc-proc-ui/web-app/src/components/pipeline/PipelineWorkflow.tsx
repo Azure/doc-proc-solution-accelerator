@@ -151,11 +151,11 @@ const PipelineWorkflow = ({ pipelineId, steps = [], executionSequence = [], onSt
     
     // Notify parent component of changes
     if (onStepsChange) {
-      const stepNames = updatedSteps.map(ws => ws.stepInstance.name);
+      const stepIDs = updatedSteps.map(ws => ws.stepInstance.id);
       const sequence = updatedSteps
         .sort((a, b) => a.order - b.order)
-        .map(ws => ws.stepInstance.name);
-      onStepsChange(stepNames, sequence);
+        .map(ws => ws.stepInstance.id);
+      onStepsChange(stepIDs, sequence);
     }
 
     setIsAddStepOpen(false);
@@ -170,11 +170,11 @@ const PipelineWorkflow = ({ pipelineId, steps = [], executionSequence = [], onSt
 
     // Notify parent component of changes
     if (onStepsChange) {
-      const stepNames = updatedSteps.map(ws => ws.stepInstance.name);
+      const stepIDs = updatedSteps.map(ws => ws.stepInstance.id);
       const sequence = updatedSteps
         .sort((a, b) => a.order - b.order)
-        .map(ws => ws.stepInstance.name);
-      onStepsChange(stepNames, sequence);
+        .map(ws => ws.stepInstance.id);
+      onStepsChange(stepIDs, sequence);
     }
   };
 
@@ -196,9 +196,9 @@ const PipelineWorkflow = ({ pipelineId, steps = [], executionSequence = [], onSt
 
     // Notify parent component of changes
     if (onStepsChange) {
-      const stepNames = reorderedSteps.map(ws => ws.stepInstance.name);
-      const sequence = reorderedSteps.map(ws => ws.stepInstance.name);
-      onStepsChange(stepNames, sequence);
+      const stepIDs = reorderedSteps.map(ws => ws.stepInstance.id);
+      const sequence = reorderedSteps.map(ws => ws.stepInstance.id);
+      onStepsChange(stepIDs, sequence);
     }
   };
 
@@ -220,9 +220,9 @@ const PipelineWorkflow = ({ pipelineId, steps = [], executionSequence = [], onSt
 
     // Notify parent component of changes
     if (onStepsChange) {
-      const stepNames = reorderedSteps.map(ws => ws.stepInstance.name);
-      const sequence = reorderedSteps.map(ws => ws.stepInstance.name);
-      onStepsChange(stepNames, sequence);
+      const stepIDs = reorderedSteps.map(ws => ws.stepInstance.id);
+      const sequence = reorderedSteps.map(ws => ws.stepInstance.id);
+      onStepsChange(stepIDs, sequence);
     }
   };
 
@@ -261,9 +261,9 @@ const PipelineWorkflow = ({ pipelineId, steps = [], executionSequence = [], onSt
 
     // Notify parent component of changes
     if (onStepsChange) {
-      const stepNames = reorderedSteps.map(ws => ws.stepInstance.name);
-      const sequence = reorderedSteps.map(ws => ws.stepInstance.name);
-      onStepsChange(stepNames, sequence);
+      const stepIDs = reorderedSteps.map(ws => ws.stepInstance.id);
+      const sequence = reorderedSteps.map(ws => ws.stepInstance.id);
+      onStepsChange(stepIDs, sequence);
     }
   };
 

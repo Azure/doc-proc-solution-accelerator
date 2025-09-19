@@ -228,17 +228,17 @@ step_catalog:
       extract_images:
         type: boolean
         title: "Extract Images"
-        description: "Whether to extract text from images in slides"
+        description: "Whether to extract text from images in pages"
         default: true
       extract_image_desacriptions:
         type: boolean
         title: "Extract Image Descriptions"
-        description: "Whether to extract descriptions from images in slides"
+        description: "Whether to extract descriptions from images in pages"
         default: true
       extract_tables:
         type: boolean
         title: "Extract Tables"
-        description: "Whether to extract tables from slides"
+        description: "Whether to extract tables from pages"
         default: true
       max_chunk_size:
         type: integer

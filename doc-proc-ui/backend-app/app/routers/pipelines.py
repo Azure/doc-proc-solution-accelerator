@@ -45,8 +45,14 @@ async def update_pipeline(pipeline_id: str, pipeline_data: Pipeline, service: Pi
 @router.delete("/{pipeline_id}")
 async def delete_pipeline(pipeline_id: str, service: PipelineService = Depends(get_pipeline_service)):
     """Delete a pipeline"""
-    success = await service.delete(pipeline_id)
-    if not success:
-        raise ApiException(status_code=404, message="Pipeline instance not found")
+    try:
+        success = await service.delete_pipeline_by_id(pipeline_id)
+        if not success:
+            raise ApiException(status_code=404, message="Pipeline instance not found")
+    
+    except ApiException:
+        raise
+    except Exception as e:
+        raise ApiException(status_code=400, message="Failed to delete pipeline", details=str(e))
     
     return {"message": "Pipeline instance deleted successfully"}

@@ -13,7 +13,8 @@ import {
   Search,
   Loader2,
   ArrowRight,
-  Database
+  Database,
+  Activity
 } from "lucide-react";
 import { AddServiceInstanceDialog } from "@/components/service/AddServiceInstanceDialog";
 import { servicesApi, ServiceCatalogDefinition } from "@/lib/api";
@@ -199,14 +200,7 @@ const Services = () => {
                 <div className="font-bold text-lg">{serviceCategories.length}</div>
                 <div className="text-muted-foreground">Categories</div>
               </div>
-              <div className="text-center">
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/service-instances">
-                    <Database className="h-4 w-4 mr-1" />
-                    Manage Instances
-                  </Link>
-                </Button>
-              </div>
+              
             </div>
           </div>
         </div>
@@ -224,8 +218,10 @@ const Services = () => {
 
       {loading && (
         <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <h3 className="text-lg font-medium text-muted-foreground mb-2">Loading service catalog...</h3>
+          <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading  service catalog...</p>
+            </div>
         </div>
       )}
 

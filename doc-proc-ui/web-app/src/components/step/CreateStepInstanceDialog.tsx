@@ -8,38 +8,51 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { StepCatalogDefinition, StepInstanceCreateRequest, stepsApi, servicesApi, ServiceInstance } from "@/lib/api";
+import { StepCatalogDefinition, StepInstanceCreateRequest, stepsApi, servicesApi, ServiceInstance, ErrorWithData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface CreateStepInstanceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  stepCatalog: StepCatalogDefinition;
+  stepCatalogDefinition: StepCatalogDefinition;
   onStepInstanceCreated: () => void;
 }
 
 const CreateStepInstanceDialog = ({ 
   isOpen, 
   onClose, 
-  stepCatalog, 
+  stepCatalogDefinition: stepCatalog, 
   onStepInstanceCreated 
 }: CreateStepInstanceDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [serviceInstances, setServiceInstances] = useState<ServiceInstance[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   
-  const [formData, setFormData] = useState<StepInstanceCreateRequest>({
-    name: "",
-    description: "",
-    step_catalog_id: stepCatalog.id,
-    settings: {},
-    enabled: true,
-    fail_pipeline_on_error: false,
-    timeout: 30,
-    services: [],
-    condition: "",
-    debug_mode: false,
+  const [formData, setFormData] = useState<StepInstanceCreateRequest>(() => {
+    // Initialize with default values from settings schema
+    const defaultSettings: Record<string, any> = {};
+    if (stepCatalog.settings_schema) {
+      Object.entries(stepCatalog.settings_schema).forEach(([key, schema]) => {
+        if (schema.default !== undefined) {
+          defaultSettings[key] = schema.default;
+        }
+      });
+    }
+    
+    return {
+      name: "",
+      description: "",
+      step_catalog_id: stepCatalog.id,
+      settings: defaultSettings,
+      enabled: true,
+      fail_pipeline_on_error: false,
+      timeout: 30,
+      services: [],
+      condition: "",
+      debug_mode: false,
+    };
   });
 
   // Generate dynamic form fields based on settings schema
@@ -80,6 +93,19 @@ const CreateStepInstanceDialog = ({
     }
   }, [isOpen, settingsFields, toast]);
 
+  // Initialize settings with default values from schema
+  const initializeSettingsWithDefaults = useMemo(() => {
+    const defaultSettings: Record<string, any> = {};
+    if (stepCatalog.settings_schema) {
+      Object.entries(stepCatalog.settings_schema).forEach(([key, schema]) => {
+        if (schema.default !== undefined) {
+          defaultSettings[key] = schema.default;
+        }
+      });
+    }
+    return defaultSettings;
+  }, [stepCatalog.settings_schema]);
+
   // Reset form when dialog is closed or step catalog changes
   useEffect(() => {
     if (!isOpen) {
@@ -87,27 +113,70 @@ const CreateStepInstanceDialog = ({
         name: "",
         description: "",
         step_catalog_id: stepCatalog.id,
-        settings: {},
+        settings: initializeSettingsWithDefaults,
         enabled: true,
         fail_pipeline_on_error: false,
         timeout: 30,
-        services: [],
+        services: [], // Reset services array
         condition: "",
         debug_mode: false,
       });
       setServiceInstances([]); // Clear service instances
+      setFieldErrors({}); // Clear field errors
     }
-  }, [isOpen, stepCatalog.id]);
+  }, [isOpen, stepCatalog.id, initializeSettingsWithDefaults]);
 
   const handleInputChange = (field: keyof StepInstanceCreateRequest, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error for this field when user starts typing
+    if (fieldErrors[field as string]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field as string];
+        return newErrors;
+      });
+    }
   };
 
   const handleSettingChange = (key: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      settings: { ...prev.settings, [key]: value }
-    }));
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        settings: { ...prev.settings, [key]: value }
+      };
+
+      // If this is a service selector field, also add/update the services array
+      const field = settingsFields.find(f => f.key === key);
+      if (field && (field.ui_component === 'service_selector' || field.service_type)) {
+        if (value && !newFormData.services.includes(value)) {
+          // Add service ID to services array if it's not already there
+          newFormData.services = [...newFormData.services, value];
+        } else if (!value) {
+          // Remove service ID from services array if value is cleared
+          newFormData.services = newFormData.services.filter(serviceId => {
+            // Keep services that are still being used by other service selector fields
+            const otherServiceFields = settingsFields.filter(f => 
+              f.key !== key && (f.ui_component === 'service_selector' || f.service_type)
+            );
+            return otherServiceFields.some(otherField => 
+              newFormData.settings[otherField.key] === serviceId
+            );
+          });
+        }
+      }
+
+      return newFormData;
+    });
+    
+    // Clear error for this setting field when user starts typing
+    const errorKey = `settings.${key}`;
+    if (fieldErrors[errorKey]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[errorKey];
+        return newErrors;
+      });
+    }
   };
 
   const handleArrayFieldChange = (field: keyof StepInstanceCreateRequest, values: string[]) => {
@@ -116,26 +185,64 @@ const CreateStepInstanceDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setFieldErrors({});
+    
+    // Collect all validation errors
+    const errors: Record<string, string> = {};
+    
+    // Check basic required fields
     if (!formData.name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Step instance name is required",
-        variant: "destructive",
-      });
+      errors.name = "Step instance name is required";
+    } else {
+      // Validate name format - only letters, numbers, underscores, and hyphens
+      const namePattern = /^[a-zA-Z0-9_-]+$/;
+      if (!namePattern.test(formData.name.trim())) {
+        errors.name = "Step instance name can only contain letters, numbers, underscores (_), and hyphens (-)";
+      }
+    }
+    
+    // Check required settings fields
+    settingsFields.forEach(field => {
+      if (field.required) {
+        const value = formData.settings[field.key];
+        const fieldLabel = field.title || field.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        if (value === undefined || value === null || value === '') {
+          if (field.ui_component === 'service_selector' || field.service_type) {
+            errors[`settings.${field.key}`] = `${fieldLabel} service must be selected`;
+          } else {
+            errors[`settings.${field.key}`] = `${fieldLabel} is required`;
+          }
+        }
+      }
+    });
+
+    // If there are validation errors, set them and return
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
     setLoading(true);
+    
     try {
+      // Debug log to verify all settings are included
+      console.log('Creating step instance with data:', formData);
+      
       await stepsApi.createInstance(formData);
+      
       toast({
         title: "Success",
         description: "Step instance created successfully",
       });
       onStepInstanceCreated();
+    
     } catch (error) {
       console.error('Error creating step instance:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof ErrorWithData ? error?.details : 'Unknown error occurred';
+    
       toast({
         title: "Error",
         description: errorMessage,
@@ -149,6 +256,8 @@ const CreateStepInstanceDialog = ({
   const renderSettingField = (field: { key: string; type: string; title?: string; description?: string; required?: boolean; default?: any; enum?: string[]; min?: number; max?: number; pattern?: string; ui_component?: string; service_type?: string }) => {
     const value = formData.settings[field.key] ?? field.default ?? '';
     const label = field.title || field.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const errorKey = `settings.${field.key}`;
+    const hasError = !!fieldErrors[errorKey];
 
     // Handle service selector fields first (before type-based switch)
     if (field.ui_component === 'service_selector' || field.service_type) {
@@ -167,7 +276,7 @@ const CreateStepInstanceDialog = ({
             onValueChange={(newValue) => handleSettingChange(field.key, newValue)}
             disabled={loadingServices}
           >
-            <SelectTrigger>
+            <SelectTrigger className={hasError ? "border-red-500" : ""}>
               <SelectValue 
                 placeholder={
                   loadingServices 
@@ -181,7 +290,7 @@ const CreateStepInstanceDialog = ({
             <SelectContent>
               {filteredServices.map((service) => (
                 <SelectItem key={service.id} value={service.id}>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col text-left">
                     <span>{service.name}</span>
                     {service.description && (
                       <span className="text-xs text-muted-foreground">{service.description}</span>
@@ -191,15 +300,18 @@ const CreateStepInstanceDialog = ({
               ))}
             </SelectContent>
           </Select>
-          {field.description && (
+          {hasError && (
+            <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+          )}
+          {!hasError && field.description && (
             <p className="text-sm text-muted-foreground">{field.description}</p>
           )}
-          {field.service_type && (
+          {!hasError && field.service_type && (
             <p className="text-xs text-muted-foreground">
               Service type: {field.service_type} • Found {filteredServices.length} service(s)
             </p>
           )}
-          {field.required && filteredServices.length === 0 && !loadingServices && (
+          {!hasError && field.required && filteredServices.length === 0 && !loadingServices && (
             <p className="text-xs text-yellow-600 dark:text-yellow-400">
               ⚠️ No services of type "{field.service_type}" are available. Please create a service instance first.
             </p>
@@ -219,7 +331,7 @@ const CreateStepInstanceDialog = ({
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <Select value={value} onValueChange={(newValue) => handleSettingChange(field.key, newValue)}>
-              <SelectTrigger>
+              <SelectTrigger className={hasError ? "border-red-500" : ""}>
                 <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
               </SelectTrigger>
               <SelectContent>
@@ -230,7 +342,10 @@ const CreateStepInstanceDialog = ({
                 ))}
               </SelectContent>
             </Select>
-            {field.description && (
+            {hasError && (
+              <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+            )}
+            {!hasError && field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
           </div>
@@ -249,8 +364,12 @@ const CreateStepInstanceDialog = ({
               onChange={(e) => handleSettingChange(field.key, e.target.value)}
               placeholder={`Enter ${label.toLowerCase()}`}
               rows={4}
+              className={hasError ? "border-red-500" : ""}
             />
-            {field.description && (
+            {hasError && (
+              <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+            )}
+            {!hasError && field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
           </div>
@@ -269,8 +388,12 @@ const CreateStepInstanceDialog = ({
               value={value}
               onChange={(e) => handleSettingChange(field.key, e.target.value)}
               placeholder={`Enter ${label.toLowerCase()}`}
+              className={hasError ? "border-red-500" : ""}
             />
-            {field.description && (
+            {hasError && (
+              <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+            )}
+            {!hasError && field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
           </div>
@@ -289,7 +412,10 @@ const CreateStepInstanceDialog = ({
                 <Label htmlFor={field.key}>{label}</Label>
                 {field.required && <span className="text-red-500">*</span>}
               </div>
-              {field.description && (
+              {hasError && (
+                <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+              )}
+              {!hasError && field.description && (
                 <p className="text-sm text-muted-foreground">{field.description}</p>
               )}
             </div>
@@ -310,8 +436,12 @@ const CreateStepInstanceDialog = ({
                 step={field.type === 'integer' ? 1 : 0.1}
                 onChange={(e) => handleSettingChange(field.key, field.type === 'integer' ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0)}
                 placeholder={`Enter ${label.toLowerCase()}`}
+                className={hasError ? "border-red-500" : ""}
               />
-              {field.description && (
+              {hasError && (
+                <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+              )}
+              {!hasError && field.description && (
                 <p className="text-sm text-muted-foreground">{field.description}</p>
               )}
             </div>
@@ -330,8 +460,12 @@ const CreateStepInstanceDialog = ({
                 pattern={field.pattern}
                 onChange={(e) => handleSettingChange(field.key, e.target.value)}
                 placeholder={`Enter ${label.toLowerCase()}`}
+                className={hasError ? "border-red-500" : ""}
               />
-              {field.description && (
+              {hasError && (
+                <p className="text-sm text-red-500">{fieldErrors[errorKey]}</p>
+              )}
+              {!hasError && field.description && (
                 <p className="text-sm text-muted-foreground">{field.description}</p>
               )}
             </div>
@@ -359,8 +493,19 @@ const CreateStepInstanceDialog = ({
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 placeholder="Enter step instance name"
+                pattern="[a-zA-Z0-9_-]+"
+                title="Only letters, numbers, underscores (_), and hyphens (-) are allowed"
                 required
+                className={fieldErrors.name ? "border-red-500" : ""}
               />
+              {fieldErrors.name && (
+                <p className="text-sm text-red-500">{fieldErrors.name}</p>
+              )}
+              {!fieldErrors.name && (
+                <p className="text-sm text-muted-foreground">
+                  Only letters, numbers, underscores (_), and hyphens (-) are allowed
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

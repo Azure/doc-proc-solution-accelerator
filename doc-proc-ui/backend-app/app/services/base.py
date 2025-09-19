@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 
 from app.db.cosmos import CosmosDb
 
-
 class BaseService(ABC):
     """Base service class for common CRUD operations"""
     
@@ -40,6 +39,18 @@ class BaseService(ABC):
         except Exception:
             return False
     
+    async def batch_upsert(self, items: List[Dict[str, Any]], container: Optional[str] = None) -> None:
+        """Batch upsert items"""
+        
+        # TODO: Implement batch upsert when supported by Cosmos DB SDK
+        # _operations = [ ("upsert", (item,), {}) for item in items ]
+
+        # return self.db.containers[container or self.container_name].execute_item_batch(batch_operations=_operations, partition_key="id")
+        
+        results = [ result for item in items for result in self.db.upsert(container or self.container_name, item) ]
+        
+        return results
+
     @abstractmethod
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate item before creating/updating"""

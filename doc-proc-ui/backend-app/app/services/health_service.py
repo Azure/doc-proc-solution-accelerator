@@ -54,11 +54,12 @@ class HealthService:
         results = await asyncio.gather(
             self._check_app_config_health(),
             self._check_cosmos_db_health(),
+            self._check_blob_storage_health(),
             self._check_storage_queue_health(),
             return_exceptions=True
         )
         
-        service_names = ["app_config", "cosmos_db", "storage_queue"]
+        service_names = ["app_config", "cosmos_db", "blob_storage", "storage_queue"]
         
         for i, result in enumerate(results):
             if isinstance(result, Exception):
@@ -100,6 +101,8 @@ class HealthService:
         start_time = datetime.now(timezone.utc)
         
         try:
+            logger.debug(f"Checking Cosmos DB health with endpoint: {app_settings.COSMOS_DB_ENDPOINT}")
+            
             if not app_settings.COSMOS_DB_ENDPOINT:
                 return ServiceHealth(
                     name="cosmos_db",
@@ -166,6 +169,81 @@ class HealthService:
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
                 endpoint=app_settings.COSMOS_DB_ENDPOINT
+            )
+    
+    
+    async def _check_blob_storage_health(self) -> ServiceHealth:
+        """Check Azure Blob Storage connection health"""
+        start_time = datetime.now(timezone.utc)
+        
+        try:
+            logger.debug(f"Checking blob storage health with account: {app_settings.BLOB_STORAGE_ACCOUNT_NAME} and container: {app_settings.BLOB_STORAGE_CONTAINER_NAME}")
+            
+            if not app_settings.BLOB_STORAGE_ACCOUNT_NAME or not app_settings.BLOB_STORAGE_CONTAINER_NAME:
+                return ServiceHealth(
+                    name="blob_storage",
+                    status="error",
+                    message="Blob Storage account details not configured",
+                    error="Blob Storage account details not configured in Azure App Configuration. Ensure 'BLOB_STORAGE_ACCOUNT_NAME' and 'BLOB_STORAGE_CONTAINER_NAME' are set using the correct key prefix.",
+                    last_checked=datetime.now(timezone.utc).isoformat(),
+                    endpoint="Not configured"
+                )
+            
+            credential, token_details = get_azure_credential_with_details()
+            from azure.storage.blob import BlobServiceClient
+            
+            # Create client
+            account_url = f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+            blob_service_client = BlobServiceClient(
+                account_url=account_url,
+                credential=credential
+            )
+            
+            # Try to get container properties
+            container_client = blob_service_client.get_container_client(app_settings.BLOB_STORAGE_CONTAINER_NAME)
+            properties = container_client.get_container_properties()
+
+            response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+
+            return ServiceHealth(
+                name="blob_storage",
+                status="connected",
+                message="Connected successfully",
+                details={
+                    "container_name": app_settings.BLOB_STORAGE_CONTAINER_NAME,
+                    "last_modified": properties.last_modified.isoformat() if properties.last_modified else None,
+                    "lease_status": properties.lease.status if properties.lease else None,
+                    "credential_type": "default_azure_credential",
+                    "credential_details": token_details
+                },
+                response_time_ms=response_time,
+                last_checked=datetime.now(timezone.utc).isoformat(),
+                endpoint=f"{account_url}/{app_settings.BLOB_STORAGE_CONTAINER_NAME}"
+            )
+            
+        except ResourceNotFoundError:
+            response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+            return ServiceHealth(
+                name="blob_storage",
+                status="error",
+                message=f"Container '{app_settings.BLOB_STORAGE_CONTAINER_NAME}' not found",
+                error=f"Container '{app_settings.BLOB_STORAGE_CONTAINER_NAME}' not found",
+                details={"error_type": "ResourceNotFoundError"},
+                response_time_ms=response_time,
+                last_checked=datetime.now(timezone.utc).isoformat(),
+                endpoint=f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+            )
+        except Exception as e:
+            response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+            return ServiceHealth(
+                name="blob_storage",
+                status="error",
+                message=f"Connection failed: {e.__class__.__name__}",
+                error=f'{str(e)}',
+                details={"error_type": type(e).__name__},
+                response_time_ms=response_time,
+                last_checked=datetime.now(timezone.utc).isoformat(),
+                endpoint=f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
             )
     
     async def _check_storage_queue_health(self) -> ServiceHealth:
@@ -252,6 +330,8 @@ class HealthService:
             connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING")
             endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT")
             
+            logger.debug(f"Checking App Configuration health with connection string: {connection_string} and endpoint: {endpoint}")
+            
             if not connection_string and not endpoint:
                 return ServiceHealth(
                     name="app_config",
@@ -320,6 +400,8 @@ class HealthService:
             return await self._check_storage_queue_health()
         elif service_name == "app_config":
             return await self._check_app_config_health()
+        elif service_name == "blob_storage":
+            return await self._check_blob_storage_health()
         else:
             return ServiceHealth(
                 name=service_name,

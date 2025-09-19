@@ -47,9 +47,14 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_STEP_INSTANCES: str = "step_instances"
     COSMOS_DB_CONTAINER_PIPELINES: str = "pipelines"
     COSMOS_DB_CONTAINER_VAULTS: str = "vaults"
+    COSMOS_DB_CONTAINER_VAULT_DOCUMENTS: str = "vault_documents"
     COSMOS_DB_CONTAINER_BATCH_EXECUTIONS: str = "batch_executions"
     COSMOS_DB_CONTAINER_ACTIVITY_LOGS: str = "activity_logs"
     COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS: str = "pipeline_executions"
+    
+    # Azure Storage Blob settings
+    BLOB_STORAGE_ACCOUNT_NAME: str = ""
+    BLOB_STORAGE_CONTAINER_NAME: str = "documents"
     
     # Azure Storage Queue settings
     STORAGE_ACCOUNT_WORKER_QUEUE_URL: str = ""
@@ -87,12 +92,14 @@ class AppSettings(BaseModel):
             
             # Filter the items based on the key filter
             config_items = [item for item in items]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration.")
+            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefix '{AZURE_APP_CONFIG_KEY_PREFIX}*'.")
             
             # Define the configuration keys to load
             config_keys = [
                 "COSMOS_DB_ENDPOINT",
                 "COSMOS_DB_NAME",
+                "BLOB_STORAGE_ACCOUNT_NAME",
+                "BLOB_STORAGE_CONTAINER_NAME",
                 "STORAGE_ACCOUNT_WORKER_QUEUE_URL",
                 "STORAGE_WORKER_QUEUE_NAME",
                 "API_SERVER_HOST",
@@ -164,6 +171,14 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_ACTIVITY_LOGS,
             self.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS
         ]
+    
+    def get_blob_storage_account_details(self) -> dict[str, str]:
+        """Get Azure Blob Storage account details"""
+        return {
+            "account_name": self.BLOB_STORAGE_ACCOUNT_NAME,
+            "account_url": f"https://{self.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net",
+            "container_name": self.BLOB_STORAGE_CONTAINER_NAME
+        }
     
     def get_fastapi_attributes(self) -> dict[str, str | bool | None]:
         """

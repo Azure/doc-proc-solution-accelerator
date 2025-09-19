@@ -16,7 +16,7 @@ class QueueBatchExecutionRequest(BaseModel):
     message_type: QueueMessageType = Field(default=QueueMessageType.BATCH_EXECUTION_REQUEST)
     pipeline_name: str = Field(..., description="Name of the pipeline to execute")
     documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
-    batch_name: Optional[str] = Field(None, description="Optional name for the batch")
+    batch_id: Optional[str] = Field(None, description="Optional ID for the batch")
     priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     

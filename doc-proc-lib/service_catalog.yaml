@@ -23,7 +23,7 @@ services_catalog:
         description: "A sample setting required by the service"
         required: true
         env_var: "SAMPLE_SERVICE_SETTING"
-        default: ${SAMPLE_SERVICE_SETTING}
+        default: 
       sample_optional:
         type: integer
         title: "Optional Setting"
@@ -39,7 +39,7 @@ services_catalog:
         required: true
         pattern: "^[a-zA-Z0-9_]+$"  # Must be alphanumeric or underscore
         env_var: "SAMPLE_SERVICE_PATTERN_SETTING"
-        default: ${SAMPLE_SERVICE_PATTERN_SETTING}
+        default: ""
       sample_enum:
         type: string
         title: "Enum Setting"
@@ -54,7 +54,7 @@ services_catalog:
         title: "Sensitive Setting"
         description: "A sensitive setting that should not be displayed in plain text"
         env_var: "SAMPLE_SERVICE_SENSITIVE_SETTING"  # Environment variable for sensitive data
-        default: ${SAMPLE_SERVICE_SENSITIVE_SETTING}  # Use environment variable for sensitive data
+        default: ""  # Use environment variable for sensitive data
       sample_boolean:
         type: boolean
         title: "Boolean Setting"
@@ -91,7 +91,7 @@ services_catalog:
         description: "Name of the Azure Blob Storage account"
         required: true
         env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_NAME"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
+        default: 
       credential_type:
         type: string
         title: "Credential Type"
@@ -99,7 +99,7 @@ services_catalog:
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
         env_var: "AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
+        default: default_azure_credential
       credential_key:
         type: string
         title: "Account Key"
@@ -107,7 +107,7 @@ services_catalog:
         required: false
         sensitive: true
         env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_KEY"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
+        default: ""
         
     # UI metadata
     ui_metadata:
@@ -146,7 +146,7 @@ services_catalog:
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
         env_var: "AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+        default: default_azure_credential
       api_key:
         type: string
         title: "API Key"
@@ -154,13 +154,12 @@ services_catalog:
         required: false
         sensitive: true
         env_var: "AZURE_AI_INFERENCE_SERVICE_API_KEY"
-        default: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+        default: ""
       model_name:
         type: string
         title: "Model Name"
         description: "Name of the AI model to use for inference"
-        default: "gpt-4o"
-        enum: ["gpt-4o", "gpt-4", "gpt-35-turbo"]
+        default: "gpt-4.1"
       max_tokens:
         type: integer
         title: "Max Tokens"
@@ -195,9 +194,9 @@ services_catalog:
         title: "Service Endpoint"
         description: "Endpoint URL for the Azure Document Intelligence Service"
         required: true
-        pattern: "^https://.*"
+        pattern: "https://<resource>.cognitiveservices.azure.com/"
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT"
-        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT}
+        default: "https://<resource>.cognitiveservices.azure.com/"
       credential_type:
         type: string
         title: "Credential Type"
@@ -205,7 +204,7 @@ services_catalog:
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE}
+        default: default_azure_credential
       api_key:
         type: string
         title: "API Key"
@@ -213,7 +212,7 @@ services_catalog:
         required: false
         sensitive: true
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY"
-        default: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY}
+        default: ""
       model_id:
         type: string
         title: "Model ID"
@@ -248,7 +247,7 @@ services_catalog:
         description: "Name of the Azure AI Search service"
         required: true
         env_var: "AZURE_SEARCH_SERVICE_ACCOUNT_NAME"
-        default: ${AZURE_SEARCH_SERVICE_ACCOUNT_NAME}
+        default: ""
       credential_type:
         type: string
         title: "Credential Type"
@@ -256,7 +255,7 @@ services_catalog:
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
         env_var: "AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
+        default: default_azure_credential
       api_key:
         type: string
         title: "Admin API Key"
@@ -264,13 +263,12 @@ services_catalog:
         required: true
         sensitive: true
         env_var: "AZURE_SEARCH_SERVICE_API_KEY"
-        default: ${AZURE_SEARCH_SERVICE_API_KEY}
+        default: ""
       api_version:
         type: string
         title: "API Version"
         description: "Azure Search API version to use"
         default: "2025-05-01-preview"
-        enum: ['2025-05-01-preview', '2024-07-01', '2023-11-01']
       index_name:
         type: string
         title: "Index Name"
@@ -314,13 +312,13 @@ services_catalog:
         required: true
         sensitive: true
         env_var: "AZURE_COSMOS_DB_KEY"
-        default: ${AZURE_COSMOS_DB_KEY}
+        default: ""
       database_name:
         type: string
         title: "Database Name"
         description: "Name of the Cosmos DB database"
         required: true
-        default: "document-processing"
+        default: "docproc"
       container_name:
         type: string
         title: "Container Name"
@@ -369,7 +367,7 @@ services_catalog:
         default: "azure_key_credential"
         enum: ["azure_key_credential", "default_azure_credential"]
         env_var: "AZURE_CONTENT_UNDERSTANDING_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_CONTENT_UNDERSTANDING_SERVICE_CREDENTIAL_TYPE}
+        default: default_azure_credential
       api_key:
         type: string
         title: "API Key"
@@ -377,13 +375,12 @@ services_catalog:
         required: false
         sensitive: true
         env_var: "AZURE_CONTENT_UNDERSTANDING_SERVICE_API_KEY"
-        default: ${AZURE_CONTENT_UNDERSTANDING_SERVICE_API_KEY}
+        default: ""
       api_version:
         type: string
         title: "API Version"
         description: "API version to use for the service"
         default: "2023-07-31"
-        enum: ["2023-07-31", "2022-08-31", "2021-09-30-preview"]
       model_id:
         type: string
         title: "Default Model ID"

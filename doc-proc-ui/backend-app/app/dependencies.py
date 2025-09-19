@@ -9,11 +9,12 @@ from app.services.step_instance_service import StepInstanceService
 from app.services.pipeline_service import PipelineService
 # from app.services.execution_service import ExecutionService
 from app.services.vault_service import VaultService
+from app.services.vault_documents_service import VaultDocumentsService
 from app.services.dashboard_service import DashboardService
 
 from app.settings import app_settings
 
-@lru_cache()
+@lru_cache(maxsize=1)
 def get_cosmos_db() -> CosmosDb:
     """Get a singleton instance of CosmosDb"""
     return CosmosDb(
@@ -54,10 +55,26 @@ def get_pipeline_service() -> PipelineService:
 #     """Get ExecutionService instance"""
 #     return ExecutionService(get_cosmos_db())
 
+def get_storage_queue_helper():
+    """Get StorageQueueHelper instance"""
+    from app.services.storage_queue_helper import StorageQueueHelper
+    return StorageQueueHelper(storage_queue_url=app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL,
+                              queue_name=app_settings.STORAGE_WORKER_QUEUE_NAME)
+
+
+def get_vault_documents_service() -> VaultDocumentsService:
+    """Get VaultDocumentsService instance"""
+    return VaultDocumentsService(db=get_cosmos_db(),
+                                  container_name=app_settings.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS,
+                                  storage_queue_helper=get_storage_queue_helper())
+
 
 def get_vault_service() -> VaultService:
     """Get VaultService instance"""
-    return VaultService(db=get_cosmos_db())
+    return VaultService(db=get_cosmos_db(), 
+                        container_name=app_settings.COSMOS_DB_CONTAINER_VAULTS,
+                        vault_documents_service=get_vault_documents_service(),
+                        default_blob_storage=app_settings.get_blob_storage_account_details())
 
 
 def get_dashboard_service() -> DashboardService:

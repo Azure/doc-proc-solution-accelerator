@@ -27,9 +27,23 @@ class StepInstanceService(BaseService):
         required_fields = ["id", "name", "step_catalog_id", "enabled"]
         return all(field in item for field in required_fields)
     
+    async def get_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a step instance by name"""
+        query = "SELECT * FROM c WHERE c.name=@name"
+        params = [{"name": "@name", "value": name}]
+        items = await self.query(query, params)
+        return items[0] if items else None
     
     async def create_step_instance(self, step_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a step instance based on catalog definition"""
+        
+        if not step_data.get("name"):
+            raise ValueError("Step name is required to create a step instance")
+        
+        # check if step with same name exists
+        existing = await self.get_by_name(step_data.get("name"))
+        if existing:
+            raise ValueError(f"Step instance with name '{step_data.get('name')}' already exists")
         
         # get the catalog definition
         step_catalog_id = step_data.get("step_catalog_id")
@@ -41,13 +55,13 @@ class StepInstanceService(BaseService):
             raise ValueError(f"Step catalog ID {step_catalog_id} not found")
 
         # Generate unique ID if not provided
-        instance_id = step_data.get("id") or f"{step_data.get('name')}_{int(time.time())}"
+        instance_id = step_data.get("id") or f"{step_data.get('name').strip()}_{int(time.time())}"
         instance_id = instance_id.replace(" ", "_").lower()
         
         # Merge catalog definition with instance settings
         instance = {
             "id": instance_id,
-            "name": step_data.get("name"),
+            "name": step_data.get("name").strip(),
             "description": step_data.get("description") or catalog_step.get("description"),
             "step_catalog_id": step_catalog_id,
             "category": catalog_step.get("category"),
@@ -89,4 +103,26 @@ class StepInstanceService(BaseService):
         
         return await self.update(existing)
     
+    async def delete_step_instance(self, step_instance_id: str) -> None:
+        """Delete a step instance by ID"""
+        existing = await self.get_by_id(step_instance_id)
+        if not existing:
+            raise ValueError(f"Step instance {step_instance_id} not found")
+        
+        from app.dependencies import get_pipeline_service
+        # check if step instance is in use by a pipeline
+        pipeline_service = get_pipeline_service()
+        step_instance_used_by_pipelines = await pipeline_service.check_step_instance_in_use(step_instance_id)
+        logger.debug(f"Step instance {step_instance_id} in use by pipelines: {step_instance_used_by_pipelines}")
+
+        if step_instance_used_by_pipelines:
+            raise ValueError(f"Step instance is in use by the pipeline(s) '{step_instance_used_by_pipelines}' and cannot be deleted")
+        
+        return await self.delete(step_instance_id)
     
+    async def is_service_instance_in_use(self, service_instance_id: str) -> List[str]:
+        """Check if a service instance is in use by any step instances"""
+        query = "SELECT * FROM c WHERE ARRAY_CONTAINS(c.services, @service_id)"
+        params = [{"name": "@service_id", "value": service_instance_id}]
+        items = await self.query(query, params)
+        return [item["name"] for item in items] if items else []

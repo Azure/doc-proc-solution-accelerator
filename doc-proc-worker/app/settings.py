@@ -31,9 +31,14 @@ class AppSettings(BaseSettings):
     COSMOS_DB_ENDPOINT: str
     COSMOS_DB_NAME: str = "docproc"
     COSMOS_DB_CONTAINER_PIPELINES: str = "pipelines"
+    COSMOS_DB_CONTAINER_STEP_CATALOG: str = "step_catalog"
+    COSMOS_DB_CONTAINER_STEP_INSTANCES: str = "step_instances"
+    COSMOS_DB_CONTAINER_SERVICE_CATALOG: str = "service_catalog"
+    COSMOS_DB_CONTAINER_SERVICE_INSTANCES: str = "service_instances"
+    
     COSMOS_DB_CONTAINER_BATCH_EXECUTIONS: str = "batch_executions"
-    COSMOS_DB_CONTAINER_ACTIVITY_LOGS: str = "activity_logs"
     COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS: str = "pipeline_executions"
+    COSMOS_DB_CONTAINER_ACTIVITY_LOGS: str = "activity_logs"
     
     # Celery settings
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

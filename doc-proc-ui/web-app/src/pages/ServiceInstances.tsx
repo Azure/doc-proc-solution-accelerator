@@ -16,11 +16,12 @@ import {
   Plus,
   Clock,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Activity
 } from "lucide-react";
 import { AddServiceInstanceDialog } from "@/components/service/AddServiceInstanceDialog";
 import { ConfigureServiceInstanceDialog } from "@/components/service/ConfigureServiceInstanceDialog";
-import { servicesApi, ServiceInstance, ServiceCatalogDefinition } from "@/lib/api";
+import { servicesApi, ServiceInstance, ServiceCatalogDefinition, ErrorWithData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceIcon } from "@/components/service/ServiceIcon";
 import { 
@@ -134,9 +135,10 @@ const ServiceInstances = () => {
         description: `${newInstance.name} has been created successfully`,
       });
     } catch (error) {
+      console.error('Error creating service instance:', error);
       toast({
         title: "Failed to create service instance",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        description: error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred',
         variant: "destructive",
       });
     }
@@ -165,6 +167,7 @@ const ServiceInstances = () => {
 
   const deleteServiceInstance = async (instanceId: string) => {
     try {
+      
       await servicesApi.deleteInstance(instanceId);
       
       setInstances(prev => prev.filter(instance => instance.id !== instanceId));
@@ -174,9 +177,12 @@ const ServiceInstances = () => {
         description: "The service instance has been deleted successfully",
       });
     } catch (error) {
+      console.error('Error deleting service instance:', error);
+      const errorMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred';
+      
       toast({
         title: "Failed to delete service instance",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -299,8 +305,10 @@ const ServiceInstances = () => {
 
       {loading && (
         <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <h3 className="text-lg font-medium text-muted-foreground mb-2">Loading service instances...</h3>
+          <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading service instances...</p>
+            </div>
         </div>
       )}
 

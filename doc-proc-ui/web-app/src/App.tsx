@@ -8,12 +8,9 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Vaults from "./pages/Vaults";
-import Vaults2 from "./pages/Vaults2";
 import Vaults3 from "./pages/Vaults3";
 import Vaults4 from "./pages/Vaults4";
-import Vaults5 from "./pages/Vaults5";
-import Vaults6 from "./pages/Vaults6";
-import Connections from "./pages/Connections";
+import Health from "./pages/Health";
 import Pipeline from "./pages/Pipeline";
 import Step from "./pages/Steps";
 import StepInstances from "./pages/StepInstances";
@@ -34,17 +31,14 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="vaults" element={<Vaults />} />
-              <Route path="vaults2" element={<Vaults2 />} />
               <Route path="vaults3" element={<Vaults3 />} />
               <Route path="vaults4" element={<Vaults4 />} />
-              <Route path="vaults5" element={<Vaults5 />} />
-              <Route path="vaults6" element={<Vaults6 />} />
               <Route path="pipeline" element={<Pipeline />} />
               <Route path="steps" element={<Step />} />
               <Route path="step-instances" element={<StepInstances />} />
               <Route path="services" element={<Service />} />
               <Route path="service-instances" element={<ServiceInstances />} />
-              <Route path="connections" element={<Connections />} />
+              <Route path="health" element={<Health />} />
               
             </Route>
             <Route path="*" element={<NotFound />} />

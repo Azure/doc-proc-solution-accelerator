@@ -8,10 +8,9 @@ from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.queue.aio import QueueClient
 
 
-from app.settings import app_settings
 from app.utils import get_azure_credential
 
-logger = logging.getLogger("doc-proc-worker.app.queue_service")
+logger = logging.getLogger("doc-proc-worker.app.proxy.queue")
 
 class QueueMessage:
     """Wrapper for queue message with automatic JSON handling"""
@@ -57,13 +56,20 @@ class QueueMessage:
         return self._message.expires_on
 
 
-class AzureStorageQueueService():
+class StorageQueue():
     """Service for interacting with Azure Storage Queue"""
     
-    def __init__(self):
-        super().__init__()
-        self.storage_account_url = app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
-        self.queue_name = app_settings.STORAGE_WORKER_QUEUE_NAME
+    def __init__(self, storage_account_queue_url: str,
+                 queue_name: str):
+        
+        if not storage_account_queue_url:
+            raise ValueError("Storage account queue URL is required")
+        if not queue_name:
+            raise ValueError("Queue name is required")
+        
+        self.storage_account_url = storage_account_queue_url
+        self.queue_name = queue_name
+        
         self._queue_client: QueueClient = None
         
     async def __aenter__(self):

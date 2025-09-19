@@ -29,6 +29,12 @@ class ServiceInstanceService(BaseService):
         required_fields = ["id", "name", "type"]
         return all(field in item for field in required_fields)
     
+    async def get_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a service instance by name"""
+        query = "SELECT * FROM c WHERE c.name = @name"
+        parameters = [{"name": "@name", "value": name}]
+        results = await self.list_all(query=query, parameters=parameters)
+        return results[0] if results else None
     
     async def create_service_instance(self, service_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a service instance based on catalog definition"""
@@ -37,6 +43,15 @@ class ServiceInstanceService(BaseService):
         service_catalog_id = service_data.get("service_catalog_id")
         if not service_catalog_id:
             raise ValueError("service_catalog_id is required to create a service instance")
+
+        # get the service instance name
+        service_instance_name = service_data.get("name")
+        if not service_instance_name or not service_instance_name.strip():
+            raise ValueError("name is required to create a service instance")
+        service_instance_name = service_instance_name.strip()
+        existing_instance = await self.get_by_name(service_instance_name)
+        if existing_instance:
+            raise ValueError(f"Service instance with name '{service_instance_name}' already exists")
 
         catalog_service = await self._catalog_service.get_catalog_service_by_id(service_catalog_id)
         if not catalog_service:
@@ -49,7 +64,7 @@ class ServiceInstanceService(BaseService):
         # Merge catalog definition with instance settings
         instance = {
             "id": instance_id,
-            "name": service_data.get("name"),
+            "name": service_instance_name,
             "description": service_data.get("description") or catalog_service.get("description"),
             "service_catalog_id": service_data.get("service_catalog_id"),
             "type": catalog_service.get("type"),
@@ -166,4 +181,18 @@ class ServiceInstanceService(BaseService):
             service_instance["updated_at"] = datetime.now(timezone.utc).isoformat()
             await self.update(service_instance)
     
-    
+    async def delete_service_by_id(self, service_id: str) -> bool:
+        """Delete a service instance by ID"""
+        # get the service instance
+        service_instance = await self.get_by_id(service_id)
+        if not service_instance:
+            return False
+        
+        # check is service instance is in use by any step instances
+        from app.dependencies import get_step_instance_service
+        step_instance_service = get_step_instance_service()
+        in_use_in_steps = await step_instance_service.is_service_instance_in_use(service_id)
+        if in_use_in_steps:
+            raise ValueError(f"Service instance {service_id} is in use by step instances '{in_use_in_steps}' and cannot be deleted")
+
+        return await self.delete(service_id)

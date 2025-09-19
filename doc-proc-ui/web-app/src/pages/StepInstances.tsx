@@ -2,13 +2,25 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, RefreshCw, Edit, Trash2, Settings, Power, PowerOff, Plus, ArrowLeft } from "lucide-react";
-import { stepsApi, StepInstance, StepCatalogDefinition } from "@/lib/api";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Search, RefreshCw, Trash2, Settings, Power, PowerOff, ArrowLeft, Activity } from "lucide-react";
+import { stepsApi, StepInstance, ErrorWithData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import ConfigureStepInstanceDialog from "@/components/step/ConfigureStepInstanceDialog";
 import { Link } from "react-router-dom";
+
 
 const StepInstances = () => {
   const [stepInstances, setStepInstances] = useState<StepInstance[]>([]);
@@ -98,7 +110,8 @@ const StepInstances = () => {
       });
     } catch (error) {
       console.error('Error toggling step instance:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred';
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -107,23 +120,22 @@ const StepInstances = () => {
     }
   };
 
-  const handleDeleteInstance = async (instanceId: string) => {
-    if (!confirm('Are you sure you want to delete this step instance?')) {
-      return;
-    }
-
+  const handleDeleteInstance = async (instanceId: string, instanceName: string) => {
     try {
       await stepsApi.deleteInstance(instanceId);
       setStepInstances(prev => prev.filter(instance => instance.id !== instanceId));
+      
       toast({
-        title: "Success",
-        description: "Step instance deleted successfully",
+        title: "Step instance deleted successfully",
+        description: `${instanceName} has been deleted.`,
+        variant: "default",
       });
     } catch (error) {
       console.error('Error deleting step instance:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred';
+      
       toast({
-        title: "Error",
+        title: "Failed to delete step instance",
         description: errorMessage,
         variant: "destructive",
       });
@@ -169,7 +181,10 @@ const StepInstances = () => {
 
       {loading && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading step instances...</p>
+          <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading step instances...</p>
+            </div>
         </div>
       )}
 
@@ -193,7 +208,7 @@ const StepInstances = () => {
                     instance={instance}
                     onConfigure={() => handleConfigureInstance(instance)}
                     onToggleEnabled={(enabled) => handleToggleEnabled(instance.id, enabled)}
-                    onDelete={() => handleDeleteInstance(instance.id)}
+                    onDelete={() => handleDeleteInstance(instance.id, instance.name)}
                   />
                 ))}
               </div>
@@ -313,9 +328,30 @@ const StepInstanceCard = ({ instance, onConfigure, onToggleEnabled, onDelete }: 
               <Settings className="h-4 w-4 mr-2" />
               Configure
             </Button>
-            <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Step Instance</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{instance.name}"? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </CardContent>

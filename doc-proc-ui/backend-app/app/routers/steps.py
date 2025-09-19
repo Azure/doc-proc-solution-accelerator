@@ -45,7 +45,7 @@ async def get_step_instance(id: str, service: StepInstanceService = Depends(get_
     """Get a specific step instance by ID"""
     item = await service.get_by_id(id)
     if not item:
-        raise ApiException(status_code=404, message="Step instance not found")
+        raise ApiException(status_code=404, message=f"Step instance with id '{id}' not found")
     return StepInstance(**item)
 
 @router.post("/instances", response_model=StepInstance)
@@ -55,7 +55,7 @@ async def create_step_instance(step_instance_data: StepInstanceCreateRequest, se
         saved = await service.create_step_instance(step_instance_data.model_dump())
         return StepInstance(**saved)
     except Exception as e:
-        raise ApiException(status_code=400, message="Failed to create step instance", details=str(e))
+        raise ApiException(status_code=400, message=f"Failed to create step instance", details=str(e))
 
 @router.put("/instances/{id}", response_model=StepInstance)
 async def update_step_instance(id: str, step_instance_data: StepInstanceUpdateRequest, service: StepInstanceService = Depends(get_step_instance_service)):
@@ -73,7 +73,14 @@ async def update_step_instance(id: str, step_instance_data: StepInstanceUpdateRe
 @router.delete("/instances/{id}")
 async def delete_step_instance(id: str, service: StepInstanceService = Depends(get_step_instance_service)):
     """Delete a step instance"""
-    success = await service.delete(id)
-    if not success:
-        raise ApiException(status_code=404, message="Step instance not found or failed to delete")
+    
+    try:
+        success = await service.delete_step_instance(id)
+        if not success:
+            raise ApiException(status_code=404, message="Step instance not found or failed to delete")
+    except ApiException:
+        raise
+    except Exception as e:
+        raise ApiException(status_code=400, message="Failed to delete step instance", details=str(e))
+    
     return {"message": "Step instance deleted successfully"}

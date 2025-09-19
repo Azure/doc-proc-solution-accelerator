@@ -5,6 +5,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Workflow, 
@@ -22,14 +33,20 @@ import {
   Download,
   Wrench,
   Save,
-  Loader2
+  Loader2,
+  Activity,
+  GitBranch,
+  Clock,
+  Files,
+  Calendar,
+  Trash2
 } from "lucide-react";
 import PipelineWorkflow from "../components/pipeline/PipelineWorkflow";
 import PipelineMetrics from "../components/pipeline/PipelineMetrics";
 import PipelineSettings from "../components/pipeline/PipelineSettings";
 import NewPipelineDialog from "../components/pipeline/NewPipelineDialog";
 import { useConfigLoader } from "../hooks/useConfigLoader";
-import { pipelinesApi, Pipeline as PipelineModel, CreatePipelineRequest, ApiError } from "../lib/api";
+import { pipelinesApi, Pipeline as PipelineModel, CreatePipelineRequest, ApiError, ErrorWithData } from "../lib/api";
 
 // Extended interface for UI display purposes
 interface PipelineDisplayInfo extends PipelineModel {
@@ -115,28 +132,32 @@ const Pipeline = () => {
       description: pipelineData.description,
       steps: [],
       execution_sequence: [],
-      // version: "1.0",
-      // settings: {
-      //   enabled: false,
-      //   retry_delay: 5,
-      //   timeout: 600,
-      //   retries: 3,
-      //   max_concurrent_runs: 5
-      // }
     };
 
-    const newPipeline = await pipelinesApi.createPipeline(createRequest);
-    
-    // Transform to display format
-    const displayPipeline: PipelineDisplayInfo = {
-      ...newPipeline,
-      status: newPipeline.settings?.enabled ? 'active' : 'inactive',
-      lastRun: 'Never',
-      documentsProcessed: 0
-    };
+    try {
+      const newPipeline = await pipelinesApi.createPipeline(createRequest);
+      
+      // Transform to display format
+      const displayPipeline: PipelineDisplayInfo = {
+        ...newPipeline,
+        status: newPipeline.settings?.enabled ? 'active' : 'inactive',
+        lastRun: 'Never',
+        documentsProcessed: 0
+      };
 
-    setPipelines(prev => [...prev, displayPipeline]);
-    setIsNewPipelineOpen(false);
+      setPipelines(prev => [...prev, displayPipeline]);
+      setIsNewPipelineOpen(false);
+    } catch (error) {
+      console.error('Error creating pipeline:', error);
+      const errorMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred';
+      
+      // Show error toast
+      toast({
+        title: "Failed to create pipeline",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeletePipeline = async (pipelineId: string) => {
@@ -144,14 +165,27 @@ const Pipeline = () => {
       await pipelinesApi.deletePipeline(pipelineId);
       setPipelines(prev => prev.filter(p => p.id !== pipelineId));
       
+      // Show success toast
+      toast({
+        title: "Pipeline deleted successfully",
+        description: `${selectedPipeline?.name || 'Pipeline'} has been deleted.`,
+        variant: "default",
+      });
+      
       // If the deleted pipeline was selected, clear the selection
       if (selectedPipeline && selectedPipeline.id === pipelineId) {
         setSelectedPipeline(null);
       }
-    } catch (err) {
-      const error = err as ApiError;
-      console.error('Error deleting pipeline:', err);
-      // TODO: Show error to user
+    } catch (error) {
+      console.error('Error deleting pipeline:', error);
+      const errorMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error occurred';
+      
+      // Show error toast
+      toast({
+        title: "Failed to delete pipeline",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -377,6 +411,36 @@ pipelines:
               <p className="text-muted-foreground">{selectedPipeline.description}</p>
             </div>
           </div>
+          <div className="flex items-center space-x-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Pipeline</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{selectedPipeline.name}"? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => selectedPipeline && handleDeletePipeline(selectedPipeline.id)}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -395,8 +459,6 @@ pipelines:
               Metrics
             </TabsTrigger>
           </TabsList>
-
-          
 
           <TabsContent value="builder" className="space-y-6">
             <div className="flex items-center justify-between">
@@ -557,7 +619,10 @@ pipelines:
       {pipelineLoading && (
         <Card>
           <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">Loading pipelines...</p>
+            <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading pipelines...</p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -615,18 +680,34 @@ pipelines:
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Last Run</p>
-                    <p className="font-medium">{pipeline.lastRun}</p>
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <GitBranch className="h-4 w-4" />
+                      <span>Steps</span>
+                    </div>
+                    <p className="font-semibold text-base">{pipeline.steps?.length || 0}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Documents Processed</p>
-                    <p className="font-medium">{pipeline.documentsProcessed?.toLocaleString() || 0}</p>
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <Clock className="h-4 w-4" />
+                      <span>Last Run</span>
+                    </div>
+                    <p className="font-semibold text-base">{pipeline.lastRun}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Created</p>
-                    <p className="font-medium">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <Files className="h-4 w-4" />
+                      <span>Documents</span>
+                    </div>
+                    <p className="font-semibold text-base">{pipeline.documentsProcessed?.toLocaleString() || 0}</p>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>Created</span>
+                    </div>
+                    <p className="font-semibold text-base">
                       {pipeline.created_at 
                         ? new Date(pipeline.created_at).toLocaleDateString()
                         : 'Unknown'

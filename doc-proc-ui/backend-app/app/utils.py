@@ -1,9 +1,11 @@
+from functools import lru_cache
 import logging
 
 from azure.identity import DefaultAzureCredential
 
 logger = logging.getLogger("doc-proc-ui.app.utils")
 
+@lru_cache(maxsize=1)
 def get_azure_credential():
     """
     Get the appropriate credential for authentication.
@@ -18,7 +20,8 @@ def get_azure_credential():
     except Exception as e:
         logger.error(f"Failed to initialize DefaultAzureCredential: {e}")
         raise
-
+    
+@lru_cache(maxsize=1)
 def get_azure_credential_with_details():
     """
     Get the appropriate credential for authentication.
@@ -37,7 +40,8 @@ def get_azure_credential_with_details():
     except Exception as e:
         logger.error(f"Failed to initialize DefaultAzureCredential: {e}")
         raise
-    
+
+@lru_cache(maxsize=1)
 def _get_token_details(credential):
     if credential:
         try:

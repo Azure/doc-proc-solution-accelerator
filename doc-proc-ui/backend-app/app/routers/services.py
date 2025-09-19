@@ -77,9 +77,15 @@ async def update_service_instance(id: str, service_data: ServiceUpdateRequest, s
 @router.delete("/instances/{id}")
 async def delete_service_instance(id: str, service: ServiceInstanceService = Depends(get_service_instance_service)):
     """Delete a service instance"""
-    success = await service.delete(id)
-    if not success:
-        raise ApiException(message="Service instance not found or failed to delete.", status_code=404)
+    try:    
+        success = await service.delete_service_by_id(id)
+        if not success:
+            raise ApiException(message="Service instance not found or failed to delete.", status_code=404)
+    except ApiException:
+        raise
+    except Exception as e:
+        raise ApiException(message="Failed to delete service instance.", status_code=400, details=str(e))
+    
     return {"message": "Service instance deleted successfully"}
 
 

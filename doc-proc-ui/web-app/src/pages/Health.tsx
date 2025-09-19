@@ -70,10 +70,12 @@ const Connections = () => {
           name: service.name === 'cosmos_db' ? 'Azure Cosmos DB' :
                 service.name === 'storage_queue' ? 'Azure Storage Queue' :
                 service.name === 'app_config' ? 'Azure App Configuration' :
+                service.name === 'blob_storage' ? 'Azure Blob Storage' :
                 service.name,
           type: service.name === 'cosmos_db' ? 'database' :
                 service.name === 'storage_queue' ? 'storage' :
                 service.name === 'app_config' ? 'config' :
+                service.name === 'blob_storage' ? 'storage' :
                 'api' as const,
           status: service.status === 'connected' ? 'connected' :
                   service.status === 'error' ? 'error' :
@@ -182,8 +184,8 @@ const Connections = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Connections</h1>
-          <p className="text-muted-foreground">Monitor the status of backend service connections</p>
+          <h1 className="text-3xl font-bold">Application Health</h1>
+          <p className="text-muted-foreground">Monitor the health status of backend service connections</p>
         </div>
         <Button onClick={handleRefresh} disabled={isRefreshing || loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />

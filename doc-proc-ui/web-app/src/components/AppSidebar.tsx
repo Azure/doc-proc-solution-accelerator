@@ -28,11 +28,6 @@ const appNavigationItems = [
     icon: Vault,
   },
   {
-    title: "Vaults2",
-    url: "/vaults2",
-    icon: Vault,
-  },
-  {
     title: "Vaults3",
     url: "/vaults3",
     icon: Vault,
@@ -43,18 +38,8 @@ const appNavigationItems = [
     icon: Vault,
   },
   {
-    title: "Vaults5",
-    url: "/vaults5",
-    icon: Vault,
-  },
-  {
-    title: "Vaults6",
-    url: "/vaults6",
-    icon: Vault,
-  },  
-  {
-    title: "App Connections",
-    url: "/connections",
+    title: "App Health",
+    url: "/health",
     icon: Link,
   },
 
