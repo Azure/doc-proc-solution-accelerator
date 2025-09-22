@@ -44,7 +44,6 @@ class ExecutionManager():
             
             # Step 1: Create batch execution
             batch = await self._create_batch_execution(batch_id, batch_execution_request)
-            
         
             # Load pipeline
             pipeline = await self._pipeline_manager.load_pipeline(batch.pipeline_name)
@@ -56,19 +55,16 @@ class ExecutionManager():
             pipeline_execution_result = await self._process_batch(batch, pipeline)
 
             # Store the result in the database
-            await self._store_pipeline_execution_result(batch.id, pipeline_execution_result)
+            _stored_pipeline_execution = await self._store_pipeline_execution_result(batch.id, pipeline_execution_result)
 
-            successful_documents = pipeline_execution_result.summary_stats.get("successful_documents", 0)
-            failed_documents = pipeline_execution_result.summary_stats.get("failed_documents", 0)
 
             # Complete the batch
-            final_status = BatchStatus.FAILED if pipeline_execution_result.result == "Failed" else BatchStatus.COMPLETED
-            await self._update_batch_status(
-                batch.id,
-                final_status,
-                completed_at=datetime.now(timezone.utc).isoformat(),
-                completed_documents=successful_documents,
-                failed_documents=failed_documents
+            final_status = BatchStatus.COMPLETED
+            await self._update_completion_batch_status(
+                batch_id=batch.id,
+                status=final_status,
+                stored_pipeline_execution_id=_stored_pipeline_execution.get("id", ""),
+                pipeline_execution_result=pipeline_execution_result,
             )
             
             return True
@@ -125,7 +121,7 @@ class ExecutionManager():
         output_data["batch_execution_id"] = batch_id
         output_data["created_at"] = datetime.now(timezone.utc).isoformat()
 
-        self._db.upsert(container=self._pipeline_executions_container_name, item=output_data)
+        return self._db.upsert(container=self._pipeline_executions_container_name, item=output_data)
 
     
     async def _create_batch_execution(self, batch_id: str, request: BatchExecutionRequest) -> BatchExecution:
@@ -134,13 +130,14 @@ class ExecutionManager():
         # Create batch execution
         batch = BatchExecution(
             id=batch_id,
-            status=BatchStatus.SUBMITTED,
+            status=BatchStatus.RUNNING,
             pipeline_name=request.pipeline_name,
             documents=request.documents,
             total_documents=len(request.documents),
             priority=request.priority,
             source_batch_id=request.source_batch_id,
             submitted_at=datetime.now(timezone.utc).isoformat(),
+            started_at=datetime.now(timezone.utc).isoformat(),
             metadata=request.metadata
         )
         
@@ -174,3 +171,51 @@ class ExecutionManager():
         self._db.upsert(container=self._batch_executions_container_name, item=batch_data)
         return True
     
+    async def _update_completion_batch_status(self, batch_id: str, status: BatchStatus, 
+                                                    stored_pipeline_execution_id: str,
+                                                    pipeline_execution_result: PipelineExecutionResult,
+                                                    **kwargs) -> bool:
+        """Update batch execution status on completion"""
+        batch_data = self._db.get(container=self._batch_executions_container_name, id=batch_id)
+        if not batch_data:
+            return False
+        
+        batch_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        batch_data["status"] = status.value
+        batch_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # Update specific fields if provided
+        for key, value in kwargs.items():
+            if key in ["submitted_at", "started_at", "completed_at", "metadata"]:
+                batch_data[key] = value
+        
+        
+        # Update statistics from pipeline execution result
+        successful_documents = pipeline_execution_result.summary_stats.get("successful_documents", 0)
+        failed_documents = pipeline_execution_result.summary_stats.get("failed_documents", 0)
+        
+        # Update statistics from pipeline execution result
+        batch_data["pipeline_execution_id"] = stored_pipeline_execution_id
+        batch_data["successful_documents"] = successful_documents
+        batch_data["failed_documents"] = failed_documents
+        
+        # update status of individual documents if available
+        _pipeline_execution_result = pipeline_execution_result.model_dump()
+        if "document_results" in _pipeline_execution_result:
+            document_results = _pipeline_execution_result.get("document_results", [])
+            for doc_result in document_results:
+                if "document_id" in doc_result and "result" in doc_result:
+                    doc_id = doc_result["document_id"]
+                    doc_status = doc_result["result"]
+                    doc_reason = doc_result.get("reason", "")
+                    doc_elapsed_time = doc_result.get("elapsed_time_secs", 0.0)
+                    # Find the document in the batch and update its status
+                    for batch_doc in batch_data.get("documents", []):
+                        if batch_doc.get("id", "") == doc_id:
+                            batch_doc["status"] = doc_status
+                            batch_doc["reason"] = doc_reason
+                            batch_doc["elapsed_time_secs"] = doc_elapsed_time
+                            break
+        
+        self._db.upsert(container=self._batch_executions_container_name, item=batch_data)
+        return True

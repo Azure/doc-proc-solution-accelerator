@@ -18,10 +18,10 @@ from azure.ai.inference.models import (
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
-logger = logging.getLogger("doc.proc.step.pdf_text_extractor") # need to specify the logger name as this module is loaded dynamically
+logger = logging.getLogger("doc.proc.step.ai_pdf_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
-class PDFTextExtractorStep(StepBase):
+class AIPDFTextExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
         super().__init__(instance_config=instance_config, **kwargs)
@@ -34,17 +34,12 @@ class PDFTextExtractorStep(StepBase):
         self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
 
         # get prompts from settings
-        self.prompts = self.settings.get("prompts", {})
-        if not self.prompts:
-            logger.error("No prompts found in settings.")
-            raise StepExecutionError("No prompts found in settings.")
-
-        self.system_prompt = self.prompts.get("system", "")
+        self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.prompts.get("user", "")
+        self.user_prompt = self.settings.get("user_prompt", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -165,10 +160,11 @@ class PDFTextExtractorStep(StepBase):
             logger.error(f"PDF file not found: {pdf_file_path}.")
             raise FileNotFoundError(f"PDF file not found: {pdf_file_path}. Please check the file path and try again.")
 
-
+        document_id = document.get("id", os.path.basename(pdf_file_path))
+        
         # STEP 1: Convert PDF to PNG
         logger.debug(f"Converting PDF file {pdf_file_path} to PNG images...")
-        chunks_data = self._convert_pdf_to_png(pdf_file_path)
+        chunks_data = self._convert_pdf_to_png(document_id, pdf_file_path)
 
         # Step 2: Convert PNG files to Markdown using AI Model Inference Service
         logger.debug(f"Converting {len(chunks_data)} PNG files to Markdown...")
@@ -191,13 +187,13 @@ class PDFTextExtractorStep(StepBase):
                 # Call the AI Model Inference Service chat completion method with the PNG file
 
                 markdown = self._convert_png_to_markdown(chunk['png'], ai_model_inference_service)
-                chunk['markdown_text'] = markdown
+                chunk['markdown'] = markdown
 
                 # Extract text sections from the markdown
                 if markdown:
                     chunk['page_text'] = self._extract_text_section(markdown)
                     chunk['page_image_descriptions'] = self._extract_image_sections(markdown)
-                    chunk['text'] = chunk.get('page_text', '') + chunk.get('page_image_descriptions', '')  # Append to existing text if any
+                    chunk['markdown_text'] = chunk.get('page_text', '') + chunk.get('page_image_descriptions', '')  # Append to existing text if any
 
             except Exception as e:
                 logger.warning(f"Error converting PNG file {chunk['png']} to Markdown: {e}. Skipping this PNG file.")
@@ -209,7 +205,7 @@ class PDFTextExtractorStep(StepBase):
         return document
 
     
-    def _convert_pdf_to_png(self, pdf_file_path: str) -> List[dict]:
+    def _convert_pdf_to_png(self, document_id: str, pdf_file_path: str) -> List[dict]:
         """
         Convert PDF pages to PNG images.
         
@@ -233,7 +229,7 @@ class PDFTextExtractorStep(StepBase):
         for page_num in range(0, self.pages_to_convert):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
-            png_file_path = f'{png_output_folder}/page_{page_num+1}.png'
+            png_file_path = f'{png_output_folder}/{document_id}_page_{page_num+1}.png'
             pix.save(png_file_path)
 
             # generate a unique identifier for the page by hashing the file path and page number

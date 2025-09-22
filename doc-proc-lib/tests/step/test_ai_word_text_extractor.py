@@ -1,22 +1,22 @@
 """
-Unit tests for the WordTextExtractorStep class.
+Unit tests for the AIWordTextExtractorStep class.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
-from doc.proc.step.word_text_extractor import WordTextExtractorStep
+from doc.proc.step.ai_word_text_extractor import AIWordTextExtractorStep
 from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
 
 
-class TestWordTextExtractorStep:
-    """Test cases for WordTextExtractorStep."""
+class TestAIWordTextExtractorStep:
+    """Test cases for AIWordTextExtractorStep."""
     
     @pytest.fixture
     def word_step_config(self):
-        """Fixture for WordTextExtractorStep configuration."""
+        """Fixture for AIWordTextExtractorStep configuration."""
         return StepInstanceConfig(
-            step_catalog_id="word_text_extractor",
-            name="word_extractor_instance",
+            step_catalog_id="ai_word_text_extractor",
+            name="ai_word_extractor_instance",
             enabled=True,
             debug_mode=True,
             services=[],
@@ -46,8 +46,8 @@ class TestWordTextExtractorStep:
         )
     
     def test_word_step_initialization(self, word_step_config):
-        """Test successful initialization of WordTextExtractorStep."""
-        step = WordTextExtractorStep(word_step_config)
+        """Test successful initialization of AIWordTextExtractorStep."""
+        step = AIWordTextExtractorStep(word_step_config)
         
         assert step.step_catalog_id == "word_text_extractor"
         assert step.name == "word_extractor_instance"
@@ -55,8 +55,8 @@ class TestWordTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_word_step_invalid_input_data(self, word_step_config, mock_pipeline_context):
-        """Test WordTextExtractorStep with invalid input data."""
-        step = WordTextExtractorStep(word_step_config)
+        """Test AIWordTextExtractorStep with invalid input data."""
+        step = AIWordTextExtractorStep(word_step_config)
         
         # Test with None input
         with pytest.raises(StepExecutionError) as exc_info:
@@ -65,8 +65,8 @@ class TestWordTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_word_step_no_documents(self, word_step_config, mock_pipeline_context):
-        """Test WordTextExtractorStep with no documents."""
-        step = WordTextExtractorStep(word_step_config)
+        """Test AIWordTextExtractorStep with no documents."""
+        step = AIWordTextExtractorStep(word_step_config)
         
         step_input = StepInputOutput(
             summary_data={},
@@ -78,10 +78,10 @@ class TestWordTextExtractorStep:
         assert "No documents list found in input data" in str(exc_info.value)
     
     @pytest.mark.asyncio
-    @patch('doc.proc.step.word_text_extractor.docx.Document')
+    @patch('doc.proc.step.ai_word_text_extractor.docx.Document')
     async def test_word_step_successful_processing(self, mock_docx, word_step_config, word_document_input, mock_pipeline_context):
         """Test successful Word document processing."""
-        step = WordTextExtractorStep(word_step_config)
+        step = AIWordTextExtractorStep(word_step_config)
         
         # Mock python-docx
         mock_doc = MagicMock()
@@ -102,8 +102,8 @@ class TestWordTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_word_step_file_not_found(self, word_step_config, word_document_input, mock_pipeline_context):
-        """Test WordTextExtractorStep when file doesn't exist."""
-        step = WordTextExtractorStep(word_step_config)
+        """Test AIWordTextExtractorStep when file doesn't exist."""
+        step = AIWordTextExtractorStep(word_step_config)
         
         with patch('os.path.exists', return_value=False):
             result = await step.run(word_document_input, mock_pipeline_context)
@@ -115,8 +115,8 @@ class TestWordTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_word_step_invalid_document_format(self, word_step_config, mock_pipeline_context):
-        """Test WordTextExtractorStep with invalid document format."""
-        step = WordTextExtractorStep(word_step_config)
+        """Test AIWordTextExtractorStep with invalid document format."""
+        step = AIWordTextExtractorStep(word_step_config)
         
         step_input = StepInputOutput(
             summary_data={},

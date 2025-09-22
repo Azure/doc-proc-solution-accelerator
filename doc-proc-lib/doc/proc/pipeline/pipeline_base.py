@@ -428,9 +428,12 @@ class Pipeline:
         if documents and isinstance(documents, list) and len(documents) > 0:
             logger.info(f"Processing {len(documents)} documents in parallel")
             
+            idx = 0
             # Process all documents in parallel
             document_tasks = []
             for document in documents:
+                logger.debug(f"Queuing document {idx+1}/{len(documents)} with ID: {document.get('id', 'unknown')} for processing")
+                idx += 1
                 # Create a copy of context for each document to avoid shared state issues
                 doc_context = PipelineExecutionContext(
                     pipeline=self, 

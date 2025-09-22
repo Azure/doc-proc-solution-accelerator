@@ -17,10 +17,10 @@ from azure.ai.inference.models import (
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
-logger = logging.getLogger("doc.proc.step.pptx_text_extractor") # need to specify the logger name as this module is loaded dynamically
+logger = logging.getLogger("doc.proc.step.ai_pptx_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
-class PowerPointTextExtractorStep(StepBase):
+class AIPowerPointTextExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
         super().__init__(instance_config=instance_config, **kwargs)
@@ -37,17 +37,12 @@ class PowerPointTextExtractorStep(StepBase):
         self.slides_to_convert = self.settings.get("num_slides", -1)  # -1 means all slides
 
         # get prompts from settings
-        self.prompts = self.settings.get("prompts", {})
-        if not self.prompts:
-            logger.error("No prompts found in settings.")
-            raise StepExecutionError("No prompts found in settings.")
-
-        self.system_prompt = self.prompts.get("system", "")
+        self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.prompts.get("user", "")
+        self.user_prompt = self.settings.get("user_prompt", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -389,7 +384,7 @@ class PowerPointTextExtractorStep(StepBase):
                     image_data = shape.image.blob
                     
                     # Generate filename
-                    image_filename = f"slide_{slide_number}_image_{image_counter}.png"
+                    image_filename = f"{os.path.basename(pptx_file_path)}_slide_{slide_number}_image_{image_counter}.png"
                     image_path = os.path.join(png_output_folder, image_filename)
                     
                     # Save the image

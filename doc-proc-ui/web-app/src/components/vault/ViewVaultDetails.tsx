@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +54,13 @@ import {
   ArrowRight,
   Download,
   RefreshCw,
-  Settings
+  Settings,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  Filter,
+  Search,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import UploadVaultDocuments from "@/components/vault/UploadVaultDocuments";
@@ -48,6 +71,7 @@ import {
   type Pipeline, 
   type DocumentInfo
 } from "@/lib/api";
+import { randomInt } from "crypto";
 
 interface ViewVaultDetailsProps {
   vault: Vault;
@@ -70,6 +94,20 @@ const ViewVaultDetails = ({
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
 
+  // Document status tracking
+  const [documentStatuses, setDocumentStatuses] = useState<Record<string, string>>({});
+  const [loadingStatuses, setLoadingStatuses] = useState<Set<string>>(new Set());
+  const [statusRefreshInterval, setStatusRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [lastStatusRefresh, setLastStatusRefresh] = useState<Date | null>(null);
+
+  // Pagination and filtering state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [timeFilter, setTimeFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortColumn, setSortColumn] = useState<keyof DocumentInfo | "">("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   // Dialog states
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [isPipelineDialogOpen, setIsPipelineDialogOpen] = useState(false);
@@ -83,6 +121,44 @@ const ViewVaultDetails = ({
     if (vault?.id) {
       loadVaultDocuments(vault.id);
     }
+  }, []);
+
+  // Fetch document statuses when documents are loaded
+  useEffect(() => {
+    if (documents.length > 0) {
+      fetchAllDocumentStatuses();
+    }
+  }, [documents]);
+
+  // Set up auto-refresh for document statuses every 30 seconds
+  useEffect(() => {
+    if (documents.length > 0) {
+      const interval = setInterval(() => {
+        refreshVisibleDocumentStatuses();
+      }, 30000); // Refresh every 30 seconds
+
+      setStatusRefreshInterval(interval);
+
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }
+
+    return () => {
+      if (statusRefreshInterval) {
+        clearInterval(statusRefreshInterval);
+        setStatusRefreshInterval(null);
+      }
+    };
+  }, [documents, currentPage, pageSize]); // Re-setup when pagination changes
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (statusRefreshInterval) {
+        clearInterval(statusRefreshInterval);
+      }
+    };
   }, []);
 
   const loadVaultDocuments = async (vaultId: string) => {
@@ -100,6 +176,235 @@ const ViewVaultDetails = ({
     } finally {
       setIsLoadingDocuments(false);
     }
+  };
+
+  // Mock API function to fetch document batch execution status
+  const fetchDocumentBatchStatus = async (documentId: string): Promise<string> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+    
+    // Mock different statuses based on document ID for demonstration
+    const mockStatuses = ['processing', 'completed', 'failed', 'pending', 'queued'];
+    const statusIndex = Math.floor(Math.random() * mockStatuses.length);
+    return mockStatuses[statusIndex];
+  };
+
+  // Fetch status for a specific document
+  const fetchSingleDocumentStatus = async (documentId: string) => {
+    if (loadingStatuses.has(documentId)) return; // Prevent duplicate calls
+    
+    setLoadingStatuses(prev => new Set(prev).add(documentId));
+    
+    try {
+      const status = await fetchDocumentBatchStatus(documentId);
+      console.log(`Fetched status for document ${documentId}: ${status}`);
+      setDocumentStatuses(prev => ({
+        ...prev,
+        [documentId]: status
+      }));
+    } catch (error) {
+      console.error(`Error fetching status for document ${documentId}:`, error);
+      toast({
+        title: "Status Update Failed",
+        description: `Could not fetch status for document ID: ${documentId}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStatuses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
+
+  // Fetch statuses for all documents
+  const fetchAllDocumentStatuses = async () => {
+    const promises = documents.map(doc => fetchSingleDocumentStatus(doc.id));
+    await Promise.allSettled(promises);
+    setLastStatusRefresh(new Date());
+  };
+
+  // Refresh statuses for visible documents only
+  const refreshVisibleDocumentStatuses = async () => {
+    const visibleDocuments = getPaginatedDocuments;
+    const promises = visibleDocuments.map(doc => fetchSingleDocumentStatus(doc.id));
+    await Promise.allSettled(promises);
+    setLastStatusRefresh(new Date());
+  };
+
+  // Time filter options
+  const timeFilterOptions = [
+    { value: "all", label: "All Time" },
+    { value: "1h", label: "Last 1 Hour" },
+    { value: "4h", label: "Last 4 Hours" },
+    { value: "24h", label: "Last 24 Hours" },
+    { value: "7d", label: "Last 7 Days" },
+    { value: "30d", label: "Last 30 Days" },
+  ];
+
+  // Filter documents based on time range and search query
+  const getFilteredDocuments = useMemo(() => {
+    let filteredDocs = [...documents];
+
+    // Apply time filter
+    if (timeFilter !== "all") {
+      const now = new Date();
+      const cutoffTime = new Date();
+
+      switch (timeFilter) {
+        case "1h":
+          cutoffTime.setHours(now.getHours() - 1);
+          break;
+        case "4h":
+          cutoffTime.setHours(now.getHours() - 4);
+          break;
+        case "24h":
+          cutoffTime.setDate(now.getDate() - 1);
+          break;
+        case "7d":
+          cutoffTime.setDate(now.getDate() - 7);
+          break;
+        case "30d":
+          cutoffTime.setDate(now.getDate() - 30);
+          break;
+      }
+
+      filteredDocs = filteredDocs.filter(doc => 
+        new Date(doc.upload_date) >= cutoffTime
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredDocs = filteredDocs.filter(doc => 
+        doc.name.toLowerCase().includes(query)
+      );
+    }
+
+    return filteredDocs;
+  }, [documents, timeFilter, searchQuery]);
+
+  // Sort documents
+  const getSortedDocuments = useMemo(() => {
+    const filtered = getFilteredDocuments;
+    
+    if (!sortColumn) return filtered;
+
+    return [...filtered].sort((a, b) => {
+      let aValue: any = a[sortColumn];
+      let bValue: any = b[sortColumn];
+
+      // Handle different data types
+      if (sortColumn === "upload_date") {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (sortColumn === "size_bytes") {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      } else if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [getFilteredDocuments, sortColumn, sortDirection]);
+
+  // Paginate documents
+  const getPaginatedDocuments = useMemo(() => {
+    const sorted = getSortedDocuments;
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return sorted.slice(startIndex, endIndex);
+  }, [getSortedDocuments, currentPage, pageSize]);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(getSortedDocuments.length / pageSize);
+
+  // Handle sorting
+  const handleSort = (column: keyof DocumentInfo) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (size: string) => {
+    setPageSize(parseInt(size));
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
+
+  // Handle time filter change
+  const handleTimeFilterChange = (filter: string) => {
+    setTimeFilter(filter);
+    setCurrentPage(1); // Reset to first page when changing filter
+  };
+
+  // Handle search change
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  // Handle clear search
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  // Reset pagination when documents change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [documents]);
+
+  // Render sort icon
+  const renderSortIcon = (column: keyof DocumentInfo) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    return sortDirection === "asc" 
+      ? <ChevronUp className="ml-2 h-4 w-4" />
+      : <ChevronDown className="ml-2 h-4 w-4" />;
+  };
+
+  // Get current document status (from API or fallback to original)
+  const getCurrentDocumentStatus = (doc: DocumentInfo) => {
+    return documentStatuses[doc.id] || doc.status;
+  };
+
+  // Get status variant for badge
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case "completed":
+      case "processed":
+        return "default";
+      case "processing":
+      case "queued":
+        return "secondary";
+      case "failed":
+      case "error":
+        return "destructive";
+      default:
+        return "secondary";
+    }
+  };
+
+  // Handle manual status refresh for a document
+  const handleRefreshDocumentStatus = async (documentId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent row click if any
+    await fetchSingleDocumentStatus(documentId);
   };
 
   const errorLogs = [
@@ -430,104 +735,436 @@ const ViewVaultDetails = ({
                     Documents stored in this vault and their processing status.
                   </CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadVaultDocuments(vault.id)}
-                  disabled={isLoadingDocuments}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoadingDocuments ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refreshVisibleDocumentStatuses()}
+                    disabled={loadingStatuses.size > 0}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loadingStatuses.size > 0 ? 'animate-spin' : ''}`} />
+                    Refresh Status
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadVaultDocuments(vault.id)}
+                    disabled={isLoadingDocuments}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoadingDocuments ? 'animate-spin' : ''}`} />
+                    Refresh Documents
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filters and Controls */}
+              <div className="flex flex-col space-y-4 mb-6">
+                {/* Search and Time Filter Row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search documents..."
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="pl-8 w-64"
+                      />
+                      {searchQuery && (
+                        <X
+                          className="absolute right-2 top-2.5 h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                          onClick={handleClearSearch}
+                        />
+                      )}
+                    </div>
+                    
+                    {/* Time Filter */}
+                    <div className="flex items-center space-x-2">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="timeFilter">Filter by Upload Time:</Label>
+                      <Select value={timeFilter} onValueChange={handleTimeFilterChange}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="Select time range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeFilterOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Page Size Control */}
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="pageSize">Show:</Label>
+                    <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm text-muted-foreground">per page</span>
+                  </div>
+                </div>
+                
+                {/* Active Filters Display */}
+                {(timeFilter !== "all" || searchQuery.trim()) && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">Active filters:</span>
+                    {searchQuery.trim() && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Search className="h-3 w-3" />
+                        "{searchQuery}"
+                        <X 
+                          className="h-3 w-3 cursor-pointer" 
+                          onClick={handleClearSearch}
+                        />
+                      </Badge>
+                    )}
+                    {timeFilter !== "all" && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {timeFilterOptions.find(opt => opt.value === timeFilter)?.label}
+                        <X 
+                          className="h-3 w-3 cursor-pointer" 
+                          onClick={() => handleTimeFilterChange("all")}
+                        />
+                      </Badge>
+                    )}
+                    {(timeFilter !== "all" || searchQuery.trim()) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          handleTimeFilterChange("all");
+                          handleClearSearch();
+                        }}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Clear all
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Data Table */}
               {isLoadingDocuments ? (
                 <div className="text-center py-8">
                   <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-muted-foreground" />
                   <p className="text-muted-foreground">Loading documents...</p>
                 </div>
-              ) : documents.length === 0 ? (
+              ) : getSortedDocuments.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <p>No documents in this vault yet.</p>
-                  <p className="text-sm">Upload documents to get started.</p>
+                  {searchQuery.trim() ? (
+                    <>
+                      <p>No documents found matching "{searchQuery}".</p>
+                      <p className="text-sm">Try adjusting your search terms or clearing the search filter.</p>
+                    </>
+                  ) : timeFilter !== "all" ? (
+                    <>
+                      <p>No documents found in the selected time range.</p>
+                      <p className="text-sm">Try adjusting your filter or selecting a different time range.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>No documents in this vault yet.</p>
+                      <p className="text-sm">Upload documents to get started.</p>
+                    </>
+                  )}
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Document</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Upload Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {documents.map((doc) => (
-                      <TableRow key={doc.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <FileText className="h-5 w-5 text-muted-foreground" />
-                            <span className="font-medium">{doc.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {(doc.size_bytes / (1024 * 1024)).toFixed(2)} MB
-                        </TableCell>
-                        <TableCell>
-                          {new Date(doc.upload_date).toLocaleDateString()} - {new Date(doc.upload_date).toLocaleTimeString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={doc.status === "processed" ? "default" : "secondary"}>
-                            {doc.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleViewProcessingPipeline(doc.id)}
-                            >
-                              <Workflow className="h-3 w-3 mr-1" />
-                              Pipeline
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleViewErrorLogs(doc.id)}
-                            >
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Errors
-                            </Button>
-                            {doc.status === "failed" && (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleRetryProcessing(parseInt(doc.id))}
+                <div className="space-y-4">
+                  {/* Results Info */}
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div>
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, getSortedDocuments.length)} of {getSortedDocuments.length} documents
+                      {(timeFilter !== "all" || searchQuery.trim()) && (
+                        <span> (filtered from {documents.length} total)</span>
+                      )}
+                    </div>
+                    {lastStatusRefresh && (
+                      <div className="flex items-center space-x-1">
+                        <span>Status last updated:</span>
+                        <span className="font-medium">
+                          {lastStatusRefresh.toLocaleTimeString()}
+                        </span>
+                        {loadingStatuses.size > 0 && (
+                          <Loader2 className="h-3 w-3 animate-spin ml-2" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Table */}
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead 
+                            className="cursor-pointer select-none hover:bg-muted/50"
+                            onClick={() => handleSort("name")}
+                          >
+                            <div className="flex items-center">
+                              Document
+                              {renderSortIcon("name")}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none hover:bg-muted/50"
+                            onClick={() => handleSort("size_bytes")}
+                          >
+                            <div className="flex items-center">
+                              Size
+                              {renderSortIcon("size_bytes")}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none hover:bg-muted/50"
+                            onClick={() => handleSort("upload_date")}
+                          >
+                            <div className="flex items-center">
+                              Upload Date
+                              {renderSortIcon("upload_date")}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer select-none hover:bg-muted/50"
+                            onClick={() => handleSort("status")}
+                          >
+                            <div className="flex items-center">
+                              Status
+                              {renderSortIcon("status")}
+                            </div>
+                          </TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getPaginatedDocuments.map((doc) => (
+                          <TableRow key={doc.id}>
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <FileText className="h-5 w-5 text-muted-foreground" />
+                                <span className="font-medium">{doc.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {(doc.size_bytes / (1024 * 1024)).toFixed(2)} MB
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(doc.upload_date).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {loadingStatuses.has(doc.id) ? (
+                                  <div className="flex items-center space-x-2">
+                                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                    <Badge variant="secondary" className="opacity-60">
+                                      {getCurrentDocumentStatus(doc)}
+                                    </Badge>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Badge variant={getStatusVariant(getCurrentDocumentStatus(doc))}>
+                                      {getCurrentDocumentStatus(doc)}
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => handleRefreshDocumentStatus(doc.id, e)}
+                                      className="h-5 w-5 p-0 hover:bg-muted"
+                                      title="Refresh status"
+                                    >
+                                      <RefreshCw className="h-3 w-3" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleViewProcessingPipeline(doc.id)}
+                                >
+                                  <Workflow className="h-3 w-3 mr-1" />
+                                  Pipeline
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleViewErrorLogs(doc.id)}
+                                >
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  Errors
+                                </Button>
+                                {(getCurrentDocumentStatus(doc) === "failed" || getCurrentDocumentStatus(doc) === "error") && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleRetryProcessing(parseInt(doc.id))}
+                                  >
+                                    <RotateCcw className="h-3 w-3 mr-1" />
+                                    Retry
+                                  </Button>
+                                )}
+                                {getCurrentDocumentStatus(doc) === "pending" && (
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleProcessDocument(parseInt(doc.id))}
+                                  >
+                                    <Play className="h-3 w-3 mr-1" />
+                                    Process
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              href="#" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (currentPage > 1) handlePageChange(currentPage - 1);
+                              }}
+                              className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                          
+                          {/* First page */}
+                          {currentPage > 2 && (
+                            <PaginationItem>
+                              <PaginationLink 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handlePageChange(1);
+                                }}
+                                className="cursor-pointer"
                               >
-                                <RotateCcw className="h-3 w-3 mr-1" />
-                                Retry
-                              </Button>
-                            )}
-                            {doc.status === "pending" && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleProcessDocument(parseInt(doc.id))}
+                                1
+                              </PaginationLink>
+                            </PaginationItem>
+                          )}
+                          
+                          {/* Ellipsis */}
+                          {currentPage > 3 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          
+                          {/* Previous page */}
+                          {currentPage > 1 && (
+                            <PaginationItem>
+                              <PaginationLink 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handlePageChange(currentPage - 1);
+                                }}
+                                className="cursor-pointer"
                               >
-                                <Play className="h-3 w-3 mr-1" />
-                                Process
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                                {currentPage - 1}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )}
+                          
+                          {/* Current page */}
+                          <PaginationItem>
+                            <PaginationLink 
+                              href="#" 
+                              isActive
+                              className="cursor-pointer"
+                            >
+                              {currentPage}
+                            </PaginationLink>
+                          </PaginationItem>
+                          
+                          {/* Next page */}
+                          {currentPage < totalPages && (
+                            <PaginationItem>
+                              <PaginationLink 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handlePageChange(currentPage + 1);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                {currentPage + 1}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )}
+                          
+                          {/* Ellipsis */}
+                          {currentPage < totalPages - 2 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          
+                          {/* Last page */}
+                          {currentPage < totalPages - 1 && (
+                            <PaginationItem>
+                              <PaginationLink 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handlePageChange(totalPages);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                {totalPages}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )}
+                          
+                          <PaginationItem>
+                            <PaginationNext 
+                              href="#" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                              }}
+                              className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

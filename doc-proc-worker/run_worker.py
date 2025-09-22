@@ -19,15 +19,80 @@ import os
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
-from app.queue_worker import QueueWorker
-from app.worker_pool import WorkerPoolManager
-from app.log_setup import setup_logger
-
 _settings = None  # Placeholder for app_settings import
+
+
+async def check_cosmos_db_connectivity():
+    """Check Cosmos DB connectivity before starting workers"""
+    from app.proxy.cosmos import CosmosDb
+    from app.utils import get_azure_credential
+    from azure.cosmos import CosmosClient, exceptions
+    
+    logger = logging.getLogger("doc-proc-worker.run_worker")
+    
+    # Check if required settings are available
+    if not _settings.COSMOS_DB_ENDPOINT:
+        logger.fatal("❌ FATAL: COSMOS_DB_ENDPOINT is not configured")
+        raise SystemExit("Cosmos DB endpoint is required but not configured. Please check your environment variables or Azure App Configuration.")
+    
+    if not _settings.COSMOS_DB_NAME:
+        logger.fatal("❌ FATAL: COSMOS_DB_NAME is not configured") 
+        raise SystemExit("Cosmos DB database name is required but not configured.")
+    
+    logger.info(f"🔍 Checking Cosmos DB connectivity...")
+    logger.info(f"   - Endpoint: {_settings.COSMOS_DB_ENDPOINT}")
+    logger.info(f"   - Database: {_settings.COSMOS_DB_NAME}")
+    
+    try:
+        # Test basic connectivity
+        cosmos_db = CosmosDb(endpoint=_settings.COSMOS_DB_ENDPOINT, database_name=_settings.COSMOS_DB_NAME)
+        
+        # Try to get database info - this will fail if we can't connect or authenticate
+        database = cosmos_db.database
+        database_properties = database.read()
+        
+        logger.info(f"✅ Successfully connected to Cosmos DB")
+        logger.info(f"   - Database ID: {database_properties.get('id')}")
+        
+        # Test that we can access required containers
+        required_containers = _settings.get_cosmos_db_containers()
+        logger.info(f"🔍 Verifying access to {len(required_containers)} required containers...")
+        
+        for container_name in required_containers:
+            try:
+                container = database.get_container_client(container_name)
+                # Try a simple query to test read access
+                list(container.query_items("SELECT TOP 1 * FROM c", enable_cross_partition_query=True))
+                logger.debug(f"   ✅ Container '{container_name}' is accessible")
+            except exceptions.CosmosResourceNotFoundError:
+                logger.warning(f"   ⚠️  Container '{container_name}' does not exist (will be created automatically)")
+            except Exception as e:
+                logger.error(f"   ❌ Failed to access container '{container_name}': {e}")
+                raise
+        
+        logger.info("✅ Cosmos DB connectivity check passed")
+        
+    except exceptions.CosmosHttpResponseError as e:
+        logger.fatal(f"❌ FATAL: Cosmos DB HTTP error (status {e.status_code}): {e.message}")
+        if e.status_code == 401:
+            raise SystemExit("Cosmos DB authentication failed. Please check your credentials and permissions.")
+        elif e.status_code == 403:
+            raise SystemExit("Cosmos DB access forbidden. Please check your account permissions.")
+        elif e.status_code == 404:
+            raise SystemExit(f"Cosmos DB database '{_settings.COSMOS_DB_NAME}' not found. Please verify the database exists.")
+        else:
+            raise SystemExit(f"Cosmos DB connection failed with status {e.status_code}: {e.message}")
+    except Exception as e:
+        logger.fatal(f"❌ FATAL: Unexpected error during Cosmos DB connectivity check: {e}")
+        logger.fatal(f"Error type: {type(e).__name__}")
+        raise SystemExit(f"Failed to connect to Cosmos DB: {e}")
+
 
 async def run_single_worker():
     """Run a single queue worker (original behavior)"""
-    logger = logging.getLogger("doc-proc-worker.run_queue_worker")
+    from app.queue_worker import QueueWorker
+    
+    logger = logging.getLogger("doc-proc-worker.run_worker")
 
     logger.info("Starting single Azure Storage Queue Worker...")
     
@@ -47,7 +112,9 @@ async def run_single_worker():
 
 def run_worker_pool():
     """Run a multiprocessing pool of workers"""
-    logger = logging.getLogger("doc-proc-worker.run_queue_worker")
+    from app.worker_pool import WorkerPoolManager
+    
+    logger = logging.getLogger("doc-proc-worker.run_worker")
     
     # Determine number of workers
     num_workers = _settings.WORKER_POOL_SIZE
@@ -110,13 +177,29 @@ Examples:
     
     args = parser.parse_args()
     
+    
+    
     # get app_settings to ensure config is loaded
     from app.settings import app_settings
+    from app.log_setup import setup_logger
+    
+    global _settings
     _settings = app_settings 
 
     # Set up logging
     setup_logger()
     logger = logging.getLogger("doc-proc-worker.run_queue_worker")
+    
+    # Perform startup connectivity checks
+    logger.info("🚀 Starting up worker process...")
+    try:
+        asyncio.run(check_cosmos_db_connectivity())
+    except SystemExit:
+        # Re-raise SystemExit to preserve the exit behavior
+        raise
+    except Exception as e:
+        logger.fatal(f"❌ FATAL: Startup connectivity check failed: {e}")
+        return 1
     
     # Override settings from command line arguments
     if args.workers:

@@ -14,7 +14,6 @@ services_catalog:
     category: "Sample Category"                                                 # Logical grouping/category for the service
     version: "1.0"                                                              # Version of the service definition
     tags: [sample, demo, test]                                                  # List of tags for search/filtering
-
     # Schema for required and optional settings
     settings_schema:
       sample_setting:
@@ -61,7 +60,6 @@ services_catalog:
         description: "A boolean setting to enable or disable a feature"
         required: false
         default: false  # Default value for the boolean setting
-
     # UI metadata for display purposes
     ui_metadata:
       icon: "flask-round"    # Icon to represent the service in UI
@@ -71,8 +69,8 @@ services_catalog:
   
 
   # Azure Blob Storage service for document storage and retrieval
-  - id: azure_storage_01
-    name: "Azure Blob Storage - Primary"
+  - id: azure_storage_service_01
+    name: "Azure Blob Storage Service"
     description: "Primary Azure Blob Storage account for document storage and retrieval"
     type: azure_blob_storage
     module_name: blob_service
@@ -82,7 +80,6 @@ services_catalog:
     category: "Storage"
     version: "1.0"
     tags: [azure, storage, blob, documents]
-    
     # Service configuration settings schema
     settings_schema:
       account_name:
@@ -91,24 +88,23 @@ services_catalog:
         description: "Name of the Azure Blob Storage account"
         required: true
         env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_NAME"
-        default: 
+        default: ""
       credential_type:
         type: string
         title: "Credential Type"
         description: "Type of credential used for authentication"
         default: "azure_key_credential"
-        enum: ["azure_key_credential", "default_azure_credential"]
+        enum: [default_azure_credential, "azure_key_credential"]
         env_var: "AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE"
         default: default_azure_credential
       credential_key:
         type: string
         title: "Account Key"
-        description: "Account key for Azure Blob Storage authentication"
+        description: "Account key for Azure Blob Storage authentication. Required if using azure_key_credential."
         required: false
         sensitive: true
         env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_KEY"
         default: ""
-        
     # UI metadata
     ui_metadata:
       icon: "container"
@@ -129,45 +125,32 @@ services_catalog:
     category: "AI Services"
     version: "1.0"
     tags: [azure, ai, inference, llm, processing]
-
     settings_schema:
       endpoint:
         type: string
         title: "Service Endpoint"
         description: "Endpoint URL for the Azure AI Inference Service"
         required: true
-        pattern: "^https://.*"
+        pattern: "^https://.*\\.cognitiveservices.azure.com/openai/deployments/.*$"
         env_var: "AZURE_AI_INFERENCE_SERVICE_ENDPOINT"
-        default: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+        default: "https://<resource>.cognitiveservices.azure.com/openai/deployments/<deployment_name>"
       credential_type:
         type: string
         title: "Credential Type"
         description: "Type of credential used for authentication"
-        default: "azure_key_credential"
-        enum: ["azure_key_credential", "default_azure_credential"]
+        enum: ["default_azure_credential", "azure_key_credential"]
         env_var: "AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE"
+        required: true
         default: default_azure_credential
       api_key:
         type: string
         title: "API Key"
-        description: "API key for Azure AI Inference Service authentication"
+        description: "API key for Azure AI Inference Service authentication. Required if using azure_key_credential."
         required: false
         sensitive: true
         env_var: "AZURE_AI_INFERENCE_SERVICE_API_KEY"
         default: ""
-      model_name:
-        type: string
-        title: "Model Name"
-        description: "Name of the AI model to use for inference"
-        default: "gpt-4.1"
-      max_tokens:
-        type: integer
-        title: "Max Tokens"
-        description: "Maximum number of tokens for responses"
-        default: 4000
-        minimum: 100
-        maximum: 8000
-    
+    # UI metadata
     ui_metadata:
       icon: "brain"
       color: "#8B5CF6"
@@ -187,28 +170,27 @@ services_catalog:
     category: "AI Services"
     version: "1.0"
     tags: [azure, ai, document, intelligence, forms, content, understanding]
-
     settings_schema:
       endpoint:
         type: string
         title: "Service Endpoint"
         description: "Endpoint URL for the Azure Document Intelligence Service"
         required: true
-        pattern: "https://<resource>.cognitiveservices.azure.com/"
+        pattern: "https://.*\\.cognitiveservices.azure.com/$"
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT"
         default: "https://<resource>.cognitiveservices.azure.com/"
       credential_type:
         type: string
         title: "Credential Type"
         description: "Type of credential used for authentication"
-        default: "azure_key_credential"
-        enum: ["azure_key_credential", "default_azure_credential"]
+        enum: ["default_azure_credential", "azure_key_credential"]
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE"
+        required: true
         default: default_azure_credential
       api_key:
         type: string
         title: "API Key"
-        description: "API key for Azure Document Intelligence Service authentication"
+        description: "API key for Azure Document Intelligence Service authentication. Required if using azure_key_credential."
         required: false
         sensitive: true
         env_var: "AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY"
@@ -218,8 +200,7 @@ services_catalog:
         title: "Model ID"
         description: "ID of the AI model to use. Can be any model supported by Azure Document Intelligence, either prebuilt or custom."
         default: "prebuilt-layout"
-        enum: ["prebuilt-layout", "prebuilt-read", 'prebuilt-read', 'prebuilt-businessCard', 'prebuilt-idDocument', 'prebuilt-invoice', 'prebuilt-receipt', 'prebuilt-tax.us.w2', 'prebuilt-healthInsuranceCard.us']
-    
+    # UI Metadata    
     ui_metadata:
       icon: "brain-circuit"
       color: "#8B5CF6"
@@ -239,7 +220,6 @@ services_catalog:
     category: "Search"
     version: "1.0"
     tags: [azure, search, index, cognitive]
-    
     settings_schema:
       account_name:
         type: string
@@ -252,15 +232,15 @@ services_catalog:
         type: string
         title: "Credential Type"
         description: "Type of credential used for authentication"
-        default: "azure_key_credential"
-        enum: ["azure_key_credential", "default_azure_credential"]
+        enum: ["default_azure_credential", "azure_key_credential"]
         env_var: "AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE"
+        required: true
         default: default_azure_credential
       api_key:
         type: string
         title: "Admin API Key"
-        description: "Admin API key for Azure AI Search service"
-        required: true
+        description: "Admin API key for Azure AI Search service. Required if using azure_key_credential."
+        required: false
         sensitive: true
         env_var: "AZURE_SEARCH_SERVICE_API_KEY"
         default: ""
@@ -268,6 +248,7 @@ services_catalog:
         type: string
         title: "API Version"
         description: "Azure Search API version to use"
+        required: true
         default: "2025-05-01-preview"
       index_name:
         type: string
@@ -275,7 +256,7 @@ services_catalog:
         description: "Name of the search index to use"
         required: true
         default: "documents-index"
-    
+    # UI Metadata
     ui_metadata:
       icon: "search"
       color: "#FF6B35"
@@ -295,21 +276,28 @@ services_catalog:
     category: "Database"
     version: "1.0"
     tags: [azure, cosmos, database, nosql, metadata]
-    
     settings_schema:
       endpoint:
         type: string
         title: "Cosmos DB Endpoint"
         description: "Endpoint URL for Azure Cosmos DB"
         required: true
-        pattern: "^https://.*"
+        pattern: "^https://.*\\.documents.azure.com:443/$"
         env_var: "AZURE_COSMOS_DB_ENDPOINT"
-        default: ${AZURE_COSMOS_DB_ENDPOINT}
+        default: "https://<your-cosmos-account>.documents.azure.com:443/"
+      credential_type:
+        type: string
+        title: "Credential Type"
+        description: "Type of credential used for authentication"
+        enum: ["default_azure_credential", "azure_key_credential"]
+        env_var: "AZURE_COSMOS_DB_CREDENTIAL_TYPE"
+        required: true
+        default: default_azure_credential
       key:
         type: string
         title: "Primary Key"
-        description: "Primary key for Cosmos DB authentication"
-        required: true
+        description: "Primary key for Cosmos DB authentication. Required if using azure_key_credential"
+        required: false
         sensitive: true
         env_var: "AZURE_COSMOS_DB_KEY"
         default: ""
@@ -329,8 +317,9 @@ services_catalog:
         type: string
         title: "Partition Key"
         description: "Partition key for the container"
+        required: true
         default: "/id"
-    
+    # UI Metadata
     ui_metadata:
       icon: "database"
       color: "#00BCF2"

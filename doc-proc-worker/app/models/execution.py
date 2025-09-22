@@ -34,15 +34,13 @@ class BatchExecution(BaseModel):
     priority: int = Field(default=0, description="Execution priority")
     # Execution statistics
     total_documents: int = Field(default=0, description="Total number of documents")
-    completed_documents: int = Field(default=0, description="Number of completed documents")
+    successful_documents: int = Field(default=0, description="Number of successful documents")
     failed_documents: int = Field(default=0, description="Number of failed documents")
+    pipeline_execution_id: Optional[str] = Field(None, description="ID of the associated pipeline execution")
     # Timing information
     submitted_at: Optional[str] = Field(None, description="Batch execution submission time in utc tz iso-format")
     started_at: Optional[str] = Field(None, description="Batch execution start time in utc tz iso-format")
     completed_at: Optional[str] = Field(None, description="Batch execution completion time in utc tz iso-format")
-    # # Results and errors
-    # results: Dict[str, Any] = Field(default_factory=dict, description="Batch execution results")
-    # errors: List[str] = Field(default_factory=list, description="List of errors encountered")
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     source_batch_id: Optional[str] = Field(None, description="ID of the source batch if applicable")

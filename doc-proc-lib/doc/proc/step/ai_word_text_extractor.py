@@ -17,10 +17,10 @@ from azure.ai.inference.models import (
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
 
-logger = logging.getLogger("doc.proc.step.word_text_extractor") # need to specify the logger name as this module is loaded dynamically
+logger = logging.getLogger("doc.proc.step.ai_word_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
 
-class WordTextExtractorStep(StepBase):
+class AIWordTextExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
         super().__init__(instance_config=instance_config, **kwargs)
@@ -36,17 +36,12 @@ class WordTextExtractorStep(StepBase):
         self.max_chunk_size = self.settings.get("max_chunk_size", 4000)
 
         # get prompts from settings
-        self.prompts = self.settings.get("prompts", {})
-        if not self.prompts:
-            logger.error("No prompts found in settings.")
-            raise StepExecutionError("No prompts found in settings.")
-
-        self.system_prompt = self.prompts.get("system", "")
+        self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.prompts.get("user", "")
+        self.user_prompt = self.settings.get("user_prompt", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -65,96 +60,63 @@ class WordTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
-        # Implement your Word document text extraction logic
+    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+        """
+        Process input document to extract text and images from Word documents.
+        
+        Args:
+            document: Input document to process
+            context: Pipeline execution context
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-        
-        
+        Returns:
+            StepInputOutput: Output with local file_path added to documents that were downloaded
+        """
+
+        # Check if document has the required data structure
+        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:
             logger.error("Azure AI Model Inference Service not found in context.")
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "skipped_documents": 0,
-            "failed_documents": 0,
-        }
-
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
+        # get document from input data
+        doc_to_process = document.data
+        if not doc_to_process or not isinstance(doc_to_process, dict):
+            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
         
-        _stats["total_documents"] = len(documents)
         
-        # Iterate through each filtered document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
-            
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_to_process}")
                 
-                # Check if the document is a dictionary and has the 'file_path' key
-                if not isinstance(document, dict) or 'file_path' not in document:
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
-                
-                # Evaluate condition if present
-                if self.condition:
-                    condition_met = self.evaluate_document_condition(document, input_data)
-                    if not condition_met:
-                        _stats["skipped_documents"] += 1
-                        logger.info(f"Document skipped due to condition not met: {self.condition}")
-                        continue
-                    
-                # Process each document
-                # This will extend the document with extracted text and images for each section/chunk
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_model_inference_service=ai_model_inference_service)
+            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
+            # Validate required fields - now only file_path is required
+            if "file_path" not in doc_to_process:
+                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
 
-                _stats["successful_documents"] += 1
+            # Process each document
+            # This will extend the document with extracted text and images for each section/chunk
+            result_data = await self._process_document(document=doc_to_process, 
+                                                      context=context, 
+                                                      ai_model_inference_service=ai_model_inference_service)
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
-                else:
-                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {result_data}")
+            else:
+                logger.info(f"Successfully processed document: {result_data.get('file_path')}")
 
-            except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
-                _stats["failed_documents"] += 1
+            # Return the updated StepInputOutput
+            return StepInputOutput(summary_data = {**document.summary_data}, 
+                                   data = result_data)
 
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
-        
-        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
-        
-        # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-    
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
 
     def get_ai_inference_service(self, context: "PipelineExecutionContext"):
         """
@@ -175,7 +137,7 @@ class WordTextExtractorStep(StepBase):
         return None
 
 
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single Word document to extract text and images.
         
@@ -207,18 +169,20 @@ class WordTextExtractorStep(StepBase):
 
         # STEP 1: Extract text content from Word document
         logger.debug(f"Extracting text from Word file {word_file_path}...")
-        chunks_data = self.extract_word_content(word_file_path)
+        chunks_data = self._extract_word_content(word_file_path)
 
         # Step 2: Process extracted images using AI Model Inference Service if available
         if self.extract_images:
             logger.debug(f"Processing extracted images from Word document...")
-            await self.process_extracted_images(chunks_data, ai_model_inference_service)
+            await self._process_extracted_images(chunks_data, ai_model_inference_service)
 
         # Update the document with the processed chunks data
         document['chunks'] = chunks_data
+        
+        return document
 
     
-    def extract_word_content(self, word_file_path: str) -> List[dict]:
+    def _extract_word_content(self, word_file_path: str) -> List[dict]:
         """
         Extract text content from Word document.
         
@@ -260,14 +224,14 @@ class WordTextExtractorStep(StepBase):
                 if current_chunk_size + paragraph_size + 1 > self.max_chunk_size and current_chunk_text:
                     # Create a chunk with the current accumulated paragraphs
                     chunk_text = '\n'.join(current_chunk_text)
-                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
+                    chunk_id = self._generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
                     
                     chunk_data = {
                         'input_file_path': word_file_path,
                         'chunk_id': chunk_id,
                         'chunk_type': 'paragraph',
                         'chunk_num': chunk_counter,
-                        'text': chunk_text,
+                        'markdown_text': chunk_text,
                         'raw_text': chunk_text
                     }
                     
@@ -285,14 +249,14 @@ class WordTextExtractorStep(StepBase):
         # Add any remaining paragraphs as the final chunk
         if current_chunk_text:
             chunk_text = '\n'.join(current_chunk_text)
-            chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
+            chunk_id = self._generate_sha1_hash(f"{os.path.basename(word_file_path)}_paragraph_chunk_{chunk_counter}")
             
             chunk_data = {
                 'input_file_path': word_file_path,
                 'chunk_id': chunk_id,
                 'chunk_type': 'paragraph',
                 'chunk_num': chunk_counter,
-                'text': chunk_text,
+                'markdown_text': chunk_text,
                 'raw_text': chunk_text
             }
             
@@ -302,16 +266,16 @@ class WordTextExtractorStep(StepBase):
         # Extract tables if enabled
         if self.extract_tables:
             for table_idx, table in enumerate(word_doc.tables):
-                table_text = self.extract_table_text(table)
+                table_text = self._extract_table_text(table)
                 if table_text.strip():
-                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_table_{table_idx + 1}")
+                    chunk_id = self._generate_sha1_hash(f"{os.path.basename(word_file_path)}_table_{table_idx + 1}")
                     
                     chunk_data = {
                         'input_file_path': word_file_path,
                         'chunk_id': chunk_id,
                         'chunk_type': 'table',
                         'chunk_num': chunk_counter,
-                        'text': table_text.strip(),
+                        'markdown_text': table_text.strip(),
                         'raw_text': table_text.strip()
                     }
                     
@@ -321,14 +285,14 @@ class WordTextExtractorStep(StepBase):
         # Extract images if enabled
         if self.extract_images:
             try:
-                self.extract_images_from_document(word_doc, word_file_path, chunks_data, chunk_counter)
+                self._extract_images_from_document(word_doc, word_file_path, chunks_data, chunk_counter)
             except Exception as e:
                 logger.warning(f"Error extracting images from Word document {word_file_path}: {e}")
 
         return chunks_data
 
 
-    def extract_table_text(self, table) -> str:
+    def _extract_table_text(self, table) -> str:
         """
         Extract text from a Word table.
         
@@ -346,7 +310,7 @@ class WordTextExtractorStep(StepBase):
         return "\n".join(table_text)
 
 
-    def extract_images_from_document(self, doc, word_file_path: str, chunks_data: List[dict], chunk_counter: int):
+    def _extract_images_from_document(self, doc, word_file_path: str, chunks_data: List[dict], chunk_counter: int):
         """
         Extract images from Word document and save them as PNG files.
         
@@ -365,7 +329,7 @@ class WordTextExtractorStep(StepBase):
                     image_data = rel.target_part.blob
                     
                     # Generate filename
-                    image_filename = f"image_{chunk_counter}.png"
+                    image_filename = f"{os.path.basename(word_file_path)}_image_{chunk_counter}.png"
                     image_path = os.path.join(png_output_folder, image_filename)
                     
                     # Save the image
@@ -373,7 +337,7 @@ class WordTextExtractorStep(StepBase):
                         img_file.write(image_data)
                     
                     # Create chunk data for the image
-                    chunk_id = self.generate_sha1_hash(f"{os.path.basename(word_file_path)}_image_{chunk_counter}")
+                    chunk_id = self._generate_sha1_hash(f"{os.path.basename(word_file_path)}_image_{chunk_counter}")
                     
                     chunk_data = {
                         'input_file_path': word_file_path,
@@ -381,7 +345,7 @@ class WordTextExtractorStep(StepBase):
                         'chunk_type': 'image',
                         'chunk_num': chunk_counter,
                         'png': image_path,
-                        'text': '',
+                        'markdown_text': '',
                         'raw_text': ''
                     }
                     
@@ -393,7 +357,7 @@ class WordTextExtractorStep(StepBase):
                     continue
 
 
-    async def process_extracted_images(self, chunks_data: List[dict], ai_model_inference_service):
+    async def _process_extracted_images(self, chunks_data: List[dict], ai_model_inference_service):
         """
         Process extracted images using AI Model Inference Service.
         
@@ -410,15 +374,15 @@ class WordTextExtractorStep(StepBase):
 
                 try:
                     # Call the AI Model Inference Service to process the image
-                    markdown = self.convert_png_to_markdown(chunk['png'], ai_model_inference_service)
+                    markdown = self._convert_png_to_markdown(chunk['png'], ai_model_inference_service)
                     chunk['markdown'] = markdown
 
                     # Extract text sections from the markdown
                     if markdown:
-                        chunk['markdown_text'] = self.extract_text_section(markdown)
+                        chunk['markdown_text'] = self._extract_text_section(markdown)
                         
                         if self.extract_image_descriptions:
-                            chunk['markdown_image_descriptions'] = self.extract_image_sections(markdown)
+                            chunk['markdown_image_descriptions'] = self._extract_image_sections(markdown)
                             chunk['text'] = chunk.get('markdown_text', '') + chunk.get('markdown_image_descriptions', '')  # Append to existing text if any
                         else:
                             chunk['text'] = chunk.get('markdown_text', '')
@@ -428,21 +392,7 @@ class WordTextExtractorStep(StepBase):
                     continue
 
 
-    def generate_sha1_hash(self, input_string):
-        """
-        Generates a sha1 hash from a given string.
-        """
-        # Encode the string to bytes, as hash functions operate on bytes
-        encoded_string = input_string.encode('utf-8')
-        # Create a SHA1 hash object
-        sha1_hash = hashlib.sha1()
-        # Update the hash object with the encoded string
-        sha1_hash.update(encoded_string)
-        # Get the hexadecimal representation of the hash
-        return sha1_hash.hexdigest()
-
-
-    def convert_png_to_base64(self, png_path: str) -> str:
+    def _convert_png_to_base64(self, png_path: str) -> str:
         """
         Convert a PNG file to a base64 encoded string.
         
@@ -454,7 +404,7 @@ class WordTextExtractorStep(StepBase):
             return base64.b64encode(png_data).decode('ascii')
 
 
-    def convert_png_to_markdown(self, png_file_path: str, ai_model_inference_service) -> str:
+    def _convert_png_to_markdown(self, png_file_path: str, ai_model_inference_service) -> str:
         """
         Convert a PNG file to Markdown using AI Model Inference Service.
         
@@ -487,7 +437,7 @@ class WordTextExtractorStep(StepBase):
         return response.choices[0].message.content
 
 
-    def extract_text_section(self, markdown: str):
+    def _extract_text_section(self, markdown: str):
         """
         Extract text section from the markdown content.
         
@@ -509,7 +459,7 @@ class WordTextExtractorStep(StepBase):
         return ""
 
 
-    def extract_image_sections(self, markdown: str) -> str:
+    def _extract_image_sections(self, markdown: str) -> str:
         """
         Extract image sections from the markdown content.
 

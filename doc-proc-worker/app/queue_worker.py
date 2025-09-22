@@ -28,9 +28,10 @@ class QueueWorker:
         )
         
         # Worker configuration
+        # TODO: make these configurable via settings or constructor
         self.poll_interval_seconds = 5  # How often to check for new messages
-        self.max_messages_per_poll = 5  # Max messages to process per poll
-        self.message_visibility_timeout = 300  # 5 minutes
+        self.max_messages_per_poll = 1  # Max messages to process per poll
+        self.message_visibility_timeout = 24 * 60 * 60  # 24 hours
         self.max_processing_time = 600  # 10 minutes max per message
         
         # Control flags

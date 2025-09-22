@@ -1,22 +1,22 @@
 """
-Unit tests for the PDFTextExtractorStep class.
+Unit tests for the AIPDFTextExtractorStep class.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from doc.proc.step.pdf_text_extractor import PDFTextExtractorStep
+from doc.proc.step.ai_pdf_text_extractor import AIPDFTextExtractorStep
 from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
 
 
-class TestPDFTextExtractorStep:
-    """Test cases for PDFTextExtractorStep."""
+class TestAIPDFTextExtractorStep:
+    """Test cases for AIPDFTextExtractorStep."""
     
     @pytest.fixture
     def pdf_step_config(self):
-        """Fixture for PDFTextExtractorStep configuration."""
+        """Fixture for AIPDFTextExtractorStep configuration."""
         return StepInstanceConfig(
-            step_catalog_id="pdf_text_extractor",
-            name="pdf_extractor_instance",
+            step_catalog_id="ai_pdf_text_extractor",
+            name="ai_pdf_extractor_instance",
             enabled=True,
             debug_mode=True,
             services=["ai_inference_service"],
@@ -58,8 +58,8 @@ class TestPDFTextExtractorStep:
         )
     
     def test_pdf_step_initialization_success(self, pdf_step_config):
-        """Test successful initialization of PDFTextExtractorStep."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test successful initialization of AIPDFTextExtractorStep."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         assert step.png_output_folder == "test_output_pngs"
         assert step.pages_to_convert == 5
@@ -72,23 +72,23 @@ class TestPDFTextExtractorStep:
         assert step.presence_penalty == 0.1
     
     def test_pdf_step_initialization_missing_prompts(self):
-        """Test PDFTextExtractorStep initialization with missing prompts."""
+        """Test AIPDFTextExtractorStep initialization with missing prompts."""
         config = StepInstanceConfig(
-            step_catalog_id="pdf_text_extractor",
-            name="pdf_extractor_instance",
+            step_catalog_id="ai_pdf_text_extractor",
+            name="ai_pdf_extractor_instance",
             settings={}  # Missing prompts
         )
         
         with pytest.raises(StepExecutionError) as exc_info:
-            PDFTextExtractorStep(config)
+            AIPDFTextExtractorStep(config)
         
         assert "No prompts found in settings" in str(exc_info.value)
     
     def test_pdf_step_initialization_missing_system_prompt(self):
-        """Test PDFTextExtractorStep initialization with missing system prompt."""
+        """Test AIPDFTextExtractorStep initialization with missing system prompt."""
         config = StepInstanceConfig(
-            step_catalog_id="pdf_text_extractor",
-            name="pdf_extractor_instance",
+            step_catalog_id="ai_pdf_text_extractor",
+            name="ai_pdf_extractor_instance",
             settings={
                 "prompts": {
                     "user": "Extract text from image"
@@ -98,15 +98,15 @@ class TestPDFTextExtractorStep:
         )
         
         with pytest.raises(StepExecutionError) as exc_info:
-            PDFTextExtractorStep(config)
+            AIPDFTextExtractorStep(config)
         
         assert "System prompt not found in settings" in str(exc_info.value)
     
     def test_pdf_step_initialization_missing_user_prompt(self):
-        """Test PDFTextExtractorStep initialization with missing user prompt."""
+        """Test AIPDFTextExtractorStep initialization with missing user prompt."""
         config = StepInstanceConfig(
-            step_catalog_id="pdf_text_extractor",
-            name="pdf_extractor_instance",
+            step_catalog_id="ai_pdf_text_extractor",
+            name="ai_pdf_extractor_instance",
             settings={
                 "prompts": {
                     "system": "You are a helpful assistant"
@@ -116,15 +116,15 @@ class TestPDFTextExtractorStep:
         )
         
         with pytest.raises(StepExecutionError) as exc_info:
-            PDFTextExtractorStep(config)
+            AIPDFTextExtractorStep(config)
         
         assert "User prompt not found in settings" in str(exc_info.value)
     
     def test_pdf_step_initialization_default_values(self):
-        """Test PDFTextExtractorStep initialization with default values."""
+        """Test AIPDFTextExtractorStep initialization with default values."""
         config = StepInstanceConfig(
-            step_catalog_id="pdf_text_extractor",
-            name="pdf_extractor_instance",
+            step_catalog_id="ai_pdf_text_extractor",
+            name="ai_pdf_extractor_instance",
             settings={
                 "prompts": {
                     "system": "System prompt",
@@ -134,7 +134,7 @@ class TestPDFTextExtractorStep:
             }
         )
         
-        step = PDFTextExtractorStep(config)
+        step = AIPDFTextExtractorStep(config)
         
         assert step.png_output_folder == "output_pngs"  # Default value
         assert step.pages_to_convert == -1  # Default value (all pages)
@@ -146,8 +146,8 @@ class TestPDFTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_pdf_step_invalid_input_data(self, pdf_step_config, mock_pipeline_context):
-        """Test PDFTextExtractorStep with invalid input data."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test AIPDFTextExtractorStep with invalid input data."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         # Test with None input
         with pytest.raises(StepExecutionError) as exc_info:
@@ -168,8 +168,8 @@ class TestPDFTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_pdf_step_no_documents(self, pdf_step_config, mock_ai_inference_service):
-        """Test PDFTextExtractorStep with no documents."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test AIPDFTextExtractorStep with no documents."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         step_input = StepInputOutput(
             summary_data={},
@@ -186,8 +186,8 @@ class TestPDFTextExtractorStep:
 
     @pytest.mark.asyncio
     async def test_pdf_step_documents_not_list(self, pdf_step_config, mock_ai_inference_service):
-        """Test PDFTextExtractorStep when documents is not a list."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test AIPDFTextExtractorStep when documents is not a list."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         step_input = StepInputOutput(
             summary_data={},
@@ -204,8 +204,8 @@ class TestPDFTextExtractorStep:
 
     @pytest.mark.asyncio
     async def test_pdf_step_no_ai_service(self, pdf_step_config, pdf_document_input):
-        """Test PDFTextExtractorStep when AI service is not available."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test AIPDFTextExtractorStep when AI service is not available."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         # Mock context with no AI service
         mock_context = MagicMock()
@@ -218,8 +218,8 @@ class TestPDFTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_pdf_step_invalid_document_format(self, pdf_step_config, mock_pipeline_context):
-        """Test PDFTextExtractorStep with invalid document format."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        """Test AIPDFTextExtractorStep with invalid document format."""
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         step_input = StepInputOutput(
             summary_data={},
@@ -245,7 +245,7 @@ class TestPDFTextExtractorStep:
     @patch('doc.proc.step.pdf_text_extractor.pymupdf')
     async def test_pdf_step_successful_processing(self, mock_pymupdf, pdf_step_config, pdf_document_input, mock_ai_inference_service):
         """Test successful PDF processing."""
-        step = PDFTextExtractorStep(pdf_step_config)
+        step = AIPDFTextExtractorStep(pdf_step_config)
         
         # Mock PyMuPDF
         mock_doc = MagicMock()

@@ -125,10 +125,14 @@ class VaultDocumentsService(BaseService):
 
         logger.debug(f"Queuing documents '{len(documents)}' in vault '{vault.name}' for processing")
 
-        self.storage_queue_helper = self.storage_queue_helper
-        async with self.storage_queue_helper:
-            _queue_result = await self.storage_queue_helper.queue_documents_for_processing(vault.pipeline_name, documents)
-            logger.info(f"Queued {len(documents)} documents for processing in vault '{vault.name}' with message ID: {_queue_result['message_id']}")
+        # send the documents in batches of 10 to the storage queue
+        # TODO: make batch size configurable
+        batch_size = 10
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            async with self.storage_queue_helper:
+                _queue_result = await self.storage_queue_helper.queue_documents_for_processing(vault.pipeline_name, batch)
+                logger.info(f"Queued {len(batch)} documents for processing in vault '{vault.name}' with message ID: {_queue_result['message_id']}")
 
         for document in documents:
             document.status = "queued"

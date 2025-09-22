@@ -12,7 +12,8 @@ import {
   TrendingUp,
   Activity,
   RefreshCw,
-  Loader2
+  Loader2,
+  Download
 } from "lucide-react";
 import { pipelineExecutionsApi, PipelineExecutionResult, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -48,15 +49,6 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
     }
   };
 
-  // Filter executions based on time range
-  const filterExecutionsByTimeRange = (executions: PipelineExecutionResult[], range: string): PipelineExecutionResult[] => {
-    const cutoffTime = getTimeCutoff(range);
-    return executions.filter(execution => {
-      const executionTime = new Date(execution.started_at || execution.created_at);
-      return executionTime >= cutoffTime;
-    });
-  };
-
   const loadMetrics = async () => {
     try {
       setLoading(true);
@@ -71,10 +63,8 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
         pipelineExecutionsApi.getStats(pipeline_name)
       ]);
 
-      // Filter executions based on selected time range
-      const filteredExecutions = filterExecutionsByTimeRange(allExecutions, timeRange);
       
-      setExecutions(filteredExecutions);
+      setExecutions(allExecutions);
       setStats(executionStats);
 
     } catch (err) {
@@ -131,6 +121,51 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
 
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
+  };
+
+  // Function to download execution data as JSON
+  const downloadExecutionJson = async (executionId: string, pipelineName: string, timestamp: string) => {
+    try {
+      setError(null);
+      
+      // Fetch the full execution data
+      const executionData = await pipelineExecutionsApi.getExecution(executionId);
+      
+      // Create a filename with pipeline name and timestamp
+      const date = new Date(timestamp).toISOString().split('T')[0];
+      const time = new Date(timestamp).toTimeString().split(' ')[0].replace(/:/g, '-');
+      const filename = `${pipelineName}_execution_${date}_${time}.json`;
+      
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(executionData, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download started",
+        description: `Pipeline execution data downloaded as ${filename}`,
+      });
+      
+    } catch (err) {
+      console.error('Error downloading execution data:', err);
+      const errorMessage = err instanceof ErrorWithData ? err.details || err.message : 'Failed to download execution data';
+      setError(errorMessage);
+      
+      toast({
+        title: "Download failed",
+        description: "Failed to download pipeline execution data. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Calculate summary metrics from filtered executions for accurate time-based stats
@@ -279,12 +314,45 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
                       {getStatusIcon(execution.result.toLowerCase())}
                       <div>
                         <p className="font-medium">{formatTimestamp(execution.started_at || execution.created_at)}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {execution.document_results?.length || 0} documents • {formatDuration(Math.round(execution.elapsed_time_secs))}
+                        <p className="text-sm text-muted-foreground flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium">{execution.document_results?.length || 0}</span> docs
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            {execution.document_results?.filter(d => d.result.toLowerCase() === 'succeeded').length || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <XCircle className="h-3 w-3 text-red-500" />
+                            {execution.document_results?.filter(d => d.result.toLowerCase() === 'failed').length || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                            {execution.document_results?.filter(d => d.result.toLowerCase() === 'partialsucceeded').length || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            {formatDuration(Math.round(execution.elapsed_time_secs))}
+                          </span>
                         </p>
                       </div>
                     </div>
-                    {getStatusBadge(execution.result.toLowerCase())}
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(execution.result.toLowerCase())}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadExecutionJson(
+                          execution.id,
+                          execution.pipeline_name,
+                          execution.started_at || execution.created_at
+                        )}
+                        className="h-8 w-8 p-0"
+                        title="Download execution data as JSON"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))

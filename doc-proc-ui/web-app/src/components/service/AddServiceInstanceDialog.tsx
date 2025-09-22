@@ -58,6 +58,36 @@ export function AddServiceInstanceDialog({ onAddService, selectedService, trigge
     }
   }, [form.watch('service_catalog_id'), catalog, selectedService]);
 
+  // Set default values in form when a service is selected
+  useEffect(() => {
+    if (selectedCatalogService?.settings_schema) {
+      const defaultSettings: Record<string, any> = {};
+      
+      Object.entries(selectedCatalogService.settings_schema).forEach(([key, schema]) => {
+        if (schema.default !== undefined) {
+          defaultSettings[key] = schema.default;
+        }
+      });
+
+      // Update form with default values if we have any
+      if (Object.keys(defaultSettings).length > 0) {
+        const currentSettings = form.getValues('settings');
+        const updatedSettings = { ...defaultSettings, ...currentSettings };
+        form.setValue('settings', updatedSettings);
+      }
+    }
+  }, [selectedCatalogService, form]);
+
+  // Handle dialog close
+  useEffect(() => {
+    if (!open) {
+      // Reset selected service if not pre-selected
+      if (!selectedService) {
+        setSelectedCatalogService(null);
+      }
+    }
+  }, [open, selectedService]);
+
   const loadCatalog = async () => {
     try {
       setLoading(true);
@@ -73,7 +103,14 @@ export function AddServiceInstanceDialog({ onAddService, selectedService, trigge
   const onSubmit = (data: AddServiceInstanceFormData) => {
     onAddService(data);
     setOpen(false);
-    form.reset();
+    
+    // Reset form to initial values
+    form.reset({
+      name: selectedService ? `${selectedService.name} Instance`.replace(/\s+/g, '_') : "",
+      service_catalog_id: selectedService?.id || "",
+      description: selectedService ? `Instance of ${selectedService.name}` : "",
+      settings: {},
+    });
   };
 
   const renderSettingsFields = () => {
@@ -103,9 +140,9 @@ export function AddServiceInstanceDialog({ onAddService, selectedService, trigge
                     {renderSettingField(key, schema, field)}
                   </FormControl>
                   {schema.description && (
-                    <FormDescription>{schema.description}</FormDescription>
+                    <FormDescription className="text-xs text-gray-500">{schema.description}</FormDescription>
                   )}
-                  <FormMessage />
+                  <FormMessage className="pb-3" />
                 </FormItem>
               )}
             />
@@ -119,39 +156,46 @@ export function AddServiceInstanceDialog({ onAddService, selectedService, trigge
     const { type, enum: enumValues, sensitive, default: defaultValue } = schema;
 
     // Set default value if not already set
-    if (field.value === undefined && defaultValue !== undefined) {
+    if ((field.value === undefined || field.value === null) && defaultValue !== undefined) {
       field.onChange(defaultValue);
     }
 
     switch (type) {
       case 'boolean':
+        const boolValue = field.value !== undefined ? field.value : (defaultValue !== undefined ? defaultValue : false);
         return (
           <div className="flex items-center space-x-2">
             <Switch
-              checked={field.value || false}
+              checked={boolValue}
               onCheckedChange={field.onChange}
             />
-            <span className="text-sm">{field.value ? 'Enabled' : 'Disabled'}</span>
+            <span className="text-sm">{boolValue ? 'Enabled' : 'Disabled'}</span>
           </div>
         );
 
       case 'integer':
       case 'number':
+        const numValue = field.value !== undefined && field.value !== null ? field.value : (defaultValue !== undefined ? defaultValue : '');
         return (
           <Input
             type="number"
             placeholder={`Enter ${key.replace(/_/g, ' ')}`}
             {...field}
-            onChange={(e) => field.onChange(type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))}
+            onChange={(e) => {
+              const val = type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+              field.onChange(isNaN(val) ? undefined : val);
+            }}
             min={schema.minimum}
             max={schema.maximum}
+            value={numValue}
           />
         );
 
       case 'string':
         if (enumValues && enumValues.length > 0) {
+          const selectValue = field.value !== undefined ? field.value : (defaultValue !== undefined ? defaultValue : '');
           return (
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={selectValue}>
               <SelectTrigger>
                 <SelectValue placeholder={`Select ${key.replace(/_/g, ' ')}`} />
               </SelectTrigger>
@@ -167,29 +211,35 @@ export function AddServiceInstanceDialog({ onAddService, selectedService, trigge
         }
 
         if (key.toLowerCase().includes('description') || key.toLowerCase().includes('notes')) {
+          const textValue = field.value !== undefined ? field.value : (defaultValue !== undefined ? defaultValue : '');
           return (
             <Textarea
               placeholder={`Enter ${key.replace(/_/g, ' ')}`}
               {...field}
+              value={textValue}
             />
           );
         }
 
+        const stringValue = field.value !== undefined ? field.value : (defaultValue !== undefined ? defaultValue : '');
         return (
           <Input
             type={sensitive ? 'password' : 'text'}
             placeholder={`Enter ${key.replace(/_/g, ' ')}`}
             {...field}
             pattern={schema.pattern}
+            value={stringValue}
           />
         );
 
       default:
+        const defaultFieldValue = field.value !== undefined ? field.value : (defaultValue !== undefined ? defaultValue : '');
         return (
           <Input
             type="text"
             placeholder={`Enter ${key.replace(/_/g, ' ')}`}
             {...field}
+            value={defaultFieldValue}
           />
         );
     }

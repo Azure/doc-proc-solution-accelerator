@@ -1,22 +1,22 @@
 """
-Unit tests for the PPTXTextExtractorStep class.
+Unit tests for the AIPowerPointTextExtractorStep class.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from doc.proc.step.pptx_text_extractor import PPTXTextExtractorStep
+from doc.proc.step.ai_pptx_text_extractor import AIPowerPointTextExtractorStep
 from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
 
 
-class TestPPTXTextExtractorStep:
-    """Test cases for PPTXTextExtractorStep."""
+class TestAIPowerPointTextExtractorStep:
+    """Test cases for AIPowerPointTextExtractorStep."""
     
     @pytest.fixture
     def pptx_step_config(self):
-        """Fixture for PPTXTextExtractorStep configuration."""
+        """Fixture for AIPowerPointTextExtractorStep configuration."""
         return StepInstanceConfig(
-            step_catalog_id="pptx_text_extractor",
-            name="pptx_extractor_instance",
+            step_catalog_id="ai_powerpoint_text_extractor",
+            name="ai_powerpoint_extractor_instance",
             enabled=True,
             debug_mode=True,
             services=[],
@@ -46,17 +46,17 @@ class TestPPTXTextExtractorStep:
         )
     
     def test_pptx_step_initialization(self, pptx_step_config):
-        """Test successful initialization of PPTXTextExtractorStep."""
-        step = PPTXTextExtractorStep(pptx_step_config)
+        """Test successful initialization of AIPowerPointTextExtractorStep."""
+        step = AIPowerPointTextExtractorStep(pptx_step_config)
         
-        assert step.step_catalog_id == "pptx_text_extractor"
-        assert step.name == "pptx_extractor_instance"
+        assert step.step_catalog_id == "ai_pptx_text_extractor"
+        assert step.name == "ai_pptx_extractor_instance"
         assert step.debug_mode is True
     
     @pytest.mark.asyncio
     async def test_pptx_step_invalid_input_data(self, pptx_step_config, mock_pipeline_context):
-        """Test PPTXTextExtractorStep with invalid input data."""
-        step = PPTXTextExtractorStep(pptx_step_config)
+        """Test AIPowerPointTextExtractorStep with invalid input data."""
+        step = AIPowerPointTextExtractorStep(pptx_step_config)
         
         # Test with None input
         with pytest.raises(StepExecutionError) as exc_info:
@@ -65,8 +65,8 @@ class TestPPTXTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_pptx_step_no_documents(self, pptx_step_config, mock_pipeline_context):
-        """Test PPTXTextExtractorStep with no documents."""
-        step = PPTXTextExtractorStep(pptx_step_config)
+        """Test AIPowerPointTextExtractorStep with no documents."""
+        step = AIPowerPointTextExtractorStep(pptx_step_config)
         
         step_input = StepInputOutput(
             summary_data={},
@@ -78,10 +78,10 @@ class TestPPTXTextExtractorStep:
         assert "No documents list found in input data" in str(exc_info.value)
     
     @pytest.mark.asyncio
-    @patch('doc.proc.step.pptx_text_extractor.Presentation')
+    @patch('doc.proc.step.ai_pptx_text_extractor.Presentation')
     async def test_pptx_step_successful_processing(self, mock_presentation, pptx_step_config, pptx_document_input, mock_pipeline_context):
         """Test successful PowerPoint document processing."""
-        step = PPTXTextExtractorStep(pptx_step_config)
+        step = AIPowerPointTextExtractorStep(pptx_step_config)
         
         # Mock python-pptx
         mock_pres = MagicMock()
@@ -105,8 +105,8 @@ class TestPPTXTextExtractorStep:
     
     @pytest.mark.asyncio
     async def test_pptx_step_file_not_found(self, pptx_step_config, pptx_document_input, mock_pipeline_context):
-        """Test PPTXTextExtractorStep when file doesn't exist."""
-        step = PPTXTextExtractorStep(pptx_step_config)
+        """Test AIPowerPointTextExtractorStep when file doesn't exist."""
+        step = AIPowerPointTextExtractorStep(pptx_step_config)
         
         with patch('os.path.exists', return_value=False):
             result = await step.run(pptx_document_input, mock_pipeline_context)

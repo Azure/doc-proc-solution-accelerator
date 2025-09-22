@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import ConfigureStepInstanceDialog from "@/components/step/ConfigureStepInstanceDialog";
 import { Link } from "react-router-dom";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const StepInstances = () => {
@@ -267,7 +268,14 @@ const StepInstanceCard = ({ instance, onConfigure, onToggleEnabled, onDelete }: 
               <StatusIcon className={`h-5 w-5 ${instance.enabled ? 'text-green-600' : 'text-gray-400'}`} />
             </div>
             <div>
-              <CardTitle className="text-lg">{instance.name}</CardTitle>
+              <CardTitle className="text-lg">
+                <Tooltip>
+                  <TooltipTrigger>{instance.name.substring(0, 37)}</TooltipTrigger>
+                  <TooltipContent>
+                   <span>{instance.name}</span>
+                  </TooltipContent>
+                 </Tooltip>
+                </CardTitle>
               <CardDescription className="line-clamp-2">
                 {instance.description || instance.catalog_definition?.description}
               </CardDescription>
