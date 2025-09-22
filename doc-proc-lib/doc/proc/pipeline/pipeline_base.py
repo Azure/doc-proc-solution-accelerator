@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import traceback
 import asyncio
@@ -49,7 +49,8 @@ class PipelineExecutionResult(BaseModel):
     elapsed_time_secs: float
     document_results: List[DocumentResult] = []  # List of DocumentResult for each document processed
     summary_stats: dict = {}  # Summary statistics for the pipeline execution
-
+    started_at: Optional[str] = None  # Start time in utc timezone in ISO format
+    completed_at: Optional[str] = None  # Completion time in utc timezone in ISO format
 
 class PipelineExecutionContext:
     """Context for pipeline execution, can be extended with more attributes as needed."""
@@ -409,12 +410,16 @@ class Pipeline:
             logger.error("Input data must be an instance of StepInputOutput")
             raise TypeError("Input data must be an instance of StepInputOutput")
         
+        start_time = datetime.now(timezone.utc)
+        
         pipeline_execution_result = PipelineExecutionResult(
             pipeline_name=self.name, 
             result="NotStarted", 
             elapsed_time_secs=0, 
             document_results=[],
-            summary_stats={}
+            summary_stats={},
+            started_at=start_time.isoformat(),
+            completed_at=None
         )
 
         # Check if input data contains documents for parallel processing
@@ -430,7 +435,7 @@ class Pipeline:
                 doc_context = PipelineExecutionContext(
                     pipeline=self, 
                     services=self.services, 
-                    start_time=datetime.now()
+                    start_time=start_time
                 )
                 task = self._process_single_document(document, doc_context)
                 document_tasks.append(task)
@@ -509,7 +514,6 @@ class Pipeline:
             #         aggregated_step_result.error_message = "; ".join(set(agg_data["errors"][:5]))  # Limit to first 5 unique errors
                 
             #     pipeline_execution_result.step_execution_results.append(aggregated_step_result)
-            print(pipeline_execution_result)
             
             # Determine overall pipeline result
             successful_docs = len([dr for dr in pipeline_execution_result.document_results if dr.result == "Succeeded"])
@@ -545,7 +549,9 @@ class Pipeline:
             
 
         # Finalize the pipeline execution result
-        elapsed_time_secs = (datetime.now() - context.start_time).total_seconds()
+        completed_time = datetime.now(timezone.utc)
+        elapsed_time_secs = (completed_time - start_time).total_seconds()
+        pipeline_execution_result.completed_at = completed_time.isoformat()
         pipeline_execution_result.elapsed_time_secs = elapsed_time_secs
 
         logger.info(f"Pipeline '{self.name}' executed with result: {pipeline_execution_result.result}. Total elapsed time: {elapsed_time_secs:.2f} seconds.")

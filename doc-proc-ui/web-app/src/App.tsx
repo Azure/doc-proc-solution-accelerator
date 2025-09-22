@@ -8,7 +8,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Vaults from "./pages/Vaults";
-import Vaults3 from "./pages/Vaults3";
 import Vaults4 from "./pages/Vaults4";
 import Health from "./pages/Health";
 import Pipeline from "./pages/Pipeline";
@@ -31,7 +30,6 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="vaults" element={<Vaults />} />
-              <Route path="vaults3" element={<Vaults3 />} />
               <Route path="vaults4" element={<Vaults4 />} />
               <Route path="pipeline" element={<Pipeline />} />
               <Route path="steps" element={<Step />} />

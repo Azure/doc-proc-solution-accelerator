@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,63 +10,99 @@ import {
   XCircle, 
   AlertTriangle,
   TrendingUp,
-  TrendingDown,
   Activity,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
+import { pipelineExecutionsApi, PipelineExecutionResult, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
-interface ExecutionMetric {
-  id: string;
-  timestamp: string;
-  duration: number;
-  status: 'success' | 'failed' | 'warning';
-  documentsProcessed: number;
-  stepMetrics: {
-    stepName: string;
-    duration: number;
-    status: 'success' | 'failed' | 'warning';
-    throughput?: number;
-  }[];
+interface PipelineMetricsProps {
+  pipeline_name: string;
 }
 
-const PipelineMetrics = () => {
-  const [timeRange, setTimeRange] = useState("24h");
-  const [executions] = useState<ExecutionMetric[]>([
-    {
-      id: "1",
-      timestamp: "2024-06-23T10:30:00Z",
-      duration: 245,
-      status: "success",
-      documentsProcessed: 12,
-      stepMetrics: [
-        { stepName: "Document Ingestion", duration: 45, status: "success", throughput: 0.27 },
-        { stepName: "Entity Extraction", duration: 120, status: "success", throughput: 0.1 },
-        { stepName: "AI Summarization", duration: 65, status: "success", throughput: 0.18 },
-        { stepName: "Database Storage", duration: 15, status: "success", throughput: 0.8 }
-      ]
-    },
-    {
-      id: "2", 
-      timestamp: "2024-06-23T09:15:00Z",
-      duration: 180,
-      status: "failed",
-      documentsProcessed: 8,
-      stepMetrics: [
-        { stepName: "Document Ingestion", duration: 30, status: "success", throughput: 0.27 },
-        { stepName: "Entity Extraction", duration: 90, status: "success", throughput: 0.09 },
-        { stepName: "AI Summarization", duration: 60, status: "failed", throughput: 0 },
-        { stepName: "Database Storage", duration: 0, status: "failed", throughput: 0 }
-      ]
+const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
+  const [timeRange, setTimeRange] = useState("4h");
+  const [executions, setExecutions] = useState<PipelineExecutionResult[]>([]);
+  const [stats, setStats] = useState<PipelineExecutionStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Helper function to get time cutoff based on selected range
+  const getTimeCutoff = (range: string): Date => {
+    const now = new Date();
+    switch (range) {
+      case '1h':
+        return new Date(now.getTime() - 1 * 60 * 60 * 1000); // 1 hour ago
+      case '4h':
+        return new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours ago
+      case '24h':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      default:
+        return new Date(now.getTime() - 4 * 60 * 60 * 1000); // Default to 4 hours ago
     }
-  ]);
+  };
+
+  // Filter executions based on time range
+  const filterExecutionsByTimeRange = (executions: PipelineExecutionResult[], range: string): PipelineExecutionResult[] => {
+    const cutoffTime = getTimeCutoff(range);
+    return executions.filter(execution => {
+      const executionTime = new Date(execution.started_at || execution.created_at);
+      return executionTime >= cutoffTime;
+    });
+  };
+
+  const loadMetrics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get higher limit to ensure we have enough data for filtering
+      const limit = timeRange === '30d' ? 200 : timeRange === '7d' ? 100 : 50;
+
+      // Load recent executions and stats in parallel
+      const [allExecutions, executionStats] = await Promise.all([
+        pipelineExecutionsApi.getRecentExecutions(pipeline_name, limit, timeRange),
+        pipelineExecutionsApi.getStats(pipeline_name)
+      ]);
+
+      // Filter executions based on selected time range
+      const filteredExecutions = filterExecutionsByTimeRange(allExecutions, timeRange);
+      
+      setExecutions(filteredExecutions);
+      setStats(executionStats);
+
+    } catch (err) {
+      console.error('Error loading pipeline metrics:', err);
+      setError(err instanceof ErrorWithData ? err.details || err.message : 'Failed to load pipeline metrics');
+      
+      toast({
+        title: "Failed to load pipeline metrics",
+        description: "Please try refreshing the page or check your connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load metrics on component mount and when time range or pipeline changes
+  useEffect(() => {
+    loadMetrics();
+  }, [timeRange, pipeline_name]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'succeeded':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'failed':
         return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'warning':
+      case 'partialsucceeded':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-400" />;
@@ -75,11 +111,11 @@ const PipelineMetrics = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'success':
+      case 'succeeded':
         return <Badge className="bg-green-100 text-green-800">Success</Badge>;
       case 'failed':
         return <Badge variant="destructive">Failed</Badge>;
-      case 'warning':
+      case 'partialsucceeded':
         return <Badge className="bg-yellow-100 text-yellow-800">Warning</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
@@ -97,12 +133,46 @@ const PipelineMetrics = () => {
     return new Date(timestamp).toLocaleString();
   };
 
-  // Calculate summary metrics
+  // Calculate summary metrics from filtered executions for accurate time-based stats
   const totalExecutions = executions.length;
-  const successfulExecutions = executions.filter(e => e.status === 'success').length;
-  const failedExecutions = executions.filter(e => e.status === 'failed').length;
-  const averageDuration = executions.reduce((acc, e) => acc + e.duration, 0) / totalExecutions;
-  const totalDocuments = executions.reduce((acc, e) => acc + e.documentsProcessed, 0);
+  const successfulExecutions = executions.filter(e => e.result.toLowerCase() === 'succeeded').length;
+  const failedExecutions = executions.filter(e => e.result.toLowerCase() !== 'succeeded').length;
+  const averageDuration = executions.length > 0 ? executions.reduce((acc, e) => acc + e.elapsed_time_secs, 0) / executions.length : 0;
+  const totalDocuments = executions.reduce((acc, e) => acc + (e.document_results?.length || 0), 0);
+  const successRate = totalExecutions > 0 ? Math.round((successfulExecutions / totalExecutions) * 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-center text-muted-foreground">Loading pipeline metrics...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-red-600">Error: {error}</p>
+            <div className="text-center mt-4">
+              <Button onClick={loadMetrics} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -115,7 +185,13 @@ const PipelineMetrics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalExecutions}</div>
-            <p className="text-xs text-muted-foreground">Last 24 hours</p>
+            <p className="text-xs text-muted-foreground">
+              {timeRange === '1h' ? 'Last hour' : 
+               timeRange === '4h' ? 'Last 4 hours' :
+               timeRange === '24h' ? 'Last 24 hours' :
+               timeRange === '7d' ? 'Last 7 days' :
+               timeRange === '30d' ? 'Last 30 days' : 'Selected period'}
+            </p>
           </CardContent>
         </Card>
 
@@ -125,7 +201,7 @@ const PipelineMetrics = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round((successfulExecutions / totalExecutions) * 100)}%</div>
+            <div className="text-2xl font-bold">{successRate}%</div>
             <p className="text-xs text-muted-foreground">{successfulExecutions}/{totalExecutions} successful</p>
           </CardContent>
         </Card>
@@ -159,7 +235,11 @@ const PipelineMetrics = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Execution History</CardTitle>
-              <CardDescription>Recent pipeline execution results</CardDescription>
+              <CardDescription>
+                {pipeline_name 
+                  ? `Recent execution results for ${pipeline_name}` 
+                  : 'Recent pipeline execution results'}
+              </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
               <Select value={timeRange} onValueChange={setTimeRange}>
@@ -168,13 +248,14 @@ const PipelineMetrics = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1h">Last Hour</SelectItem>
+                  <SelectItem value="4h">Last 4 Hours</SelectItem>
                   <SelectItem value="24h">Last 24h</SelectItem>
                   <SelectItem value="7d">Last 7 days</SelectItem>
                   <SelectItem value="30d">Last 30 days</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
+              <Button variant="outline" size="sm" onClick={loadMetrics} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
             </div>
@@ -182,34 +263,32 @@ const PipelineMetrics = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {executions.map((execution) => (
-              <div key={execution.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(execution.status)}
-                    <div>
-                      <p className="font-medium">{formatTimestamp(execution.timestamp)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {execution.documentsProcessed} documents • {formatDuration(execution.duration)}
-                      </p>
-                    </div>
-                  </div>
-                  {getStatusBadge(execution.status)}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {execution.stepMetrics.map((step, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <div>
-                        <p className="text-sm font-medium">{step.stepName}</p>
-                        <p className="text-xs text-muted-foreground">{formatDuration(step.duration)}</p>
-                      </div>
-                      {getStatusIcon(step.status)}
-                    </div>
-                  ))}
-                </div>
+            {executions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  {pipeline_name 
+                    ? `No execution data available for ${pipeline_name}` 
+                    : 'No execution data available'}
+                </p>
               </div>
-            ))}
+            ) : (
+              executions.map((execution) => (
+                <div key={execution.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      {getStatusIcon(execution.result.toLowerCase())}
+                      <div>
+                        <p className="font-medium">{formatTimestamp(execution.started_at || execution.created_at)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {execution.document_results?.length || 0} documents • {formatDuration(Math.round(execution.elapsed_time_secs))}
+                        </p>
+                      </div>
+                    </div>
+                    {getStatusBadge(execution.result.toLowerCase())}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

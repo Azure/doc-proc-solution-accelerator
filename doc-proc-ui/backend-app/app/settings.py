@@ -49,7 +49,6 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_VAULTS: str = "vaults"
     COSMOS_DB_CONTAINER_VAULT_DOCUMENTS: str = "vault_documents"
     COSMOS_DB_CONTAINER_BATCH_EXECUTIONS: str = "batch_executions"
-    COSMOS_DB_CONTAINER_ACTIVITY_LOGS: str = "activity_logs"
     COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS: str = "pipeline_executions"
     
     # Azure Storage Blob settings
@@ -165,10 +164,11 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_SERVICE_CATALOG,
             self.COSMOS_DB_CONTAINER_SERVICE_INSTANCES,
             self.COSMOS_DB_CONTAINER_STEP_CATALOG,
+            self.COSMOS_DB_CONTAINER_STEP_INSTANCES,
             self.COSMOS_DB_CONTAINER_PIPELINES,
             self.COSMOS_DB_CONTAINER_VAULTS,
+            self.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS,
             self.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS,
-            self.COSMOS_DB_CONTAINER_ACTIVITY_LOGS,
             self.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS
         ]
     

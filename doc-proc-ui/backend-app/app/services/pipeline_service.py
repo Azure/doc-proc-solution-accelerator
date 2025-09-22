@@ -55,7 +55,9 @@ class PipelineService(BaseService):
             "version": pipeline_data.get("version", ""),
             "steps": pipeline_data.get("steps", []),
             "execution_sequence": pipeline_data.get("execution_sequence", []),
-            "settings": pipeline_data.get("settings", {})
+            "settings": pipeline_data.get("settings", {}),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
         if await self.validate_item(pipeline):

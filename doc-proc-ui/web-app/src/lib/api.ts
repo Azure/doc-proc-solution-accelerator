@@ -277,6 +277,40 @@ export interface PipelineUpdateRequest {
   settings?: PipelineSettings;
 }
 
+// Pipeline Execution types based on backend models
+export interface DocumentResult {
+  document_id: string;
+  result: string;
+  reason?: string;
+  elapsed_time_ms?: number;
+  step_results: Array<Record<string, any>>;
+  data: Record<string, any>;
+  summary_data: Record<string, any>;
+}
+
+export interface PipelineExecutionResult {
+  id: string;
+  pipeline_name: string;
+  result: string;
+  reason: string;
+  elapsed_time_secs: number;
+  document_results: DocumentResult[];
+  summary_stats: Record<string, any>;
+  batch_execution_id: string;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface PipelineExecutionStats {
+  total_executions: number;
+  successful_executions: number;
+  failed_executions: number;
+  average_duration_secs: number;
+  total_documents_processed: number;
+  success_rate: number;
+  recent_executions: PipelineExecutionResult[];
+}
 
 export interface ApiError {
   message: string;
@@ -535,7 +569,48 @@ export class ApiManager {
     return this.delete(`/api/pipelines/${id}`);
   }
 
-  // Vault methods
+  // ##################################
+  // Pipeline Execution Methods
+  async getPipelineExecutions(
+    batchExecutionId?: string,
+    pipelineName?: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<PipelineExecutionResult[]> {
+    
+    let queryString = '';
+    if (batchExecutionId) queryString += `batch_execution_id=${encodeURIComponent(batchExecutionId)}&`;
+    if (pipelineName) queryString += `pipeline_name=${encodeURIComponent(pipelineName)}&`;
+    queryString += `limit=${limit}&offset=${offset}`;
+
+    return this.get(`/api/pipeline-executions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getRecentPipelineExecutions(pipelineName?: string, limit: number = 20, timeRange?: string): Promise<PipelineExecutionResult[]> {
+    let queryString = `limit=${limit}`;
+    if (timeRange) queryString += `&time_range=${encodeURIComponent(timeRange)}`;
+    if (pipelineName) queryString += `&pipeline_name=${encodeURIComponent(pipelineName)}`;
+    return this.get(`/api/pipeline-executions/recent?${queryString}`);
+  }
+
+  async getPipelineExecutionStats(pipelineName?: string): Promise<PipelineExecutionStats> {
+    const params = pipelineName ? `?pipeline_name=${encodeURIComponent(pipelineName)}` : '';
+    return this.get(`/api/pipeline-executions/stats${params}`);
+  }
+
+  async getPipelineExecutionsByBatch(batchExecutionId: string): Promise<PipelineExecutionResult[]> {
+    return this.get(`/api/pipeline-executions/batch/${batchExecutionId}`);
+  }
+
+  async getPipelineExecution(executionId: string): Promise<PipelineExecutionResult> {
+    return this.get(`/api/pipeline-executions/${executionId}`);
+  }
+
+  async deletePipelineExecution(executionId: string): Promise<{ message: string }> {
+    return this.delete(`/api/pipeline-executions/${executionId}`);
+  }
+
+  // ##################################
   async getVaults(): Promise<Vault[]> {
     return this.get('/api/vaults');
   }
@@ -682,6 +757,17 @@ export const pipelinesApi = {
   createPipeline: (data: CreatePipelineRequest) => apiManager.createPipeline(data),
   updatePipeline: (id: string, data: Pipeline) => apiManager.updatePipeline(id, data),
   deletePipeline: (id: string) => apiManager.deletePipeline(id),
+};
+
+export const pipelineExecutionsApi = {
+  // Pipeline Execution Methods
+  getExecutions: (batchExecutionId?: string, pipelineName?: string, limit?: number, offset?: number) => 
+    apiManager.getPipelineExecutions(batchExecutionId, pipelineName, limit, offset),
+  getRecentExecutions: (pipelineName?: string, limit?: number, timeRange?: string) => apiManager.getRecentPipelineExecutions(pipelineName, limit, timeRange),
+  getStats: (pipelineName?: string) => apiManager.getPipelineExecutionStats(pipelineName),
+  getExecutionsByBatch: (batchExecutionId: string) => apiManager.getPipelineExecutionsByBatch(batchExecutionId),
+  getExecution: (executionId: string) => apiManager.getPipelineExecution(executionId),
+  deleteExecution: (executionId: string) => apiManager.deletePipelineExecution(executionId),
 };
 
 export const vaultsApi = {

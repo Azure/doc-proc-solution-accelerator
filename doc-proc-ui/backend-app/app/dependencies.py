@@ -8,6 +8,7 @@ from app.services.step_instance_service import StepInstanceService
 
 from app.services.pipeline_service import PipelineService
 # from app.services.execution_service import ExecutionService
+from app.services.pipeline_execution_service import PipelineExecutionService
 from app.services.vault_service import VaultService
 from app.services.vault_documents_service import VaultDocumentsService
 from app.services.dashboard_service import DashboardService
@@ -49,6 +50,12 @@ def get_step_instance_service() -> StepInstanceService:
 def get_pipeline_service() -> PipelineService:
     """Get PipelineService instance"""
     return PipelineService(db=get_cosmos_db())
+
+
+def get_pipeline_execution_service() -> PipelineExecutionService:
+    """Get PipelineExecutionService instance"""
+    return PipelineExecutionService(db=get_cosmos_db(), 
+                                    container_name=app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS)
 
 
 # def get_execution_service() -> ExecutionService:

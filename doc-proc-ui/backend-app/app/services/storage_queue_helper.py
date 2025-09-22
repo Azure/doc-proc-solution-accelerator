@@ -78,7 +78,7 @@ class StorageQueueHelper():
             "message_type": "batch_execution_request",
             "pipeline_name": pipeline_to_process_documents,
             "documents": _documents,
-            "batch_name": f"batch-doc-{len(_documents)}-{uuid.uuid4().hex[:6]}",
+            "batch_id": f"vault-batch-{len(_documents)}-{uuid.uuid4().hex[:6]}",
             "priority": 0,
             "metadata": {
                 "source": "vault_document_processing",
@@ -91,7 +91,7 @@ class StorageQueueHelper():
 
         msg_id = await self._send_message(message)
 
-        return {"message_id": msg_id, "batch_name": message["batch_name"], "correlation_id": message["correlation_id"]}
+        return {"message_id": msg_id, "batch_id": message["batch_id"], "correlation_id": message["correlation_id"]}
 
 
     async def _send_message(self, message: Dict[str, Any], 

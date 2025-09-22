@@ -31,6 +31,7 @@ async def initialize_service_catalog():
         
     except Exception as e:
         logger.error(f"Failed to initialize service catalog: {str(e)}")
+        logger.exception(e)
         raise e
     
 async def initialize_step_catalog():
@@ -53,6 +54,7 @@ async def initialize_step_catalog():
         
     except Exception as e:
         logger.error(f"Failed to initialize step catalog: {str(e)}")
+        logger.exception(e)
         raise e
 
 

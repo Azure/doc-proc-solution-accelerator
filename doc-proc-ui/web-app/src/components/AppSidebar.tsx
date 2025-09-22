@@ -28,11 +28,6 @@ const appNavigationItems = [
     icon: Vault,
   },
   {
-    title: "Vaults3",
-    url: "/vaults3",
-    icon: Vault,
-  },
-  {
     title: "Vaults4",
     url: "/vaults4",
     icon: Vault,

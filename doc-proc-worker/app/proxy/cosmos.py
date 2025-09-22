@@ -1,32 +1,26 @@
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
 from app.utils import get_azure_credential
-from app.settings import app_settings
 
 
 class CosmosDb():
     def __init__(self, 
                  endpoint: str, 
-                 credential = None):
+                 database_name: str, 
+                 init_containers: Optional[List[str]] = None):
         super().__init__()
         
         if not endpoint:
             raise RuntimeError("Cosmos DB endpoint is required")
 
-        if credential:
-            self.client = CosmosClient(endpoint, credential=credential)
-        else:
-            self.client = CosmosClient(endpoint, credential=get_azure_credential())
+        self.client = CosmosClient(endpoint, credential=get_azure_credential())
 
-        self.database = self._ensure_database(app_settings.COSMOS_DB_NAME)
+        self.database = self._ensure_database(database_name)
 
         self.containers = {
-            "pipelines": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_PIPELINES),
-            "batch_executions": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS),
-            "activity_logs": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_ACTIVITY_LOGS),
-            "pipeline_executions": self._ensure_container(app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS),
+            container: self._ensure_container(container) for container in (init_containers or [])
         }
 
     def _ensure_database(self, db_name: str):

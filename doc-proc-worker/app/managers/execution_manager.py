@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from app.managers.pipeline_manager import PipelineManager
-from app.managers.activity_log_manager import ActivityLogManager
 
 from app.proxy.cosmos import CosmosDb
 from app.models.execution import (
@@ -26,7 +25,6 @@ class ExecutionManager():
     def __init__(self, 
                  db: CosmosDb, 
                  pipeline_manager: PipelineManager, 
-                 activity_log_manager: ActivityLogManager,
                  batch_executions_container_name:str = "batch_executions",
                  pipeline_executions_container_name:str = "pipeline_executions"
                 ):
@@ -35,7 +33,6 @@ class ExecutionManager():
         self._batch_executions_container_name = batch_executions_container_name
         self._pipeline_executions_container_name = pipeline_executions_container_name
         self._pipeline_manager = pipeline_manager
-        self._activity_log_manager = activity_log_manager
 
     
     async def execute_batch(self, batch_execution_request: BatchExecutionRequest) -> bool:
@@ -43,25 +40,11 @@ class ExecutionManager():
         
         batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{len(batch_execution_request.documents)}_docs"
         try:
+            logger.debug(f"Starting execution for batch {batch_id} with {len(batch_execution_request.documents)} documents")
+            
             # Step 1: Create batch execution
             batch = await self._create_batch_execution(batch_id, batch_execution_request)
             
-            
-            # # Update batch status to running
-            # await self.update_batch_status(
-            #     batch_id,
-            #     BatchStatus.RUNNING,
-            #     started_at=datetime.now(timezone.utc).isoformat()
-            # )
-        
-            # # Log batch start activity
-            # await self._activity_log_service.log_activity(
-            #     batch_execution_id=batch_id,
-            #     activity_type=ActivityType.BATCH_STARTED,
-            #     status="Started",
-            #     message=f"Batch execution started with {batch.total_documents} documents",
-            #     details={"task_id": task_id, "pipeline": batch.pipeline_name}
-            # )
         
             # Load pipeline
             pipeline = await self._pipeline_manager.load_pipeline(batch.pipeline_name)
@@ -88,19 +71,6 @@ class ExecutionManager():
                 failed_documents=failed_documents
             )
             
-            # # Log batch completion
-            # await self._activity_log_service.log_activity(
-            #     batch_execution_id=batch_id,
-            #     activity_type=ActivityType.BATCH_COMPLETED,
-            #     status="completed",
-            #     message=f"Batch execution completed. Processed: {successful_documents}, Failed: {failed_documents}",
-            #     details={
-            #         "total_documents": batch.total_documents,
-            #         "completed_documents": successful_documents,
-            #         "failed_documents": failed_documents
-            #     }
-            # )
-            
             return True
 
         except Exception as e:
@@ -110,14 +80,6 @@ class ExecutionManager():
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 errors=[str(e), traceback.format_exc()]
             )
-
-            # await self._activity_log_service.log_activity(
-            #     batch_execution_id=batch_id,
-            #     activity_type=ActivityType.BATCH_FAILED,
-            #     status="Failed",
-            #     message="Batch execution failed",
-            #     error_message=str(e)
-            # )
 
             return False
 
@@ -147,7 +109,7 @@ class ExecutionManager():
     async def _store_pipeline_execution_result(self, batch_id:str, pipeline_execution_result: PipelineExecutionResult) -> bool:
         """Store pipeline execution result"""
         
-        result_id = f"result_{pipeline_execution_result.pipeline_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
+        result_id = f"exec_{pipeline_execution_result.pipeline_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
 
         output_data = pipeline_execution_result.model_dump()
         
@@ -161,6 +123,7 @@ class ExecutionManager():
 
         output_data["id"] = result_id
         output_data["batch_execution_id"] = batch_id
+        output_data["created_at"] = datetime.now(timezone.utc).isoformat()
 
         self._db.upsert(container=self._pipeline_executions_container_name, item=output_data)
 
@@ -176,25 +139,13 @@ class ExecutionManager():
             documents=request.documents,
             total_documents=len(request.documents),
             priority=request.priority,
+            source_batch_id=request.source_batch_id,
             submitted_at=datetime.now(timezone.utc).isoformat(),
             metadata=request.metadata
         )
         
         # Save to database
         saved_batch = self._db.upsert(self._batch_executions_container_name, batch.model_dump())
-        
-        # # Log creation activity
-        # await self._activity_log_service.log_activity(
-        #     batch_execution_id=batch_id,
-        #     activity_type=ActivityType.BATCH_CREATED,
-        #     status="Created",
-        #     message=f"Batch execution created with {len(request.documents)} documents",
-        #     details={
-        #         "pipeline_name": request.pipeline_name,
-        #         "document_count": len(request.documents),
-        #         "priority": request.priority
-        #     }
-        # )
         
         return BatchExecution(**saved_batch)
     
@@ -216,30 +167,10 @@ class ExecutionManager():
         
         # Update specific fields if provided
         for key, value in kwargs.items():
-            if key in ["celery_task_id", "submitted_at", "started_at", "completed_at",
+            if key in ["submitted_at", "started_at", "completed_at",
                       "completed_documents", "failed_documents", "results", "errors", "metadata"]:
                 batch_data[key] = value
         
         self._db.upsert(container=self._batch_executions_container_name, item=batch_data)
         return True
     
-    
-    # async def list_batch_executions(self, status: Optional[BatchStatus] = None, 
-    #                                pipeline_id: Optional[str] = None) -> List[BatchExecution]:
-    #     """List batch executions with optional filters"""
-    #     where_conditions = []
-    #     parameters = []
-        
-    #     if status:
-    #         where_conditions.append("c.status = @status")
-    #         parameters.append({"name": "@status", "value": status.value})
-        
-    #     if pipeline_id:
-    #         where_conditions.append("c.pipeline_instance_id = @pipeline_id")
-    #         parameters.append({"name": "@pipeline_id", "value": pipeline_id})
-        
-    #     where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
-    #     query = f"SELECT * FROM c WHERE {where_clause} ORDER BY c.created_at DESC"
-        
-    #     batch_data = await self.list_all(query, parameters)
-    #     return [BatchExecution(**batch) for batch in batch_data]

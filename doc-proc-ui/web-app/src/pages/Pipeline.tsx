@@ -44,6 +44,7 @@ import {
 import PipelineWorkflow from "../components/pipeline/PipelineWorkflow";
 import PipelineMetrics from "../components/pipeline/PipelineMetrics";
 import PipelineSettings from "../components/pipeline/PipelineSettings";
+import PipelineStats from "../components/pipeline/PipelineStats";
 import NewPipelineDialog from "../components/pipeline/NewPipelineDialog";
 import { useConfigLoader } from "../hooks/useConfigLoader";
 import { pipelinesApi, Pipeline as PipelineModel, CreatePipelineRequest, ApiError, ErrorWithData } from "../lib/api";
@@ -594,7 +595,7 @@ pipelines:
           </TabsContent>
 
           <TabsContent value="metrics" className="space-y-4">
-            <PipelineMetrics />
+            <PipelineMetrics pipeline_name={selectedPipeline.name} />
           </TabsContent>
         </Tabs>
       </div>
@@ -660,63 +661,63 @@ pipelines:
                   className="cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => setSelectedPipeline(pipeline)}
                 >
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
+                  <CardContent className="py-4">
+                    {/* Header section with reduced spacing */}
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <Workflow className="h-5 w-5 text-muted-foreground" />
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <Workflow className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-base leading-tight">{pipeline.name}</h3>
+                          <p className="text-sm text-muted-foreground leading-tight">{pipeline.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <Badge className={getStatusColor(pipeline.status)}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {pipeline.status}
+                        </Badge>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">{pipeline.name}</CardTitle>
-                      <CardDescription>{pipeline.description}</CardDescription>
+
+                    {/* Compact metadata and stats section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      {/* Left column - Pipeline metadata with horizontal layout */}
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-1">
+                          <GitBranch className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground">Steps:</span>
+                          <span className="font-medium">{pipeline.steps?.length || 0}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground">Updated:</span>
+                          <span className="font-medium">
+                            {pipeline.updated_at 
+                              ? new Date(pipeline.updated_at).toLocaleDateString() + ' ' + new Date(pipeline.updated_at).toLocaleTimeString()
+                              : 'Unknown'
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right column - Pipeline stats with reduced spacing */}
+                      <div className="lg:border-l lg:pl-4">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                          <BarChart3 className="h-3 w-3" />
+                          <span className="text-sm font-medium">Recent Activity (24h)</span>
+                        </div>
+                        <div className="scale-90 origin-left">
+                          <PipelineStats 
+                            pipelineName={pipeline.name} 
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge className={getStatusColor(pipeline.status)}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {pipeline.status}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <GitBranch className="h-4 w-4" />
-                      <span>Steps</span>
-                    </div>
-                    <p className="font-semibold text-base">{pipeline.steps?.length || 0}</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <Clock className="h-4 w-4" />
-                      <span>Last Run</span>
-                    </div>
-                    <p className="font-semibold text-base">{pipeline.lastRun}</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <Files className="h-4 w-4" />
-                      <span>Documents</span>
-                    </div>
-                    <p className="font-semibold text-base">{pipeline.documentsProcessed?.toLocaleString() || 0}</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>Created</span>
-                    </div>
-                    <p className="font-semibold text-base">
-                      {pipeline.created_at 
-                        ? new Date(pipeline.created_at).toLocaleDateString()
-                        : 'Unknown'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
               );
             })
           )}

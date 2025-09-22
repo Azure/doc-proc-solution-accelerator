@@ -137,7 +137,7 @@ class VaultDocumentsService(BaseService):
             document.metadata["pipeline_name"] = vault.pipeline_name
             document.metadata["queue_message_id"] = _queue_result["message_id"]
             document.metadata["correlation_id"] = _queue_result["correlation_id"]
-            document.metadata["batch_name"] = _queue_result["batch_name"]
+            document.metadata["batch_id"] = _queue_result["batch_id"]
 
         # Update the document records in the database
         await self.batch_upsert([document.model_dump() for document in documents])

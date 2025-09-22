@@ -120,8 +120,35 @@ class BatchExecutionStatus(BaseModel):
     current_step: Optional[str] = Field(None, description="Current processing step")
     started_at: Optional[str] = Field(None, description="Start time in ISO format")
     estimated_completion: Optional[str] = Field(None, description="Estimated completion time in ISO format")
-    recent_activities: List[Dict[str, Any]] = Field(default_factory=list, description="Recent activities")
-    started_at: Optional[datetime]
-    estimated_completion: Optional[datetime]
-    current_step: Optional[str] = None
-    recent_activities: List[ActivityLog] = Field(default_factory=list)
+    recent_activities: List[ActivityLog] = Field(default_factory=list, description="Recent activities")
+
+
+class DocumentResult(BaseModel):
+    """Model for individual document processing results"""
+    document_id: str = Field(..., description="Document ID")
+    result: str = Field(..., description="Processing status (success/failed)")
+    reason: Optional[str] = Field(None, description="Reason for the result status")
+    elapsed_time_ms: Optional[int] = Field(None, description="Processing time in milliseconds")
+    step_results: List[Dict[str, Any]] = Field(default_factory=list, description="Results from each step")
+    data: Dict[str, Any] = Field(default_factory=dict, description="Document data")
+    summary_data: Dict[str, Any] = Field(default_factory=dict, description="Summary statistics")
+
+
+class PipelineExecutionResult(BaseModel):
+    """Model for pipeline execution results"""
+    id: str = Field(..., description="Unique id of the execution result")
+    pipeline_name: str = Field(..., description="Name of the executed pipeline")
+    result: str = Field(..., description="Overall execution result (Success/Failed)")
+    reason: str = Field(..., description="Reason for the execution result")
+    elapsed_time_secs: float = Field(..., description="Total pipeline execution time in seconds")
+    # Document results
+    document_results: List[DocumentResult] = Field(default_factory=list, description="Results for each document")
+    # Summary statistics
+    summary_stats: Dict[str, Any] = Field(default_factory=dict, description="Summary statistics")
+    batch_execution_id: str = Field(..., description="ID of the related batch execution")
+    
+    # Timing information
+    started_at: Optional[str] = Field(None, description="Execution start time in utc timezone in ISO format")
+    completed_at: Optional[str] = Field(None, description="Execution completion time in utc timezone in ISO format")
+    
+    created_at: str = Field(..., description="Creation time in utc timezone in ISO format")

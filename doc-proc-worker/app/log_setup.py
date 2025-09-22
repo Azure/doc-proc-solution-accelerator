@@ -1,4 +1,5 @@
 import logging
+import os
 
 from app.settings import app_settings
 # from azure.monitor.opentelemetry import configure_azure_monitor
@@ -12,7 +13,7 @@ class CustomColoredFormatter(logging.Formatter):
     bold_red = '\x1b[31;1m'
     reset = '\x1b[0m'
 
-    format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    format = "%(asctime)s - %(name)s - %(levelname)s - [%(processName)s:%(process)d] - %(message)s (%(filename)s:%(lineno)d)"
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,
