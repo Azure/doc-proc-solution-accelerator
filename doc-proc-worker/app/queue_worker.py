@@ -237,9 +237,9 @@ class QueueWorker:
             # Convert to BatchExecutionRequest
             batch_request = BatchExecutionRequest(
                 pipeline_name=request.pipeline_name,
+                vault_id=request.vault_id,
                 documents=request.documents,
                 source_batch_id=request.batch_id,
-                priority=request.priority,
                 metadata={
                     **request.metadata,
                     "queue_worker_id": self.worker_id,

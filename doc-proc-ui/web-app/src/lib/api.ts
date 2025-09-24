@@ -109,18 +109,11 @@ export interface StepSettingsSchema {
 }
 
 // Vault types based on backend models
-export interface VaultStats {
-  total_documents: number;
-  processed_documents: number;
-  pending_documents: number;
-  failed_documents: number;
-  total_size_bytes: number;
-  last_activity?: string;
-}
 
 export interface DocumentProcessingConfig {
   auto_process_documents: boolean;
   supported_formats: string[];
+  save_pipeline_step_outputs: boolean;
 }
 
 export interface StorageConfig {
@@ -138,7 +131,7 @@ export interface Vault {
   pipeline_name?: string;
   processing_config: DocumentProcessingConfig;
   storage_config: StorageConfig;
-  stats: VaultStats;
+  stats?: Record<string, any>;
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -149,7 +142,7 @@ export interface VaultCreateRequest {
   name: string;
   description?: string;
   pipeline_name: string;
-  document_processing_config?: DocumentProcessingConfig;
+  processing_config?: DocumentProcessingConfig;
   storage_config?: StorageConfig;
   metadata?: Record<string, any>;
 }
@@ -158,7 +151,7 @@ export interface VaultUpdateRequest {
   name?: string;
   description?: string;
   pipeline_name?: string;
-  document_processing_config?: DocumentProcessingConfig;
+  processing_config?: DocumentProcessingConfig;
   storage_config?: StorageConfig;
   metadata?: Record<string, any>;
 }
@@ -172,6 +165,14 @@ export interface DocumentInfo {
   processed_date?: string;
   status: string;
   metadata: Record<string, any>;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface StepUIMetadata {
@@ -310,6 +311,19 @@ export interface PipelineExecutionStats {
   total_documents_processed: number;
   success_rate: number;
   recent_executions: PipelineExecutionResult[];
+}
+
+export interface DocumentExecutionStatus {
+  document_id: string;
+  batch_id: string;
+  batch_status?: string;
+  pipeline_execution_id?: string;
+  pipeline_name?: string;
+  batch_submitted_at?: string;
+  batch_started_at?: string;
+  batch_completed_at?: string;
+  batch_metadata?: Record<string, any>;
+  document?: any;
 }
 
 export interface ApiError {
@@ -570,7 +584,7 @@ export class ApiManager {
   }
 
   // ##################################
-  // Pipeline Execution Methods
+  // Pipeline Execution Status Methods
   async getPipelineExecutions(
     batchExecutionId?: string,
     pipelineName?: string,
@@ -583,34 +597,41 @@ export class ApiManager {
     if (pipelineName) queryString += `pipeline_name=${encodeURIComponent(pipelineName)}&`;
     queryString += `limit=${limit}&offset=${offset}`;
 
-    return this.get(`/api/pipeline-executions${queryString ? `?${queryString}` : ''}`);
+    return this.get(`/api/status/pipeline-executions${queryString ? `?${queryString}` : ''}`);
   }
 
   async getRecentPipelineExecutions(pipelineName?: string, limit: number = 20, timeRange?: string): Promise<PipelineExecutionResult[]> {
     let queryString = `limit=${limit}`;
     if (timeRange) queryString += `&time_range=${encodeURIComponent(timeRange)}`;
     if (pipelineName) queryString += `&pipeline_name=${encodeURIComponent(pipelineName)}`;
-    return this.get(`/api/pipeline-executions/recent?${queryString}`);
+    return this.get(`/api/status/pipeline-executions/recent?${queryString}`);
   }
 
   async getPipelineExecutionStats(pipelineName?: string): Promise<PipelineExecutionStats> {
     const params = pipelineName ? `?pipeline_name=${encodeURIComponent(pipelineName)}` : '';
-    return this.get(`/api/pipeline-executions/stats${params}`);
+    return this.get(`/api/status/pipeline-executions/stats${params}`);
   }
 
   async getPipelineExecutionsByBatch(batchExecutionId: string): Promise<PipelineExecutionResult[]> {
-    return this.get(`/api/pipeline-executions/batch/${batchExecutionId}`);
+    return this.get(`/api/status/pipeline-executions/batch/${batchExecutionId}`);
   }
 
   async getPipelineExecution(executionId: string): Promise<PipelineExecutionResult> {
-    return this.get(`/api/pipeline-executions/${executionId}`);
+    return this.get(`/api/status/pipeline-executions/${executionId}`);
   }
 
   async deletePipelineExecution(executionId: string): Promise<{ message: string }> {
-    return this.delete(`/api/pipeline-executions/${executionId}`);
+    return this.delete(`/api/status/pipeline-executions/${executionId}`);
   }
 
   // ##################################
+  // Document status methods
+  async getDocumentStatus(documentIds: string[]): Promise<DocumentExecutionStatus[]> {
+    return this.post('/api/status/document-status', documentIds);
+  }
+
+  // ##################################
+  // Vault Methods
   async getVaults(): Promise<Vault[]> {
     return this.get('/api/vaults');
   }
@@ -633,6 +654,18 @@ export class ApiManager {
 
   async getVaultDocuments(vaultId: string): Promise<DocumentInfo[]> {
     return this.get(`/api/vaults/${vaultId}/documents`);
+  }
+
+  async getVaultDocumentsPaginated(vaultId: string, page: number, pageSize: number, timeFilter: string, search: string, sortBy: string, sortDirection: string): Promise<PaginatedResponse<DocumentInfo>> {
+    let queryString = '';
+    if (page) queryString += `page=${encodeURIComponent(page.toString())}&`;
+    if (pageSize) queryString += `page_size=${encodeURIComponent(pageSize.toString())}&`;
+    if (timeFilter) queryString += `time_filter=${encodeURIComponent(timeFilter)}&`;
+    if (search) queryString += `search=${encodeURIComponent(search)}&`;
+    if (sortBy) queryString += `sort_by=${encodeURIComponent(sortBy)}&`;
+    if (sortDirection) queryString += `sort_direction=${encodeURIComponent(sortDirection)}&`;
+
+    return this.get(`/api/vaults/${vaultId}/documents-paginated` + (queryString ? `?${queryString.slice(0, -1)}` : ''));
   }
 
   async uploadVaultDocuments(vaultId: string, files: File[], overwrite: boolean = false): Promise<UploadDocumentResponse[]> {
@@ -698,11 +731,8 @@ export class ApiManager {
     });
   }
 
-  async processVault(id: string, documentIds?: string[], forceReprocess = false): Promise<any> {
-    return this.post(`/api/vaults/${id}/process`, { 
-      document_ids: documentIds, 
-      force_reprocess: forceReprocess 
-    });
+  async processVault(id: string, documentIds?: string[]): Promise<boolean> {
+    return this.post(`/api/vaults/${id}/process`, documentIds);
   }
 }
 
@@ -759,8 +789,8 @@ export const pipelinesApi = {
   deletePipeline: (id: string) => apiManager.deletePipeline(id),
 };
 
-export const pipelineExecutionsApi = {
-  // Pipeline Execution Methods
+export const pipelineExecutionStatusApi = {
+  // Pipeline Execution Status Methods
   getExecutions: (batchExecutionId?: string, pipelineName?: string, limit?: number, offset?: number) => 
     apiManager.getPipelineExecutions(batchExecutionId, pipelineName, limit, offset),
   getRecentExecutions: (pipelineName?: string, limit?: number, timeRange?: string) => apiManager.getRecentPipelineExecutions(pipelineName, limit, timeRange),
@@ -770,6 +800,11 @@ export const pipelineExecutionsApi = {
   deleteExecution: (executionId: string) => apiManager.deletePipelineExecution(executionId),
 };
 
+export const documentStatusApi = {
+  // Document Status Methods
+  getDocumentStatus: (documentIds: string[]) => apiManager.getDocumentStatus(documentIds),
+};
+
 export const vaultsApi = {
   // Vault Methods
   getVaults: () => apiManager.getVaults(),
@@ -777,10 +812,10 @@ export const vaultsApi = {
   createVault: (data: VaultCreateRequest) => apiManager.createVault(data),
   updateVault: (id: string, data: VaultUpdateRequest) => apiManager.updateVault(id, data),
   deleteVault: (id: string) => apiManager.deleteVault(id),
-  getVaultDocuments: (vaultId: string) => apiManager.getVaultDocuments(vaultId),
+  getVaultDocumentsPaginated: (vaultId: string, page?: number, pageSize?: number, timeFilter?: string, search?: string, sortBy?: string, sortDirection?: string) => apiManager.getVaultDocumentsPaginated(vaultId, page, pageSize, timeFilter, search, sortBy, sortDirection),
   uploadVaultDocuments: (vaultId: string, files: File[], overwrite?: boolean) => apiManager.uploadVaultDocuments(vaultId, files, overwrite),
   uploadVaultDocumentWithProgress: (vaultId: string, file: File, onProgress?: (p:number)=>void) => apiManager.uploadVaultDocumentWithProgress(vaultId, file, onProgress),
-  processVault: (id: string, documentIds?: string[], forceReprocess?: boolean) => apiManager.processVault(id, documentIds, forceReprocess),
+  processVault: (id: string, documentIds?: string[]) => apiManager.processVault(id, documentIds),
 };
 
 // Export the manager instance for advanced usage

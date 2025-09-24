@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 import os
 import sys
 import traceback
@@ -37,15 +38,30 @@ class ExecutionManager():
     
     async def execute_batch(self, batch_execution_request: BatchExecutionRequest) -> bool:
         """Execute a batch"""
+
+        if not batch_execution_request or not batch_execution_request.documents:
+            raise ValueError("Invalid batch execution request or no documents to process")
         
-        batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{len(batch_execution_request.documents)}_docs"
+        batch_id = batch_execution_request.source_batch_id
+        if not batch_id or batch_id.strip() == "":
+            raise ValueError("Batch execution request must have a valid source_batch_id")
+        
         try:
             logger.debug(f"Starting execution for batch {batch_id} with {len(batch_execution_request.documents)} documents")
             
-            # Step 1: Create batch execution
+            # Create batch execution
             batch = await self._create_batch_execution(batch_id, batch_execution_request)
         
+            # Get processing properties
+            save_pipeline_step_outputs = False
+            if batch.metadata and "save_pipeline_step_outputs" in batch.metadata:
+                save_pipeline_step_outputs = batch.metadata.get("save_pipeline_step_outputs", False)
+
+            logger.debug(f"Batch {batch.id} created with status {batch.status}. Save pipeline step outputs: {save_pipeline_step_outputs}")
+
             # Load pipeline
+            logger.debug(f"Loading pipeline {batch.pipeline_name} for batch {batch.id}")
+            
             pipeline = await self._pipeline_manager.load_pipeline(batch.pipeline_name)
             if not pipeline:
                 raise RuntimeError(f"Pipeline {batch.pipeline_name} not found or could not be loaded.")
@@ -55,7 +71,10 @@ class ExecutionManager():
             pipeline_execution_result = await self._process_batch(batch, pipeline)
 
             # Store the result in the database
-            _stored_pipeline_execution = await self._store_pipeline_execution_result(batch.id, pipeline_execution_result)
+            _stored_pipeline_execution = await self._store_pipeline_execution_result(batch_id=batch.id, 
+                                                                                     vault_id=batch.vault_id,
+                                                                                     pipeline_execution_result=pipeline_execution_result, 
+                                                                                     save_outputs=save_pipeline_step_outputs)
 
 
             # Complete the batch
@@ -100,26 +119,27 @@ class ExecutionManager():
             f.write(result.model_dump_json())
         
         return result
-    
-    
-    async def _store_pipeline_execution_result(self, batch_id:str, pipeline_execution_result: PipelineExecutionResult) -> bool:
+
+
+    async def _store_pipeline_execution_result(self, batch_id:str, vault_id: str, pipeline_execution_result: PipelineExecutionResult, save_outputs: bool) -> Dict[str, Any]:
         """Store pipeline execution result"""
         
         result_id = f"exec_{pipeline_execution_result.pipeline_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
 
         output_data = pipeline_execution_result.model_dump()
         
-        # clean up the data field for each document
-        for doc_result in output_data.get("document_results", []):
-            # remove all fields except id and file_path
-            doc_result_data = doc_result.get("data", {})
-            for k in list(doc_result_data.keys()):
-                if k not in ["id", "file_path"]:
-                    doc_result_data.pop(k)
+        if not save_outputs:
+            # clean up the data field for each document
+            for doc_result in output_data.get("document_results", []):
+                # remove all fields except id and file_path
+                doc_result_data = doc_result.get("data", {})
+                for k in list(doc_result_data.keys()):
+                    if k not in ["id", "file_path"]:
+                        doc_result_data.pop(k)
 
         output_data["id"] = result_id
         output_data["batch_execution_id"] = batch_id
-        output_data["created_at"] = datetime.now(timezone.utc).isoformat()
+        output_data["vault_id"] = vault_id
 
         return self._db.upsert(container=self._pipeline_executions_container_name, item=output_data)
 
@@ -132,9 +152,9 @@ class ExecutionManager():
             id=batch_id,
             status=BatchStatus.RUNNING,
             pipeline_name=request.pipeline_name,
+            vault_id=request.vault_id,
             documents=request.documents,
             total_documents=len(request.documents),
-            priority=request.priority,
             source_batch_id=request.source_batch_id,
             submitted_at=datetime.now(timezone.utc).isoformat(),
             started_at=datetime.now(timezone.utc).isoformat(),
@@ -146,13 +166,7 @@ class ExecutionManager():
         
         return BatchExecution(**saved_batch)
     
-    
-    async def _get_batch_execution(self, batch_id: str) -> Optional[BatchExecution]:
-        """Get batch execution by ID"""
-        batch_data = await self.get_by_id(batch_id)
-        return BatchExecution(**batch_data) if batch_data else None
-    
-    
+
     async def _update_batch_status(self, batch_id: str, status: BatchStatus, **kwargs) -> bool:
         """Update batch execution status"""
         batch_data = self._db.get(container=self._batch_executions_container_name, id=batch_id)
@@ -170,6 +184,7 @@ class ExecutionManager():
         
         self._db.upsert(container=self._batch_executions_container_name, item=batch_data)
         return True
+    
     
     async def _update_completion_batch_status(self, batch_id: str, status: BatchStatus, 
                                                     stored_pipeline_execution_id: str,
@@ -209,6 +224,15 @@ class ExecutionManager():
                     doc_status = doc_result["result"]
                     doc_reason = doc_result.get("reason", "")
                     doc_elapsed_time = doc_result.get("elapsed_time_secs", 0.0)
+                    
+                    if doc_status == 'Failed' and doc_reason in [None, ""]:
+                        # get the last step result with failure reason
+                        step_results = doc_result.get("step_results", [])
+                        if step_results:
+                            # find the step with failure
+                            _step = next((s for s in step_results if s.get("result") == "Failed"), None)
+                            doc_reason = _step.get("reason", "Unknown error") if _step else "Unknown error"
+
                     # Find the document in the batch and update its status
                     for batch_doc in batch_data.get("documents", []):
                         if batch_doc.get("id", "") == doc_id:

@@ -31,10 +31,11 @@ class BaseService(ABC):
         """Update an existing item"""
         return self.db.upsert(self.container_name, item)
     
-    async def delete(self, item_id: str) -> bool:
+    async def delete(self, item_id: str, container: Optional[str] = None) -> bool:
         """Delete an item by ID"""
         try:
-            self.db.containers[self.container_name].delete_item(item=item_id, partition_key=item_id)
+            target_container = container or self.container_name
+            self.db.containers[target_container].delete_item(item=item_id, partition_key=item_id)
             return True
         except Exception:
             return False

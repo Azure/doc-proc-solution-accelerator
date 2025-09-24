@@ -6,7 +6,7 @@ import uvicorn
 
 from app.settings import app_settings
 from app.log_setup import setup_logger
-from app.routers import services, health, steps, pipelines, vaults, pipeline_executions #, executions, vaults, dashboard
+from app.routers import services, health, steps, pipelines, vaults, status # dashboard
 from app.startup import create_startup_handler, create_shutdown_handler
 from app.exceptions import add_exception_handlers
 
@@ -32,8 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(steps.router)
     app.include_router(pipelines.router)
     app.include_router(vaults.router)
-    app.include_router(pipeline_executions.router)
-    # app.include_router(executions.router, prefix="/api/executions", tags=["executions"])
+    app.include_router(status.router)
     # app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 
     # Add custom exception handlers

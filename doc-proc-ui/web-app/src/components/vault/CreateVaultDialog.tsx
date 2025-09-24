@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -21,13 +22,15 @@ import {
   type Pipeline, 
   type VaultCreateRequest,
   type StorageConfig,
-  type DocumentProcessingConfig
+  type DocumentProcessingConfig,
+  pipelinesApi,
+  ErrorWithData
 } from "@/lib/api";
+
 
 interface CreateVaultDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  pipelines: Pipeline[];
   onCreateVault: (request: VaultCreateRequest) => Promise<void>;
   loading?: boolean;
 }
@@ -46,17 +49,22 @@ interface FormErrors {
 const CreateVaultDialog = ({ 
   open, 
   onOpenChange, 
-  pipelines, 
   onCreateVault,
   loading = false 
 }: CreateVaultDialogProps) => {
+  const { toast } = useToast();
+  // Pipeline state
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [pipelinesLoading, setPipelinesLoading] = useState(false);
+
   const [formData, setFormData] = useState<VaultCreateRequest>({
     name: "",
     description: "",
     pipeline_name: "",
-    document_processing_config: {
+    processing_config: {
       auto_process_documents: true,
-      supported_formats: ["pdf", "docx", "txt", "md"]
+      supported_formats: ["pdf", "docx", "pptx", "excel"],
+      save_pipeline_step_outputs: false
     },
     storage_config: {
       account_name: "",
@@ -70,6 +78,32 @@ const CreateVaultDialog = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useCustomStorage, setUseCustomStorage] = useState(false);
+
+  // Load pipelines when dialog opens
+  useEffect(() => {
+    if (open && pipelines.length === 0) {
+      loadPipelines();
+    }
+  }, [open]);
+
+  const loadPipelines = async () => {
+    try {
+      setPipelinesLoading(true);
+      const pipelinesData = await pipelinesApi.getPipelines();
+      setPipelines(pipelinesData);
+    } catch (error) {
+      console.error('Error loading pipelines:', error);
+
+      const errMessage = error instanceof ErrorWithData ? error.details.message : 'Unknown error';
+      toast({
+        title: "Error",
+        description: `Failed to load pipelines. ${errMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setPipelinesLoading(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -121,7 +155,7 @@ const CreateVaultDialog = ({
         name: formData.name,
         description: formData.description,
         pipeline_name: formData.pipeline_name,
-        document_processing_config: formData.document_processing_config,
+        processing_config: formData.processing_config,
         metadata: formData.metadata
       };
 
@@ -145,9 +179,10 @@ const CreateVaultDialog = ({
       name: "",
       description: "",
       pipeline_name: "",
-      document_processing_config: {
+      processing_config: {
         auto_process_documents: true,
-        supported_formats: ["pdf", "docx", "txt", "md"]
+        supported_formats: ["pdf", "docx", "pptx", "excel"],
+        save_pipeline_step_outputs: false
       },
       storage_config: {
         account_name: "",
@@ -160,6 +195,8 @@ const CreateVaultDialog = ({
     setErrors({});
     setIsSubmitting(false);
     setUseCustomStorage(false);
+    // Reset pipelines to free up memory when dialog closes
+    setPipelines([]);
     onOpenChange(false);
   };
 
@@ -176,8 +213,8 @@ const CreateVaultDialog = ({
   const updateProcessingConfig = (updates: Partial<DocumentProcessingConfig>) => {
     setFormData(prev => ({
       ...prev,
-      document_processing_config: {
-        ...prev.document_processing_config!,
+      processing_config: {
+        ...prev.processing_config!,
         ...updates
       }
     }));
@@ -267,10 +304,10 @@ const CreateVaultDialog = ({
                       setErrors({ ...errors, pipeline_name: undefined });
                     }
                   }}
-                  disabled={pipelines.length === 0 || pipelines.filter(p => p.settings?.enabled === true).length === 0}
+                  disabled={pipelinesLoading || pipelines.length === 0 || pipelines.filter(p => p.settings?.enabled === true).length === 0}
                 >
                   <SelectTrigger className={errors.pipeline_name ? "border-red-500" : ""}>
-                    <SelectValue placeholder={pipelines.length === 0 ? "No pipelines available" : "Select a pipeline"} />
+                    <SelectValue placeholder={pipelinesLoading ? "Loading pipelines..." : pipelines.length === 0 ? "No pipelines available" : "Select a pipeline"} />
                   </SelectTrigger>
                   <SelectContent>
                     {pipelines.map((pipeline) => (
@@ -288,7 +325,7 @@ const CreateVaultDialog = ({
                 {errors.pipeline_name && (
                   <p className="text-sm text-red-500 mt-1">{errors.pipeline_name}</p>
                 )}
-                {(pipelines.length === 0 || pipelines.filter(p => p.settings?.enabled === true).length === 0) && (
+                {!pipelinesLoading && (pipelines.length === 0 || pipelines.filter(p => p.settings?.enabled === true).length === 0) && (
                   <Alert className="mt-2 text-red-500">
                     <AlertCircle className="h-4 w-4" color="red" />
                     <AlertDescription>
@@ -331,9 +368,24 @@ const CreateVaultDialog = ({
                   </div>
                   <Switch
                     id="autoProcess"
-                    checked={formData.document_processing_config?.auto_process_documents}
+                    checked={formData.processing_config?.auto_process_documents}
                     onCheckedChange={(checked) => 
                       updateProcessingConfig({ auto_process_documents: checked })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="saveOutputs">Save Pipeline Step Outputs</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Save the document outputs from each step of the processing pipeline for debugging and analysis
+                    </p>
+                  </div>
+                  <Switch
+                    id="saveOutputs"
+                    checked={formData.processing_config?.save_pipeline_step_outputs}
+                    onCheckedChange={(checked) => 
+                      updateProcessingConfig({ save_pipeline_step_outputs: checked })
                     }
                   />
                 </div>
@@ -509,7 +561,7 @@ const CreateVaultDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || loading || pipelines.length === 0}
+            disabled={isSubmitting || loading || pipelinesLoading || pipelines.length === 0}
           >
             {isSubmitting ? "Creating..." : "Create Vault"}
           </Button>

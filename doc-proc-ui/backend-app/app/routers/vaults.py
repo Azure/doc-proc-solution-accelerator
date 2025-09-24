@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends
 import fastapi
 
 from app.models.vault import (
-    AddDocumentRequest, UploadDocumentResponse, Vault, VaultCreateRequest, VaultUpdateRequest, VaultProcessingRequest,
-    VaultStatus, DocumentInfo
+    AddDocumentRequest, UploadDocumentResponse, Vault, VaultCreateRequest, VaultUpdateRequest,
+    VaultStatus, DocumentInfo, PaginatedResponse
 )
 from app.services.vault_service import VaultService
 from app.dependencies import get_vault_service
@@ -87,13 +87,15 @@ async def delete_vault(
     try:
         success = await service.delete_vault(vault_id)
         if not success:
-            raise ApiException(status_code=404, message="Vault not found")
+            raise ApiException(status_code=404, message="Vault not found", details="Failed to delete vault or vault not found.")
         return {"message": "Vault deleted successfully"}
     except ApiException:
         raise
     except Exception as e:
         raise ApiException(status_code=500, message=f"Failed to delete vault", details=str(e))
 
+################################################
+# Vault status endpoints
 
 @router.get("/{vault_id}/status")
 async def get_vault_status(
@@ -160,37 +162,67 @@ async def get_vault_documents(
     vault_id: str,
     service: VaultService = Depends(get_vault_service)
 ):
-    """Get documents in a vault"""
+    """Get all documents in a vault"""
     try:
         # First check if vault exists
         vault = await service.get_vault(vault_id)
         if not vault:
             raise ApiException(status_code=404, message="Vault not found")
         
-        documents = await service.get_vault_documents(vault_id)
+        documents = await service.get_vault_documents(
+            vault_id=vault_id
+        )
         return documents
+    except ApiException:
+        raise
+    except Exception as e:
+        raise ApiException(status_code=500, message=f"Failed to get vault documents", details=str(e))
+    
+
+@router.get("/{vault_id}/documents-paginated", response_model=PaginatedResponse[DocumentInfo])
+async def get_vault_documents_paginated(
+    vault_id: str,
+    page: int = 1,
+    page_size: int = 20,
+    time_filter: Optional[str] = 'all', # possible values: 'all', '1h', '4h', '24h', '7d', '30d'
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_direction: Optional[str] = None,
+    service: VaultService = Depends(get_vault_service)
+):
+    """Get documents in a vault with pagination"""
+    try:
+        # First check if vault exists
+        vault = await service.get_vault(vault_id)
+        if not vault:
+            raise ApiException(status_code=404, message="Vault not found")
+        
+        paginated_documents = await service.get_vault_documents_paginated(
+            vault_id=vault_id, 
+            page=page, 
+            page_size=page_size,
+            time_filter=time_filter, 
+            search=search,
+            sort_by=sort_by, 
+            sort_direction=sort_direction
+        )
+        return paginated_documents
     except ApiException:
         raise
     except Exception as e:
         raise ApiException(status_code=500, message=f"Failed to get vault documents", details=str(e))
 
 
-@router.post("/{vault_id}/process")
-async def process_vault(
+@router.post("/{vault_id}/process", response_model=bool)
+async def process_documents(
     vault_id: str,
-    document_ids: Optional[List[str]] = None,
-    force_reprocess: bool = False,
+    document_ids: List[str],
     service: VaultService = Depends(get_vault_service)
 ):
     """Start processing documents in a vault"""
     try:
-        request = VaultProcessingRequest(
-            vault_id=vault_id,
-            document_ids=document_ids,
-            force_reprocess=force_reprocess
-        )
-        result = await service.process_vault(request)
-        return result
+        await service.process_documents(vault_id=vault_id, document_ids=document_ids)
+        return True
     except ValueError as e:
         raise ApiException(status_code=400, message="Invalid request", details=str(e))
     except Exception as e:

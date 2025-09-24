@@ -17,9 +17,9 @@ class BatchStatus(str, Enum):
 class BatchExecutionRequest(BaseModel):
     """Request model for batch execution"""
     pipeline_name: str = Field(..., description="Name of the pipeline to execute")
+    vault_id: str = Field(..., description="ID of the vault containing the documents")
     documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
     source_batch_id: Optional[str] = Field(None, description="Optional ID for the source batch")
-    priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
@@ -29,9 +29,9 @@ class BatchExecution(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat(), description="Created time in utc tz iso-format")
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat(), description="Updated time in utc tz iso-format")
     pipeline_name: str = Field(..., description="Name of the pipeline")
+    vault_id: str = Field(..., description="ID of the vault containing the documents")
     documents: List[Dict[str, Any]] = Field(..., description="Documents in the batch")
     status: BatchStatus = Field(default=BatchStatus.SUBMITTED, description="Current batch status")
-    priority: int = Field(default=0, description="Execution priority")
     # Execution statistics
     total_documents: int = Field(default=0, description="Total number of documents")
     successful_documents: int = Field(default=0, description="Number of successful documents")

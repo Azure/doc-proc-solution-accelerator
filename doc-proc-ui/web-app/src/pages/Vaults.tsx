@@ -16,9 +16,7 @@ import CreateVaultDialog from "@/components/vault/CreateVaultDialog";
 import ViewVaultDetails from "@/components/vault/ViewVaultDetails";
 import { 
   vaultsApi, 
-  pipelinesApi, 
   type Vault, 
-  type Pipeline, 
   type VaultCreateRequest, 
   type DocumentInfo
 } from "@/lib/api";
@@ -31,7 +29,6 @@ const Vaults = () => {
   
   // Data states
   const [vaults, setVaults] = useState<Vault[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   // const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,22 +37,11 @@ const Vaults = () => {
     loadData();
   }, []);
 
-  // Load documents when vault is selected
-  // useEffect(() => {
-  //   if(selectedVault) {
-  //     loadVaultDocuments(selectedVault);
-  //   }
-  // }, [selectedVault]);
-
   const loadData = async () => {
     try {
       setLoading(true);
-      const [vaultsData, pipelinesData] = await Promise.all([
-        vaultsApi.getVaults(),
-        pipelinesApi.getPipelines()
-      ]);
+      const vaultsData = await vaultsApi.getVaults();
       setVaults(vaultsData);
-      setPipelines(pipelinesData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -94,7 +80,7 @@ const Vaults = () => {
     if (!selectedVault) return;
     
     try {
-      await vaultsApi.processVault(selectedVault);
+      
       toast({
         title: "Processing started",
         description: "All documents are being processed",
@@ -109,23 +95,6 @@ const Vaults = () => {
     }
   };
 
-  const handleDeleteVault = async (vaultId: string) => {
-    try {
-      await vaultsApi.deleteVault(vaultId);
-      setVaults(vaults.filter(v => v.id !== vaultId));
-      toast({
-        title: "Success",
-        description: "Vault deleted successfully",
-      });
-    } catch (error) {
-      console.error('Error deleting vault:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete vault",
-        variant: "destructive",
-      });
-    }
-  };
 
   const filteredVaults = vaults.filter(vault =>
     vault.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,7 +102,6 @@ const Vaults = () => {
   );
 
   const currentVault = selectedVault ? vaults.find(v => v.id === selectedVault) : null;
-  const currentPipeline = currentVault?.pipeline_name ? pipelines.find(p => p.name === currentVault.pipeline_name) : null;
 
   if (loading) {
     return (
@@ -145,17 +113,17 @@ const Vaults = () => {
       </div>
     );
   }
-  
-  
+    
   if (selectedVault && currentVault) {
     return (
       <ViewVaultDetails 
         vault={currentVault}
-        pipeline={currentPipeline}
-        // documents={documents}
-        onBack={() => setSelectedVault(null)}
+        onBack={() => {
+          setSelectedVault(null);
+          loadData();
+        }}
         onProcessAllDocuments={handleProcessAllDocuments}
-        // onLoadVaultDocuments={loadVaultDocuments}
+        onRefreshVault={loadData}
       />
     );
   }
@@ -178,7 +146,6 @@ const Vaults = () => {
       <CreateVaultDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        pipelines={pipelines}
         onCreateVault={handleCreateVault}
         loading={loading}
       />
@@ -266,7 +233,7 @@ const Vaults = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Pipeline:</span>
                       <span className="text-xs bg-blue-100 px-2 py-1 rounded">
-                        {pipelines.find(p => p.name === vault.pipeline_name)?.name || vault.pipeline_name}
+                        {vault.pipeline_name}
                       </span>
                     </div>
                   )}

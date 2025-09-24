@@ -90,7 +90,7 @@ class PipelineService(BaseService):
         else:
             raise ValueError("Invalid pipeline data")
 
-
+    # TODO: when pipeline deleted, delete also pipeline executions
     async def delete_pipeline_by_id(self, pipeline_id: str) -> bool:
         """Delete a pipeline instance by ID"""
         existing = await self.get_by_id(pipeline_id)

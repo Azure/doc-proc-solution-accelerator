@@ -15,7 +15,7 @@ import {
   Loader2,
   Download
 } from "lucide-react";
-import { pipelineExecutionsApi, PipelineExecutionResult, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
+import { pipelineExecutionStatusApi, PipelineExecutionResult, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface PipelineMetricsProps {
@@ -59,8 +59,8 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
 
       // Load recent executions and stats in parallel
       const [allExecutions, executionStats] = await Promise.all([
-        pipelineExecutionsApi.getRecentExecutions(pipeline_name, limit, timeRange),
-        pipelineExecutionsApi.getStats(pipeline_name)
+        pipelineExecutionStatusApi.getRecentExecutions(pipeline_name, limit, timeRange),
+        pipelineExecutionStatusApi.getStats(pipeline_name)
       ]);
 
       
@@ -129,7 +129,7 @@ const PipelineMetrics = ({ pipeline_name }: PipelineMetricsProps) => {
       setError(null);
       
       // Fetch the full execution data
-      const executionData = await pipelineExecutionsApi.getExecution(executionId);
+      const executionData = await pipelineExecutionStatusApi.getExecution(executionId);
       
       // Create a filename with pipeline name and timestamp
       const date = new Date(timestamp).toISOString().split('T')[0];

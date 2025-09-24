@@ -1,9 +1,20 @@
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Generic, TypeVar
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field
 
 from app.models.common import BaseDoc
+
+
+T = TypeVar('T')
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated response model"""
+    items: List[T] = Field(..., description="List of items for the current page")
+    total: int = Field(..., description="Total number of items across all pages")
+    page: int = Field(..., description="Current page number (1-based)")
+    pageSize: int = Field(..., description="Number of items per page")
+    totalPages: int = Field(..., description="Total number of pages")
 
 
 class VaultStatus(str, Enum):
@@ -15,13 +26,9 @@ class VaultStatus(str, Enum):
 
 class DocumentProcessingConfig(BaseModel):
     """Configuration for document processing"""
-    auto_process_documents: bool = Field(
-        default=True, description="Automatically process documents upon addition"
-    )
-    supported_formats: List[str] = Field(
-        default=["pdf", "docx", "pptx", "excel"], 
-        description="Supported document formats"
-    )
+    auto_process_documents: bool = Field(default=True, description="Automatically process documents upon addition")
+    supported_formats: List[str] = Field(default=["pdf", "docx", "pptx", "excel"], description="Supported document formats")
+    save_pipeline_step_outputs: Optional[bool] = Field(default=False, description="Whether to save outputs from each pipeline step")
 
 
 class StorageConfig(BaseModel):
@@ -66,16 +73,6 @@ class AddDocumentRequest(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
-class VaultStats(BaseModel):
-    """Statistics for a vault"""
-    total_documents: int = Field(default=0, description="Total number of documents")
-    processed_documents: int = Field(default=0, description="Number of processed documents")
-    pending_documents: int = Field(default=0, description="Number of pending documents")
-    failed_documents: int = Field(default=0, description="Number of failed documents")
-    total_size_bytes: int = Field(default=0, description="Total size in bytes")
-    last_activity: Optional[str] = Field(None, description="Last activity timestamp")
-
-
 class VaultCreateRequest(BaseModel):
     """Request model for creating a vault"""
     name: str = Field(..., description="Vault name")
@@ -85,7 +82,7 @@ class VaultCreateRequest(BaseModel):
         None, description="Processing configuration"
     )
     storage_config: Optional[StorageConfig] = Field(None, description="Storage configuration, uses default storage if not provided")
-
+    
 
 class VaultUpdateRequest(BaseModel):
     """Request model for updating a vault"""
@@ -93,42 +90,21 @@ class VaultUpdateRequest(BaseModel):
     description: Optional[str] = Field(None, description="Vault description")
     status: Optional[VaultStatus] = Field(None, description="Vault status")
     pipeline_name: Optional[str] = Field(None, description="Associated pipeline name")
-    processing_config: Optional[DocumentProcessingConfig] = Field(
-        None, description="Processing configuration"
-    )
-    
+    processing_config: Optional[DocumentProcessingConfig] = Field(None, description="Processing configuration")
 
+    
 class Vault(BaseDoc):
     """Model for document vault"""
     status: VaultStatus = Field(default=VaultStatus.ACTIVE, description="Vault status")
     pipeline_name: str = Field(..., description="Associated pipeline name")
     
     # Configuration
-    processing_config: DocumentProcessingConfig = Field(
-        default_factory=DocumentProcessingConfig,
-        description="Document processing configuration"
-    )
-    storage_config: StorageConfig = Field(
-        default_factory=StorageConfig, description="Storage configuration"
-    )
+    processing_config: DocumentProcessingConfig = Field(default_factory=DocumentProcessingConfig, description="Document processing configuration")
+    storage_config: StorageConfig = Field(default_factory=StorageConfig, description="Storage configuration")
     # Statistics
-    stats: VaultStats = Field(
-        default_factory=VaultStats,
-        description="Vault statistics"
-    )
+    stats: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Vault statistics")
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-
-class VaultProcessingRequest(BaseModel):
-    """Request to start processing documents in a vault"""
-    vault_id: str = Field(..., description="Vault ID")
-    document_ids: Optional[List[str]] = Field(
-        None, description="Specific document IDs to process (if None, process all)"
-    )
-    force_reprocess: bool = Field(
-        default=False, description="Force reprocessing of already processed documents"
-    )
 
 
 class VaultAuditLog(BaseModel):

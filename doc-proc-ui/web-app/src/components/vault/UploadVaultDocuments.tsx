@@ -27,6 +27,7 @@ import {
   type Pipeline, 
   type DocumentInfo,
   type UploadDocumentResponse,
+  ErrorWithData,
 } from "@/lib/api";
 
 interface UploadVaultDocumentsProps {
@@ -155,11 +156,18 @@ const UploadVaultDocuments = ({ vault, onUploadComplete }: UploadVaultDocumentsP
         handleDialogClose(false);
       }
 
+      toast({
+        title: "Upload completed",
+        description: "Documents have been uploaded successfully",
+      });
+
     } catch (error) {
       console.error('Error uploading files:', error);
+
+      const errMessage = error instanceof ErrorWithData ? error.details || error.message : 'Unknown error';
       toast({
         title: "Upload failed",
-        description: "Failed to upload files. Please try again.",
+        description: "Failed to upload files. Please try again. Error: " + errMessage,
         variant: "destructive",
       });
     } finally {

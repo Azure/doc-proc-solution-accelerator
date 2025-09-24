@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,7 +12,7 @@ from app.db.cosmos import CosmosDb
 from app.utils import get_azure_credential
 from app.services.base import BaseService
 from app.services.storage_queue_helper import StorageQueueHelper
-from app.models.vault import AddDocumentRequest, Vault, DocumentInfo
+from app.models.vault import AddDocumentRequest, Vault, DocumentInfo, PaginatedResponse
 
 logger = logging.getLogger("doc-proc-ui.app.services.vault_documents_service")
 
@@ -130,23 +130,41 @@ class VaultDocumentsService(BaseService):
         batch_size = 10
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
-            async with self.storage_queue_helper:
-                _queue_result = await self.storage_queue_helper.queue_documents_for_processing(vault.pipeline_name, batch)
+
+            try:
+                async with self.storage_queue_helper:
+                    _queue_result = await self.storage_queue_helper.queue_documents_for_processing(vault=vault,
+                                                                                                   pipeline_to_process_documents=vault.pipeline_name,
+                                                                                                   documents=batch)
+
                 logger.info(f"Queued {len(batch)} documents for processing in vault '{vault.name}' with message ID: {_queue_result['message_id']}")
 
-        for document in documents:
-            document.status = "queued"
-            document.metadata["processing_attempts"] = (document.metadata.get("processing_attempts", 0) + 1)
-            document.metadata["last_processing_attempt"] = datetime.now(timezone.utc).isoformat()
-            document.metadata["pipeline_name"] = vault.pipeline_name
-            document.metadata["queue_message_id"] = _queue_result["message_id"]
-            document.metadata["correlation_id"] = _queue_result["correlation_id"]
-            document.metadata["batch_id"] = _queue_result["batch_id"]
+                for document in batch:
+                    document.status = "queued"
+                    document.metadata["pipeline_name"] = vault.pipeline_name
+                    document.metadata["queue_message_id"] = _queue_result["message_id"]
+                    document.metadata["correlation_id"] = _queue_result["correlation_id"]
+                    document.metadata["batch_id"] = _queue_result["batch_id"]
+                
+            except Exception as e:
+                logger.error(f"Failed to queue documents for processing in vault '{vault.name}': {str(e)}")
+                
+                # update the document status to 'error'
+                for document in batch:
+                    document.status = "error"
+                    document.metadata["error"] = "Failed to queue document for processing. Check app health and connection to Azure Storage Queue. Check logs for details."
+                    document.metadata["error_details"] = str(e)
+                    document.metadata["processing_attempts"] = (document.metadata.get("processing_attempts", 0) + 1)
+                    document.metadata["last_processing_attempt"] = datetime.now(timezone.utc).isoformat()
+                    document.metadata["pipeline_name"] = vault.pipeline_name
 
-        # Update the document records in the database
-        await self.batch_upsert([document.model_dump() for document in documents])
+                
+
+            # Update the document records in the database
+            await self.batch_upsert([document.model_dump() for document in documents])
 
         return documents
+
 
     async def get_vault_document(self, vault_id: str, document_id: Optional[str] = None, document_name: Optional[str] = None) -> Optional[DocumentInfo]:
         """Get a document for a vault"""
@@ -180,17 +198,100 @@ class VaultDocumentsService(BaseService):
 
 
     async def get_vault_documents(self, vault_id: str) -> List[DocumentInfo]:
-        """Get documents for a vault"""
+        """Get all documents for a vault"""
         if not vault_id:
             raise ValueError("vault_id is required")
 
-        query = f"SELECT * FROM c WHERE c.vault_id = @vault_id"
+        # Build the base query and parameters for filtering
+        _query = "SELECT * FROM c WHERE c.vault_id = @vault_id"
         parameters = [{"name": "@vault_id", "value": vault_id}]
 
-        items = await self.list_all(query, parameters)
+        # Execute the query to get documents
+        items = await self.list_all(_query, parameters)
+        documents = [DocumentInfo(**item) for item in items]
+        
+        return documents
+
+
+    async def get_vault_documents_paginated(self, 
+                                            vault_id: str, 
+                                            page: int = 1, 
+                                            page_size: int = 20,
+                                            time_filter: Optional[str] = None,
+                                            search: Optional[str] = None,
+                                            sort_by: Optional[str] = None,
+                                            sort_direction: Optional[str] = None) -> PaginatedResponse[DocumentInfo]:
+        """Get documents for a vault with pagination"""
+        if not vault_id:
+            raise ValueError("vault_id is required")
+
+        # Build the base query and parameters for filtering
+        base_query = "SELECT * FROM c WHERE c.vault_id = @vault_id"
+        count_query = "SELECT VALUE COUNT(1) FROM c WHERE c.vault_id = @vault_id"
+        parameters = [{"name": "@vault_id", "value": vault_id}]
+
+        # Add time filter
+        if time_filter and time_filter != 'all':
+            # Calculate the cutoff datetime based on time_filter
+            now = datetime.now(timezone.utc)
+            time_deltas = {
+                "1h": timedelta(hours=1),
+                "4h": timedelta(hours=4),
+                "24h": timedelta(days=1),
+                "7d": timedelta(days=7),
+                "30d": timedelta(days=30)
+            }
+            
+            if time_filter not in time_deltas:
+                time_filter = "24h"  # Default fallback
+
+            cutoff_time = now - time_deltas[time_filter]
+            cutoff_timestamp = cutoff_time.isoformat()
+            
+            base_query += " AND c.upload_date >= @cutoff_time"
+            count_query += " AND c.upload_date >= @cutoff_time"
+            parameters.append({"name": "@cutoff_time", "value": cutoff_timestamp})
+
+        # Add search filter
+        if search:
+            base_query += " AND CONTAINS(c.name, @search)"
+            count_query += " AND CONTAINS(c.name, @search)"
+            parameters.append({"name": "@search", "value": search})
+
+        # Get total count first
+        count_result = await self.list_all(count_query, parameters)
+        total_count = count_result[0] if count_result and len(count_result) > 0 else 0
+
+        # Add sorting to base query
+        if sort_by:
+            valid_sort_fields = ["name", "upload_date", "size_bytes", "status", "content_type"]
+            if sort_by in valid_sort_fields:
+                base_query += f" ORDER BY c.{sort_by} {sort_direction or 'ASC'}"
+            else:
+                base_query += " ORDER BY c.upload_date DESC"  # Default sort
+        else:
+            base_query += " ORDER BY c.upload_date DESC"  # Default sort
+
+        # Add pagination
+        offset = (page - 1) * page_size
+        base_query += f" OFFSET {offset} LIMIT {page_size}"
+
+        # Execute the query to get documents
+        items = await self.list_all(base_query, parameters)
         documents = [DocumentInfo(**item) for item in items]
 
-        return documents
+        # Calculate total pages
+        total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+
+        # Return paginated response
+        return PaginatedResponse[DocumentInfo](
+            items=documents,
+            total=total_count,
+            page=page,
+            pageSize=page_size,
+            totalPages=total_pages
+        )
+
 
     async def _upload_file_to_blob_storage(self, storage_config: Dict[str, Any], file_name: str, file_contents: bytes, content_type: str) -> str:
         """Upload a file to Azure Blob Storage."""
@@ -276,87 +377,20 @@ class VaultDocumentsService(BaseService):
                     raise e
 
 
-    # async def file_exists(self, container_name: str, filename: str) -> bool:
-    #     """
-    #     Check if a file exists in the Azure Blob Storage container.
-    #     Args:
-    #         container_name (str): The name of the Azure Blob Storage container.
-    #         filename (str): The name of the file to check.
-    #     Returns:
-    #         bool: True if the file exists, False otherwise.
-    #     """
-    #     try:
-    #         await self.initialize()
-    #         container_client = self.get_container_client(container_name)
-    #         blob_client = container_client.get_blob_client(filename)
+    async def delete_documents_in_vault(self, vault_id: str) -> int:
+        """Delete all documents in a vault"""
+        if not vault_id:
+            raise ValueError("vault_id is required")
 
-    #         # Check if blob exists by getting its properties
-    #         await blob_client.get_blob_properties()
-    #         return True
-    #     except Exception:
-    #         # If any exception occurs (including blob not found), return False
-    #         return False
+        # Get all documents in the vault
+        documents = await self.get_vault_documents(vault_id)
+        if not documents or len(documents) == 0:
+            logger.info(f"No documents found in vault '{vault_id}' to delete")
+            return 0
 
+        # Delete each document record from the database
+        delete_tasks = [self.delete(document.id) for document in documents]
+        await asyncio.gather(*delete_tasks)
 
-    # async def download_file(self, container_name: str, filename: str, download_path: str) -> str:
-    #     """
-    #     Download a file from Azure Blob Storage with thread safety and atomic operations.
-    #     Args:
-    #         container_name (str): The name of the Azure Blob Storage container.
-    #         filename (str): The name of the file to download from the container.
-    #         download_path (str): The local file path where the downloaded file will be saved.
-    #     Returns:
-    #         str: The path where the file was downloaded (same as download_path parameter).
-    #     Raises:
-    #         ServiceExecutionError: If the container or blob doesn't exist, or if there are permission issues.
-    #         OSError: If there are issues writing to the local file system.
-    #     """
-    #     # Normalize the download path to avoid issues with different path formats
-    #     download_path = os.path.abspath(download_path)
-
-    #     # Get a file-specific lock to prevent multiple threads from downloading the same file simultaneously
-    #     file_lock = await self._get_file_lock(download_path)
-
-    #     async with file_lock:
-    #         try:
-    #             async with self:
-    #                 container_client = self.get_container_client(container_name)
-    #                 blob_client = container_client.get_blob_client(filename)
-
-    #                 logger.debug(f"Downloading blob '{filename}' from container '{container_name}' to '{download_path}'")
-
-    #                 # Create directory if it doesn't exist (thread-safe)
-    #                 directory_path = os.path.dirname(download_path)
-    #                 if directory_path:
-    #                     await self._safe_makedirs(directory_path)
-
-    #                 # Use a temporary file for atomic writes to prevent partial downloads
-    #                 temp_file_suffix = f".tmp_{uuid.uuid4().hex}"
-    #                 temp_download_path = download_path + temp_file_suffix
-
-    #                 try:
-    #                     # Download to temporary file first
-    #                     download_stream = await blob_client.download_blob()
-    #                     with open(temp_download_path, "wb") as temp_file:
-    #                         async for chunk in download_stream.chunks():
-    #                             temp_file.write(chunk)
-
-    #                     # Atomic move from temporary file to final location
-    #                     os.rename(temp_download_path, download_path)
-
-    #                     logger.debug(f"Successfully downloaded '{filename}' to '{download_path}'")
-    #                     return download_path
-
-    #                 except Exception as e:
-    #                     # Clean up temporary file if download failed
-    #                     if os.path.exists(temp_download_path):
-    #                         try:
-    #                             os.remove(temp_download_path)
-    #                         except OSError as cleanup_error:
-    #                             logger.warning(f"Failed to clean up temporary file '{temp_download_path}': {cleanup_error}")
-    #                     raise e
-
-    #         except Exception as e:
-    #             error_msg = f"Failed to download file '{filename}' from container '{container_name}': {str(e)}"
-    #             logger.error(error_msg)
-    #             raise ServiceExecutionError(error_msg)
+        logger.info(f"Deleted {len(documents)} documents from vault '{vault_id}'")
+        return len(documents)

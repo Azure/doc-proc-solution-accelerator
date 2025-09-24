@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from azure.storage.queue.aio import QueueClient
 
-from app.models.vault import DocumentInfo
+from app.models.vault import DocumentInfo, Vault
 from app.utils import get_azure_credential
 
 
@@ -55,34 +55,35 @@ class StorageQueueHelper():
             logger.info("Disconnected from Azure Storage Queue")
 
 
-    async def queue_documents_for_processing(self, pipeline_to_process_documents: str, documents: List[DocumentInfo]) -> str:
+    async def queue_documents_for_processing(self, vault: Vault, pipeline_to_process_documents: str, documents: List[DocumentInfo]) -> str:
         """
         Queue documents for processing
         """
+        
         if not pipeline_to_process_documents:
             raise ValueError("pipeline_to_process_documents is required")
         
         if not documents and len(documents) == 0:
             raise ValueError("Documents list cannot be empty")
                 
-        
         # Create documents info list
         _documents = [{"id": doc.id, "blob_details": {**doc.blob_details}} for doc in documents if doc.id and doc.blob_details]
-        
-        logger.info(f"Queueing {len(_documents)} documents for processing in pipeline '{pipeline_to_process_documents}'")
-        logger.debug(f"Queueing documents for processing in pipeline '{pipeline_to_process_documents}': {_documents}")
-        
-        
+
+        logger.info(f"Queueing {len(_documents)} documents in vault '{vault.name}' for processing in pipeline '{pipeline_to_process_documents}'")
+
         # create message content
         message = {
             "message_type": "batch_execution_request",
             "pipeline_name": pipeline_to_process_documents,
+            "vault_id": vault.id,
             "documents": _documents,
-            "batch_id": f"vault-batch-{len(_documents)}-{uuid.uuid4().hex[:6]}",
+            "batch_id": f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}_{len(_documents)}_docs",
             "priority": 0,
             "metadata": {
                 "source": "vault_document_processing",
-                "document_count": len(_documents)
+                "document_count": len(_documents),
+                "vault_name": vault.name,
+                "save_pipeline_step_outputs": vault.processing_config.save_pipeline_step_outputs if vault.processing_config else False
             },
             "submitted_at": datetime.now(timezone.utc).isoformat(),
             "requested_by": "system",
@@ -91,6 +92,8 @@ class StorageQueueHelper():
 
         msg_id = await self._send_message(message)
 
+        logger.debug(f"Queued documents for processing with message ID: {msg_id}")
+        
         return {"message_id": msg_id, "batch_id": message["batch_id"], "correlation_id": message["correlation_id"]}
 
 

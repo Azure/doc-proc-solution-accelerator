@@ -7,8 +7,7 @@ from app.services.step_catalog_service import StepCatalogService
 from app.services.step_instance_service import StepInstanceService
 
 from app.services.pipeline_service import PipelineService
-# from app.services.execution_service import ExecutionService
-from app.services.pipeline_execution_service import PipelineExecutionService
+from app.services.execution_status_service import ExecutionStatusService
 from app.services.vault_service import VaultService
 from app.services.vault_documents_service import VaultDocumentsService
 from app.services.dashboard_service import DashboardService
@@ -46,21 +45,22 @@ def get_step_instance_service() -> StepInstanceService:
                                container_name=app_settings.COSMOS_DB_CONTAINER_STEP_INSTANCES,
                                catalog_service=get_step_catalog_service())
 
-
 def get_pipeline_service() -> PipelineService:
     """Get PipelineService instance"""
     return PipelineService(db=get_cosmos_db())
 
-
-def get_pipeline_execution_service() -> PipelineExecutionService:
+def get_execution_status_service() -> ExecutionStatusService:
     """Get PipelineExecutionService instance"""
-    return PipelineExecutionService(db=get_cosmos_db(), 
-                                    container_name=app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS)
+    return ExecutionStatusService(db=get_cosmos_db(), 
+                                    pipeline_executions_container=app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS,
+                                    vault_documents_container=app_settings.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS,
+                                    batch_executions_container=app_settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS)
 
-
-# def get_execution_service() -> ExecutionService:
-#     """Get ExecutionService instance"""
-#     return ExecutionService(get_cosmos_db())
+# def get_execution_status_service() -> ExecutionStatusService:
+#     """Get ExecutionStatusService instance"""
+#     return ExecutionStatusService(db=get_cosmos_db(), 
+#                                   container_name=app_settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS,
+#                                   pipeline_execution_service=get_pipeline_execution_service())
 
 def get_storage_queue_helper():
     """Get StorageQueueHelper instance"""
@@ -81,6 +81,7 @@ def get_vault_service() -> VaultService:
     return VaultService(db=get_cosmos_db(), 
                         container_name=app_settings.COSMOS_DB_CONTAINER_VAULTS,
                         vault_documents_service=get_vault_documents_service(),
+                        execution_status_service=get_execution_status_service(),
                         default_blob_storage=app_settings.get_blob_storage_account_details())
 
 

@@ -64,6 +64,6 @@ class CosmosDb:
             self.containers[container] = self._ensure_container(container)
 
         if query:
-            return list(self.containers[container].query_items(query=query, parameters=parameters or [], enable_cross_partition_query=True))
+            return list(self.containers[container].query_items(query=query, parameters=parameters or None, enable_cross_partition_query=True))
 
         return list(self.containers[container].read_all_items())

@@ -15,19 +15,16 @@ class QueueBatchExecutionRequest(BaseModel):
     """Message format for batch execution requests in the queue"""
     message_type: QueueMessageType = Field(default=QueueMessageType.BATCH_EXECUTION_REQUEST)
     pipeline_name: str = Field(..., description="Name of the pipeline to execute")
+    vault_id: str = Field(..., description="ID of the vault containing the documents")
     documents: List[Dict[str, Any]] = Field(..., description="List of documents to process")
     batch_id: Optional[str] = Field(None, description="Optional ID for the batch")
-    priority: int = Field(default=0, description="Execution priority (higher = more priority)")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     
     # Queue-specific fields
     submitted_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat(), description="When message was submitted")
     requested_by: Optional[str] = Field(None, description="User or system that requested the batch")
     correlation_id: Optional[str] = Field(None, description="Correlation ID for tracking")
-    
-    # Retry configuration
-    max_retries: int = Field(default=3, description="Maximum number of retries")
-    retry_delay_seconds: int = Field(default=60, description="Delay between retries in seconds")
+
 
 
 class QueueBatchRetryRequest(BaseModel):

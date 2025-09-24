@@ -10,7 +10,7 @@ import {
   BarChart3,
   FileText
 } from "lucide-react";
-import { pipelineExecutionsApi, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
+import { pipelineExecutionStatusApi, PipelineExecutionStats, ErrorWithData } from "@/lib/api";
 
 interface ExecutionStats {
   totalExecutions: number;
@@ -51,7 +51,7 @@ const PipelineStats = ({ pipelineName, className = "" }: PipelineStatsProps) => 
         setError(null);
 
         // Get recent executions to calculate both execution and document stats
-        const executions = await pipelineExecutionsApi.getRecentExecutions(pipelineName, 100, "24h");
+        const executions = await pipelineExecutionStatusApi.getRecentExecutions(pipelineName, 100, "24h");
         
         if (!mounted) return;
 
