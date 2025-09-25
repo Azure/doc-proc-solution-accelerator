@@ -122,6 +122,9 @@ class AzureAIInferenceService(ServiceBase):
             raise ServiceExecutionError(f"Failed to connect to Azure AI Inference Service: {str(e)}")
 
 
+    @retry(
+        stop=stop_after_attempt(3)
+    )
     def run_chat_completion(self, messages: List[ChatRequestMessage],
                                    max_completion_tokens: int,
                                    temperature: float,
