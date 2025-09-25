@@ -58,7 +58,18 @@ config = get_config()
 from connectors.cosmosdb import CosmosDBClient
 cosmos = CosmosDBClient(config)
 
-DEFAULT_ENTITY_TYPES = ["organization", "person", "geo", "event", "organism", "protein", "gene", "chemical", "disease", "anatomy"]
+DEFAULT_ENTITY_TYPES = ["organization", "person", "geo", "event", 
+                        "organism", "protein", "gene", "chemical", "disease", 
+                        "drug","anatomy","publication", "author"]
+
+DEFAULT_RELATIONSHIP_TYPES = [
+    "synthesized_by", "localized_in", "host_of",
+    "participates_in", "regulates", "sequence_similar_to", "pathogenic_in", "protective_against",
+    "belongs_to", "derived_from", "produced_by", "caused_by", "interacts_with",
+    "affiliation", "employment", "located_in", "part_of","studied_in", "mapped_to",
+    "interacts_with", "influenced_by", "associated_with", "expressed_in", "target_of",
+    "inhibits", "causes", "treats", "binds_to", "published_in", "written_by"
+]
 
 from graphrag.config.defaults import graphrag_config_defaults
 
@@ -134,14 +145,16 @@ class GraphRagStep(StepBase):
         self.cache = create_cache_from_config(self.graphrag_config.cache, self.root_dir)
 
         self.entity_types: List[str] = self.settings.get("entity_types", DEFAULT_ENTITY_TYPES)
+        self.relationship_types: List[str] = self.settings.get("relationship_types", DEFAULT_RELATIONSHIP_TYPES)
 
         self.tuple_delimiter = self.settings.get("tuple_delimiter", None)
         self.record_delimiter = self.settings.get("record_delimiter", None)
         self.completion_delimiter = self.settings.get("completion_delimiter", None)
         self.extraction_prompt = self.settings.get("extraction_prompt", None)
 
-        graph_prompt = self.cosmos.get_document('prompts','graphrag_extration')
+        graph_prompt = self.cosmos.get_document('prompts','gates_graph_extraction')
         self.extraction_prompt = graph_prompt['system_prompt'] if graph_prompt else self.extraction_prompt
+        self.extraction_prompt = self.extraction_prompt.replace("{relationship_types}", ", ".join(DEFAULT_RELATIONSHIP_TYPES)) if self.extraction_prompt else None
 
         CONTINUE_PROMPT = self.cosmos.get_document('prompts','graphrag_continue')['system_prompt']
         LOOP_PROMPT = self.cosmos.get_document('prompts','graphrag_loop')['system_prompt']
@@ -291,6 +304,7 @@ class GraphRagStep(StepBase):
                 list(text_list),
                 {
                     "entity_types": self.entity_types,
+                    "relationship_types": self.relationship_types,
                     "tuple_delimiter": self.tuple_delimiter,
                     "record_delimiter": self.record_delimiter,
                     "completion_delimiter": self.completion_delimiter,
