@@ -63,8 +63,7 @@ const CreateVaultDialog = ({
     pipeline_name: "",
     processing_config: {
       auto_process_documents: true,
-      supported_formats: ["pdf", "docx", "pptx", "excel"],
-      save_pipeline_step_outputs: false
+      supported_formats: ["pdf", "docx", "pptx", "excel"]
     },
     storage_config: {
       account_name: "",
@@ -182,7 +181,6 @@ const CreateVaultDialog = ({
       processing_config: {
         auto_process_documents: true,
         supported_formats: ["pdf", "docx", "pptx", "excel"],
-        save_pipeline_step_outputs: false
       },
       storage_config: {
         account_name: "",
@@ -374,21 +372,7 @@ const CreateVaultDialog = ({
                     }
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="saveOutputs">Save Pipeline Step Outputs</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Save the document outputs from each step of the processing pipeline for debugging and analysis
-                    </p>
-                  </div>
-                  <Switch
-                    id="saveOutputs"
-                    checked={formData.processing_config?.save_pipeline_step_outputs}
-                    onCheckedChange={(checked) => 
-                      updateProcessingConfig({ save_pipeline_step_outputs: checked })
-                    }
-                  />
-                </div>
+                
               </div>
             </CardContent>
           </Card>

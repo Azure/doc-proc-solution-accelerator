@@ -15,19 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Save, X, AlertCircle } from "lucide-react";
+import { Settings, Save, X, AlertCircle, FileText, Workflow } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { type Vault } from "@/lib/api";
+import { ErrorWithData, vaultsApi, type Vault } from "@/lib/api";
 
 interface VaultConfiguration {
-  name: string;
   description: string;
   autoProcessing: boolean;
-  retentionDays: number;
-  maxFileSize: number;
   allowedFileTypes: string[];
-  processingPipeline: string;
-  notificationsEnabled: boolean;
   tags: string[];
 }
 
@@ -41,14 +36,9 @@ interface ConfigureVaultDialogProps {
 const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVaultDialogProps) => {
   const { toast } = useToast();
   const [config, setConfig] = useState<VaultConfiguration>({
-    name: "",
     description: "",
     autoProcessing: true,
-    retentionDays: 365,
-    maxFileSize: 100,
     allowedFileTypes: ["pdf", "docx", "txt", "png", "jpg"],
-    processingPipeline: "default",
-    notificationsEnabled: true,
     tags: []
   });
   const [newTag, setNewTag] = useState("");
@@ -58,14 +48,9 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
   useEffect(() => {
     if (vault && isOpen) {
       setConfig({
-        name: vault.name || "",
         description: vault.description || "",
         autoProcessing: vault.processing_config?.auto_process_documents || true,
-        retentionDays: vault.metadata?.retention_days || 365,
-        maxFileSize: vault.metadata?.max_file_size_mb || 100,
-        allowedFileTypes: vault.processing_config?.supported_formats || ["pdf", "docx", "txt", "png", "jpg"],
-        processingPipeline: vault.pipeline_name || "Not set",
-        notificationsEnabled: vault.metadata?.notifications_enabled || true,
+        allowedFileTypes: vault.processing_config?.supported_formats || ["pdf", "docx", "pptx", "excel"],
         tags: vault.metadata?.tags || []
       });
       setIsDirty(false);
@@ -103,23 +88,40 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
     }
   };
 
-  const handleSave = () => {
-    if (!config.name.trim()) {
+  const handleSave = async () => {
+    
+    try {
+
+      // save the configuration using the Api
+      await vaultsApi.updateVault(vault.id, {
+        description: config.description,
+        processing_config: {
+          auto_process_documents: config.autoProcessing,
+          supported_formats: config.allowedFileTypes
+        },
+        metadata: {
+          ...vault.metadata,
+          tags: config.tags
+        }
+      });
+
+      onSave(config);
+      setIsDirty(false);
       toast({
-        title: "Validation Error",
-        description: "Vault name is required",
+        title: "Configuration Saved",
+        description: "Vault configuration has been updated successfully",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error saving vault configuration:", error);
+
+      const errMessage = error instanceof ErrorWithData ? error.details || error.message : "Unknown error";
+      toast({
+        title: "Error Saving Configuration",
+        description: "An error occurred while saving the vault configuration: " + errMessage,
         variant: "destructive",
       });
-      return;
     }
-
-    onSave(config);
-    setIsDirty(false);
-    toast({
-      title: "Configuration Saved",
-      description: "Vault configuration has been updated successfully",
-    });
-    onClose();
   };
 
   const handleCancel = () => {
@@ -149,39 +151,26 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
           {/* Basic Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Basic Information</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <Settings className="h-5 w-5 mr-2" />
+                Basic Information
+              </CardTitle>
               <CardDescription>
                 Configure basic vault properties and metadata
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Vault Name *</Label>
-                  <Input
-                    id="name"
-                    value={config.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="Enter vault name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="processingPipeline">Processing Pipeline</Label>
-                  <Select 
-                    value={config.processingPipeline} 
-                    onValueChange={(value) => handleInputChange("processingPipeline", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pipeline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default Pipeline</SelectItem>
-                      <SelectItem value="ocr">OCR Processing</SelectItem>
-                      <SelectItem value="nlp">NLP Analysis</SelectItem>
-                      <SelectItem value="custom">Custom Pipeline</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="vaultName">Vault Name</Label>
+                <Input
+                  id="vaultName"
+                  value={vault?.name || ""}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Vault name cannot be changed after creation
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -199,69 +188,44 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
           {/* Processing Settings */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Processing Settings</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <Workflow className="h-5 w-5 mr-2" />
+                Document Processing Settings
+              </CardTitle>
               <CardDescription>
                 Configure how documents are processed in this vault
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Auto Processing</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically process documents when uploaded
-                  </p>
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="pipelineName">Pipeline Name</Label>
+                    <Input
+                      id="pipelineName"
+                      value={vault?.pipeline_name || ""}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Pipeline name cannot be changed after creation
+                    </p>
+                  </div>
                 </div>
-                <Switch
-                  checked={config.autoProcessing}
-                  onCheckedChange={(checked) => handleInputChange("autoProcessing", checked)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Send notifications for processing events
-                  </p>
-                </div>
-                <Switch
-                  checked={config.notificationsEnabled}
-                  onCheckedChange={(checked) => handleInputChange("notificationsEnabled", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Storage Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Storage Settings</CardTitle>
-              <CardDescription>
-                Configure storage limits and retention policies
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="retentionDays">Retention Period (Days)</Label>
-                  <Input
-                    id="retentionDays"
-                    type="number"
-                    value={config.retentionDays}
-                    onChange={(e) => handleInputChange("retentionDays", parseInt(e.target.value) || 365)}
-                    min="1"
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Auto Processing</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically process documents when uploaded
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.autoProcessing}
+                    onCheckedChange={(checked) => handleInputChange("autoProcessing", checked)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxFileSize">Max File Size (MB)</Label>
-                  <Input
-                    id="maxFileSize"
-                    type="number"
-                    value={config.maxFileSize}
-                    onChange={(e) => handleInputChange("maxFileSize", parseInt(e.target.value) || 100)}
-                    min="1"
-                  />
-                </div>
+                
               </div>
             </CardContent>
           </Card>
@@ -269,7 +233,10 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
           {/* File Types */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Allowed File Types</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                Allowed File Types
+              </CardTitle>
               <CardDescription>
                 Configure which file types can be uploaded to this vault
               </CardDescription>
@@ -300,6 +267,8 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
                     <SelectContent>
                       <SelectItem value="pdf">PDF</SelectItem>
                       <SelectItem value="docx">Word Document</SelectItem>
+                      <SelectItem value="pptx">PowerPoint</SelectItem>
+                      <SelectItem value="excel">Excel</SelectItem>
                       <SelectItem value="txt">Text File</SelectItem>
                       <SelectItem value="rtf">Rich Text</SelectItem>
                       <SelectItem value="png">PNG Image</SelectItem>

@@ -83,7 +83,6 @@ class StorageQueueHelper():
                 "source": "vault_document_processing",
                 "document_count": len(_documents),
                 "vault_name": vault.name,
-                "save_pipeline_step_outputs": vault.processing_config.save_pipeline_step_outputs if vault.processing_config else False
             },
             "submitted_at": datetime.now(timezone.utc).isoformat(),
             "requested_by": "system",

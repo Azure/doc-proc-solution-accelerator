@@ -204,19 +204,13 @@ class ExecutionStatusService(BaseService):
         """Get execution status for a specific document across all batch executions"""
         
         # Get the batch ids associated with the documents from the vault_documents container
-        _source_batch_ids_query = f"SELECT c.metadata.batch_id FROM c WHERE c.id IN ('{str.join("','", document_ids)}')"
-        _batch_executions_ids = await self.query(query=_source_batch_ids_query, container=self.vault_documents_container)
+        _source_batch_ids_query = f"SELECT c.id, c.metadata.batch_id FROM c WHERE c.id IN ('{str.join("','", document_ids)}')"
+        _doc_batch_id_pairs = await self.query(query=_source_batch_ids_query, container=self.vault_documents_container)
 
-        if not _batch_executions_ids:
+        if not _doc_batch_id_pairs or len(_doc_batch_id_pairs) == 0:
             return None  # None found
         
-        # Extract unique batch IDs
-        batch_ids = list(set([item['batch_id'] for item in _batch_executions_ids if 'batch_id' in item]))
-        
-        if not batch_ids or len(batch_ids) == 0:
-            return None  # No batch IDs found
-        
-        query = f"""
+        query_template = f"""
         SELECT 
             d.id as document_id,
             b.id as batch_id, 
@@ -231,15 +225,22 @@ class ExecutionStatusService(BaseService):
             FROM batch_executions b 
             join d in b.documents 
             where 
-            b.id IN ('{str.join("','", batch_ids)}') AND
-            d.id IN ('{str.join("','", document_ids)}')
+            b.id = @batch_id AND
+            d.id = @document_id
         ORDER BY b.started_at ASC
         """
         
-        batch_executions = await self.query(query=query, container=self.batch_executions_container)
-        if not batch_executions or not batch_executions[0]:
-            return None  # No batch executions found
+        # generate one query per document and batch id pair
+        queries = []
+        for doc in _doc_batch_id_pairs:
+            if 'batch_id' in doc and doc['batch_id'] and 'id' in doc and doc['id']:
+                queries.append((query_template, [{"name": "@batch_id", "value": doc['batch_id']}, {"name": "@document_id", "value": doc['id']}]))
         
+        batch_executions = [self.query(query=query, parameters=params, container=self.batch_executions_container) for query, params in queries]
+        batch_executions = await asyncio.gather(*batch_executions, return_exceptions=True)
+        
+        batch_executions = [item for sublist in batch_executions for item in sublist if not isinstance(item, Exception)]  # flatten list and filter out errors
+
         return [DocumentExecutionStatus(**batch) for batch in batch_executions]
 
 

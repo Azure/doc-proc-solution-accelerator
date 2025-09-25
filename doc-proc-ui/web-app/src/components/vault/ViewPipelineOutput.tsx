@@ -37,10 +37,13 @@ import {
 interface ProcessingStep {
   id: number;
   name: string;
-  status: "succeeded" | "failed" | "running" | "skipped";
+  status: "succeeded" | "failed" | "skipped";
   startTime: string;
   endTime?: string;
   duration?: number;
+  reason?: string;
+  error?: string;
+  errorTraceBack?: string;
 }
 
 interface ViewPipelineOutputProps {
@@ -150,7 +153,6 @@ const ViewPipelineOutput = ({
         completed_at: documentExecution.completed_at,
         elapsed_time_secs: documentExecution.elapsed_time_secs,
         document_result: documentResult,
-        summary_data: documentResult.summary_data || {},
         downloaded_at: new Date().toISOString()
       };
 
@@ -238,6 +240,9 @@ const ViewPipelineOutput = ({
         startTime: step?.started_at || execution.started_at || '',
         endTime: step?.completed_at || execution.completed_at || '',
         duration: step?.elapsed_time_secs ? Math.round(step.elapsed_time_secs) : undefined,
+        reason: step?.reason,
+        error: step?.error,
+        errorTraceBack: step?.error_traceback,
       };
     }) || [];
   };
@@ -284,6 +289,7 @@ const ViewPipelineOutput = ({
                 <p className="text-lg font-medium mb-2">No Pipeline Executions Found</p>
                 <p className="text-sm">This document has not been processed yet.</p>
                 <p className="text-sm">Upload the document to a vault with a configured pipeline to begin processing.</p>
+                <p className="text-sm">Ensure the processing worker is properly configured and running.</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -370,6 +376,27 @@ const ViewPipelineOutput = ({
                                       </div>
                                     )}
                                   </div>
+                                  {/* Show additional details for failed or skipped steps */}
+                                  {(step.status?.toLowerCase() === "failed" || step.status?.toLowerCase() === "skipped") && (
+                                    <div className="mt-2 space-y-1">
+                                      {step.reason && (
+                                        <div className="text-xs text-muted-foreground">
+                                          <span className="font-medium">Reason:</span> {step.reason}
+                                        </div>
+                                      )}
+                                      {step.error && (
+                                        <div className="text-xs text-red-600">
+                                          <span className="font-medium">Error:</span> {step.error}
+                                        </div>
+                                      )}
+                                      {step.errorTraceBack && (
+                                        <div className="text-xs text-red-600 font-mono bg-red-50 p-2 rounded border max-h-32 overflow-y-auto">
+                                          <span className="font-medium font-sans">Stack Trace:</span>
+                                          <pre className="whitespace-pre-wrap mt-1">{step.errorTraceBack}</pre>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {index < pipelineSteps.length - 1 && (

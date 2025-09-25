@@ -231,10 +231,10 @@ const ViewVaultDetails = ({
             vault={vault}
             onUploadComplete={handleUploadComplete}
           />
-          <Button size="lg" variant="outline" onClick={onProcessAllDocuments}>
+          {/* <Button size="lg" variant="outline" onClick={onProcessAllDocuments}>
             <Play className="h-5 w-5 mr-2" />
             Process All Documents
-          </Button>
+          </Button> */}
           <Button 
             size="lg" 
             variant="destructive" 

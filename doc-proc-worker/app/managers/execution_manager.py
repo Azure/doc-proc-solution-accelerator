@@ -52,12 +52,8 @@ class ExecutionManager():
             # Create batch execution
             batch = await self._create_batch_execution(batch_id, batch_execution_request)
         
-            # Get processing properties
-            save_pipeline_step_outputs = False
-            if batch.metadata and "save_pipeline_step_outputs" in batch.metadata:
-                save_pipeline_step_outputs = batch.metadata.get("save_pipeline_step_outputs", False)
 
-            logger.debug(f"Batch {batch.id} created with status {batch.status}. Save pipeline step outputs: {save_pipeline_step_outputs}")
+            logger.debug(f"Batch {batch.id} created with status {batch.status}.")
 
             # Load pipeline
             logger.debug(f"Loading pipeline {batch.pipeline_name} for batch {batch.id}")
@@ -73,8 +69,7 @@ class ExecutionManager():
             # Store the result in the database
             _stored_pipeline_execution = await self._store_pipeline_execution_result(batch_id=batch.id, 
                                                                                      vault_id=batch.vault_id,
-                                                                                     pipeline_execution_result=pipeline_execution_result, 
-                                                                                     save_outputs=save_pipeline_step_outputs)
+                                                                                     pipeline_execution_result=pipeline_execution_result)
 
 
             # Complete the batch
@@ -121,21 +116,20 @@ class ExecutionManager():
         return result
 
 
-    async def _store_pipeline_execution_result(self, batch_id:str, vault_id: str, pipeline_execution_result: PipelineExecutionResult, save_outputs: bool) -> Dict[str, Any]:
+    async def _store_pipeline_execution_result(self, batch_id:str, vault_id: str, pipeline_execution_result: PipelineExecutionResult) -> Dict[str, Any]:
         """Store pipeline execution result"""
         
         result_id = f"exec_{pipeline_execution_result.pipeline_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
 
         output_data = pipeline_execution_result.model_dump()
         
-        if not save_outputs:
-            # clean up the data field for each document
-            for doc_result in output_data.get("document_results", []):
-                # remove all fields except id and file_path
-                doc_result_data = doc_result.get("data", {})
-                for k in list(doc_result_data.keys()):
-                    if k not in ["id", "file_path"]:
-                        doc_result_data.pop(k)
+        # clean up the data field for each document
+        for doc_result in output_data.get("document_results", []):
+            # remove all fields except id and file_path
+            doc_result_data = doc_result.get("data", {})
+            for k in list(doc_result_data.keys()):
+                if k not in ["id", "file_path"]:
+                    doc_result_data.pop(k)
 
         output_data["id"] = result_id
         output_data["batch_execution_id"] = batch_id

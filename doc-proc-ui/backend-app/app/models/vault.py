@@ -28,7 +28,6 @@ class DocumentProcessingConfig(BaseModel):
     """Configuration for document processing"""
     auto_process_documents: bool = Field(default=True, description="Automatically process documents upon addition")
     supported_formats: List[str] = Field(default=["pdf", "docx", "pptx", "excel"], description="Supported document formats")
-    save_pipeline_step_outputs: Optional[bool] = Field(default=False, description="Whether to save outputs from each pipeline step")
 
 
 class StorageConfig(BaseModel):
@@ -86,12 +85,9 @@ class VaultCreateRequest(BaseModel):
 
 class VaultUpdateRequest(BaseModel):
     """Request model for updating a vault"""
-    id: str = Field(..., description="Vault ID")
     description: Optional[str] = Field(None, description="Vault description")
-    status: Optional[VaultStatus] = Field(None, description="Vault status")
-    pipeline_name: Optional[str] = Field(None, description="Associated pipeline name")
     processing_config: Optional[DocumentProcessingConfig] = Field(None, description="Processing configuration")
-
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     
 class Vault(BaseDoc):
     """Model for document vault"""

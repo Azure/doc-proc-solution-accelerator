@@ -72,6 +72,9 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             if "file_path" not in doc_to_process:
                 raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
 
+            # simulate error
+            raise Exception("Simulated error for testing.")
+            
             # Process the document
             # This will extend the document with extracted content using Azure Document Intelligence
             result_data = await self._process_document(document=doc_to_process,

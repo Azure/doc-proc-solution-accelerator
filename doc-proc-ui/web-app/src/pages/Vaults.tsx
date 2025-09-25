@@ -29,8 +29,8 @@ const Vaults = () => {
   
   // Data states
   const [vaults, setVaults] = useState<Vault[]>([]);
-  // const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingError, setIsLoadingError] = useState(false);
 
   // Load data on component mount
   useEffect(() => {
@@ -42,13 +42,19 @@ const Vaults = () => {
       setLoading(true);
       const vaultsData = await vaultsApi.getVaults();
       setVaults(vaultsData);
+      setIsLoadingError(false);
+
     } catch (error) {
       console.error('Error loading data:', error);
+      
+      setIsLoadingError(true);
+      
       toast({
         title: "Error",
         description: "Failed to load data. Check the App Health status and ensure connectivity to backend services.",
         variant: "destructive",
       });
+      
     } finally {
       setLoading(false);
     }
@@ -160,8 +166,17 @@ const Vaults = () => {
         />
       </div>
 
+      {isLoadingError && (
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="py-4">
+            <p className="text-red-700 text-center">
+              Error loading vaults. Please check the App Health status and ensure connectivity to backend services.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {filteredVaults.length === 0 ? (
+      {!isLoadingError && filteredVaults.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">

@@ -113,7 +113,6 @@ export interface StepSettingsSchema {
 export interface DocumentProcessingConfig {
   auto_process_documents: boolean;
   supported_formats: string[];
-  save_pipeline_step_outputs: boolean;
 }
 
 export interface StorageConfig {
@@ -148,11 +147,8 @@ export interface VaultCreateRequest {
 }
 
 export interface VaultUpdateRequest {
-  name?: string;
   description?: string;
-  pipeline_name?: string;
   processing_config?: DocumentProcessingConfig;
-  storage_config?: StorageConfig;
   metadata?: Record<string, any>;
 }
 
