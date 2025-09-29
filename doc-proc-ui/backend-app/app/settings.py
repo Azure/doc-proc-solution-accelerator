@@ -9,7 +9,8 @@ from app.utils import get_azure_credential
 
 load_dotenv()  # Load environment variables from .env file if present
 
-AZURE_APP_CONFIG_KEY_PREFIX = "doc-proc-ui.app."
+AZURE_APP_CONFIG_COMMON_KEY_PREFIX = "doc-proc."
+AZURE_APP_CONFIG_API_KEY_PREFIX = "doc-proc.api."
 
 class AppSettings(BaseModel):
     """
@@ -25,7 +26,7 @@ class AppSettings(BaseModel):
     REDOC_URL: str = "/redoc"
 
     API_SERVER_HOST: str = "0.0.0.0"
-    API_SERVER_PORT: int = 8010
+    API_SERVER_PORT: int = 8090
     API_SERVER_WORKERS: int = 4
 
     DEBUG: bool = True
@@ -71,10 +72,10 @@ class AppSettings(BaseModel):
             connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING")
             endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT")
 
-            print(f"Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
+            print(f"doc-proc-ui.app: Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
 
             if not connection_string and not endpoint:
-                print("\033[91m🚨 DANGER: No Azure App Configuration connection string or endpoint found in environment variables\033[0m")
+                print("\033[91m🚨 doc-proc-ui.app: DANGER: No Azure App Configuration connection string or endpoint found in environment variables\033[0m")
                 raise RuntimeError("Azure App Configuration connection info not provided in environment variables.")
                 
             
@@ -85,13 +86,17 @@ class AppSettings(BaseModel):
                 credential = get_azure_credential()
                 client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
 
-            items = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_KEY_PREFIX}*"
+            # Fetch configuration items with the specified prefix
+            items_common = client.list_configuration_settings(
+                key_filter=f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*"
             )
-            
-            # Filter the items based on the key filter
-            config_items = [item for item in items]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefix '{AZURE_APP_CONFIG_KEY_PREFIX}*'.")
+
+            items_api = client.list_configuration_settings(
+                key_filter=f"{AZURE_APP_CONFIG_API_KEY_PREFIX}*"
+            )
+
+            config_items = [item for item in items_common] + [item for item in items_api]
+            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefixes '{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*' and '{AZURE_APP_CONFIG_API_KEY_PREFIX}*'.")
             
             # Define the configuration keys to load
             config_keys = [
@@ -115,7 +120,7 @@ class AppSettings(BaseModel):
             # Load configuration values
             for key in config_keys:
                 try:
-                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_KEY_PREFIX}{key}"), None)
+                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}{key}" or item.key == f"{AZURE_APP_CONFIG_API_KEY_PREFIX}{key}"), None)
                     if config_setting and config_setting.value:
                         # Convert value to appropriate type
                         value = config_setting.value
@@ -149,13 +154,14 @@ class AppSettings(BaseModel):
                         setattr(self, key, value)
                     
                 except Exception as e:
-                    print(f"Could not load configuration key '{key}' from App Configuration nor from environment variables: {e}")
+                    print(f"doc-proc-ui.app: Could not load configuration key '{key}' from App Configuration nor from environment variables: {e}")
+                    print("If using App Configuration, please ensure that the key exists with correct prefix.")
                     continue
                     
         except Exception as e:
-            print("\033[91m🚨 DANGER: Failed to load configuration from Azure App Configuration. Application cannot start without required settings.\033[0m")
-            print("\033[91mPlease ensure that the AZURE_APP_CONFIG_CONNECTION_STRING or AZURE_APP_CONFIG_ENDPOINT environment variable is set correctly and that the application has access/permissions to Azure App Configuration resource.\033[0m")
-            print(f"\033[91mError details: {e}\033[0m")
+            print("\033[91m🚨 doc-proc-ui.app: DANGER: Failed to load configuration from Azure App Configuration. Application cannot start without required settings.\033[0m")
+            print("\033[91m doc-proc-ui.app: Please ensure that the AZURE_APP_CONFIG_CONNECTION_STRING or AZURE_APP_CONFIG_ENDPOINT environment variable is set correctly and that the application has access/permissions to Azure App Configuration resource.\033[0m")
+            print(f"\033[91m doc-proc-ui.app: Error details: {e}\033[0m")
             raise e
     
     def get_cosmos_db_containers(self) -> list[str]:

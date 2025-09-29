@@ -356,7 +356,7 @@ export class ApiManager {
   private baseUrl: string;
   private timeout: number;
 
-  constructor(baseUrl: string = 'http://localhost:8010', timeout: number = 30000) {
+  constructor(baseUrl: string, timeout: number = 30000) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.timeout = timeout;
   }
@@ -734,7 +734,7 @@ export class ApiManager {
 
 // Create singleton instance
 const apiManager = new ApiManager(
-  (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8010'
+  (import.meta as any).env.VITE_API_BASE_URL || 'api-base-url/'
 );
 
 // Export individual service functions for convenience

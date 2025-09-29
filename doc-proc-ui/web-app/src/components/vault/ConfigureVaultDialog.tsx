@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Save, X, AlertCircle, FileText, Workflow } from "lucide-react";
+import { Settings, Save, X, AlertCircle, FileText, Workflow, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ErrorWithData, vaultsApi, type Vault } from "@/lib/api";
 
@@ -43,6 +43,7 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
   });
   const [newTag, setNewTag] = useState("");
   const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize config when vault changes
   useEffect(() => {
@@ -89,6 +90,7 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
   };
 
   const handleSave = async () => {
+    setIsSaving(true);
     
     try {
 
@@ -121,6 +123,8 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
         description: "An error occurred while saving the vault configuration: " + errMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -338,12 +342,21 @@ const ConfigureVaultDialog = ({ vault, isOpen, onClose, onSave }: ConfigureVault
             )}
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!isDirty}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Configuration
+            <Button onClick={handleSave} disabled={!isDirty || isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Configuration
+                </>
+              )}
             </Button>
           </div>
         </DialogFooter>

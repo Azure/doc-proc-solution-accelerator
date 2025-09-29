@@ -9,7 +9,8 @@ from app.utils import get_azure_credential
 
 load_dotenv()  # Load environment variables from .env file if present
 
-AZURE_APP_CONFIG_KEY_PREFIX = "doc-proc-worker."
+AZURE_APP_CONFIG_COMMON_KEY_PREFIX = "doc-proc."
+AZURE_APP_CONFIG_WORKER_KEY_PREFIX = "doc-proc.worker."
 
 class AppSettings(BaseModel):
     """
@@ -72,13 +73,17 @@ class AppSettings(BaseModel):
                 credential = get_azure_credential()
                 client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
 
-            items = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_KEY_PREFIX}*"
+            # Fetch configuration items with the specified prefix
+            items_common = client.list_configuration_settings(
+                key_filter=f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*"
+            )
+
+            items_worker = client.list_configuration_settings(
+                key_filter=f"{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}*"
             )
             
-            # Filter the items based on the key filter
-            config_items = [item for item in items]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefix '{AZURE_APP_CONFIG_KEY_PREFIX}*'.")
+            config_items = [item for item in items_common] + [item for item in items_worker]
+            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefixes '{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*' and '{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}*'.")
             
             # Define the configuration keys to load
             config_keys = [
@@ -103,7 +108,7 @@ class AppSettings(BaseModel):
             # Load configuration values
             for key in config_keys:
                 try:
-                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_KEY_PREFIX}{key}"), None)
+                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}{key}" or item.key == f"{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}{key}"), None)
                     if config_setting and config_setting.value:
                         # Convert value to appropriate type
                         value = config_setting.value
@@ -130,6 +135,7 @@ class AppSettings(BaseModel):
                     
                 except Exception as e:
                     print(f"Could not load configuration key '{key}' from App Configuration nor from environment variables: {e}")
+                    print("If using App Configuration, please ensure that the key exists with correct prefix.")
                     continue
                     
         except Exception as e:

@@ -797,6 +797,13 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_document_intelligence"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document dictionary to store the extracted content"
+        required: true
+        default: "doc_intell_extraction"
+        ui_component: "input"
       model_id:
         type: string
         title: "Model ID"
@@ -839,3 +846,52 @@ step_catalog:
       icon: "document-search"
       description_short: "Extract structured content using Azure Document Intelligence."
       description_long: "Uses Azure Document Intelligence service to extract text, tables, key-value pairs, and structured content from various document formats including PDFs, images, and Office documents."
+
+
+  ########################################################
+  # Blob Store Output Step
+  - id: blob_store_output
+    name: "Blob Store Output"
+    description: "Writes the pipeline processing output to Azure Blob Storage"
+    module_name: blob_store_output
+    module_path: ./doc/proc/step/blob_store_output.py
+    class_name: BlobStoreOutputStep
+    tags: [file, upload, azure, blob, storage]
+    category: "Output"
+    version: "1.0"
+
+    # Settings schema for UI generation and validation
+    settings_schema:
+      storage_service:
+        type: string
+        title: "Storage Service"
+        description: "Reference to the storage service instance to use"
+        required: true
+        ui_component: "service_selector"
+        service_type: "azure_blob_storage"
+      blob_container:
+        type: string
+        title: "Blob Container"
+        description: "Name of the Azure Blob Storage container to upload files."
+        required: true
+        default: "output"
+        ui_component: "input"
+      blob_path:
+        type: string
+        title: "Blob Path Format"
+        description: "Path format for the Azure Blob Storage location to upload files. You can use {pipeline_name} and {file_name} as placeholders."
+        required: true
+        default: "{pipeline_name}/{file_name}"
+        ui_component: "input"
+      overwrite_existing:
+        type: boolean
+        title: "Overwrite Existing"
+        description: "Whether to overwrite existing blobs with the same name"
+        required: false
+        default: false
+        ui_component: "checkbox"
+    # UI metadata for dynamic form generation
+    ui_metadata:
+      icon: "upload"
+      description_short: "Uploads files to Azure Blob Storage."
+      description_long: "Uploads files to Azure Blob Storage using the specified blob container and path format."

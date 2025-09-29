@@ -120,7 +120,7 @@ class VaultService(BaseService):
         # Touch the updated_at field
         vault.touch()
         
-        updated_vault = await self.update(vault_id, vault.model_dump())
+        updated_vault = await self.update(vault.model_dump())
         return Vault(**updated_vault)
 
 

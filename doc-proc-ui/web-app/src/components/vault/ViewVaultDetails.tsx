@@ -40,6 +40,7 @@ import {
   pipelinesApi,
   ErrorWithData
 } from "@/lib/api";
+import { ref } from "process";
 
 interface ViewVaultDetailsProps {
   vault: Vault;
@@ -141,12 +142,9 @@ const ViewVaultDetails = ({
   };
 
   const handleSaveVaultConfiguration = (config: any) => {
-    // Here you would typically call an API to save the vault configuration
-    console.log('Saving vault configuration:', config);
-    toast({
-      title: "Configuration Saved",
-      description: "Vault configuration has been updated successfully",
-    });
+    
+    onRefreshVault();
+    
   };
 
   const handleDeleteVault = async () => {

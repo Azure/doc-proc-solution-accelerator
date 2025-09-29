@@ -191,7 +191,20 @@ class BlobService(ServiceBase):
         """Get a container client for the specified container."""
         self._ensure_initialized()
         return self.blob_service_client.get_container_client(container_name)
-        
+    
+    async def ensure_container(self, container_name: str):
+        """Ensure the specified container exists, creating it if necessary."""
+        container_client = self.blob_service_client.get_container_client(container_name)
+        try:
+            await container_client.create_container()
+            logger.debug(f"Container '{container_name}' created.")
+        except Exception as e:
+            if "ContainerAlreadyExists" in str(e):
+                logger.debug(f"Container '{container_name}' already exists.")
+            else:
+                logger.error(f"Failed to create container '{container_name}': {str(e)}")
+                raise ServiceExecutionError(f"Failed to create or access container '{container_name}': {str(e)}")
+    
     async def test_connection(self) -> bool:
         """Test the connection to the Azure Blob Storage service."""
         try:
@@ -268,7 +281,7 @@ class BlobService(ServiceBase):
                 logger.error(error_msg)
                 raise ServiceExecutionError(error_msg)
 
-    async def upload_file(self, container_name: str, filename: str, file_content) -> str:
+    async def upload_file(self, container_name: str, filename: str, file_content, overwrite: bool = False) -> str:
         """
         Upload a file to Azure Blob Storage with improved error handling and retry logic.
         Args:
@@ -280,20 +293,21 @@ class BlobService(ServiceBase):
         Raises:
             ServiceExecutionError: If the upload fails due to permission issues or other errors.
         """
+       
         max_retries = 3
         retry_delay = 1.0  # Start with 1 second delay
         
-        for attempt in range(max_retries):
-            try:
-                async with self:
+        async with self:
+            for attempt in range(max_retries):
+                try:
+                    await self.ensure_container(container_name)
+                    
                     container_client = self.get_container_client(container_name)
-
                     logger.debug(f"Uploading blob '{filename}' to container '{container_name}' (attempt {attempt + 1})")
-
                     blob_client = await container_client.upload_blob(
                         name=filename, 
                         data=file_content, 
-                        overwrite=True,  # Allow overwriting existing blobs
+                        overwrite=overwrite,  # Allow overwriting existing blobs
                         timeout=300  # 5 minute timeout for large files
                     )
                     
@@ -301,17 +315,17 @@ class BlobService(ServiceBase):
                     logger.debug(f"Successfully uploaded '{filename}' to container '{container_name}' at URL: {blob_url}")
                     
                     return blob_url
-                    
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.warning(f"Upload attempt {attempt + 1} failed for '{filename}': {str(e)}. Retrying in {retry_delay} seconds...")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                    continue
-                else:
-                    error_msg = f"Failed to upload file '{filename}' to container '{container_name}' after {max_retries} attempts: {str(e)}"
-                    logger.error(error_msg)
-                    raise ServiceExecutionError(error_msg)
+                        
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Upload attempt {attempt + 1} failed for '{filename}': {str(e)}. Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        error_msg = f"Failed to upload file '{filename}' to container '{container_name}' after {max_retries} attempts: {str(e)}"
+                        logger.error(error_msg)
+                        raise ServiceExecutionError(error_msg)
                 
 
     async def file_exists(self, container_name: str, filename: str) -> bool:

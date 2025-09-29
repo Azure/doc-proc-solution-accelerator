@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError, HttpResponseError
 from azure.storage.queue.aio import QueueClient
 
 
@@ -95,6 +95,20 @@ class StorageQueue():
         except ResourceExistsError as e:
             logger.debug(f"Azure Storage Queue with the name: {self.queue_name} already exists.")
             logger.info(f"Connected to existing Azure Storage Queue: {self.queue_name}")
+        # Check if we got an authorization error on creating the queue, as the client id might only be able to read the queue, not create it.
+        except HttpResponseError as e:
+            if 'AuthorizationFailure' in e.message or e.status_code == 403:
+                logger.warning(f"Authorization error when accessing the queue: {e}. Attempting to connect to existing queue.")
+                # Try to connect to the existing queue
+                try:
+                    props = await self._queue_client.get_queue_properties()
+                    logger.info(f"Connected to existing Azure Storage Queue: {self.queue_name}")
+                except Exception as inner_e:
+                    logger.error(f"Failed to access existing queue: {inner_e}")
+                    raise
+            else:
+                logger.error(f"HTTP error when connecting to Azure Storage Queue: {e}")
+                raise
         except Exception as e:
             logger.error(f"Failed to connect to Azure Storage Queue: {e}. Ensure network connectivity and rbac permissions are set for the storage account.")
             raise

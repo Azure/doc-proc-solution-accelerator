@@ -119,7 +119,45 @@ Before getting started, ensure you have the following:
 - Azure AI Document Intelligence resource (optional)
 - Azure OpenAI resource (optional)
 
-### Quick Start (Local Development)
+### Quick Start Options
+
+Choose the deployment method that best fits your needs:
+
+#### 🔧 **Option 1: Local Development (Fastest)**
+Perfect for development and testing:
+
+```bash
+# Start all services locally with auto-reload
+./doc-proc-deploy/start-services-locally.sh
+```
+
+#### 🐳 **Option 2: Docker Compose (Recommended for Production)**  
+Consistent environment with all dependencies:
+
+```bash
+# Build and start all services
+./doc-proc-deploy/compose.sh up
+```
+
+#### ☁️ **Option 3: Azure Cloud Deployment**
+Production-ready deployment on Azure:
+
+```bash
+# Deploy infrastructure
+./doc-proc-deploy/deploy-azure-infra.sh -r myResourceGroup -l eastus -p myProject
+
+# Build and push images
+./doc-proc-deploy/build-and-push-images.sh -r myResourceGroup -p myProject
+
+# Deploy applications
+./doc-proc-deploy/deploy-apps.sh -r myResourceGroup -p myProject
+```
+
+💡 **For detailed instructions and additional options, see the [comprehensive deployment guide →](./doc-proc-deploy/README.md)**
+
+### Manual Setup (Advanced Users)
+
+If you prefer manual setup or need to customize the installation:
 
 1. **Clone the repository**
    ```bash
@@ -165,17 +203,6 @@ Before getting started, ensure you have the following:
    # Start the worker
    python run_queue_worker.py
    ```
-
-### Docker Compose Setup
-
-For a complete local development environment:
-
-```bash
-cd doc-proc-ui/backend-app
-docker-compose up -d
-```
-
-This starts all services including databases and message queues.
 
 ## 💡 Usage Examples and Scenarios
 
@@ -236,17 +263,38 @@ def handle_blob_created(event):
 
 ## ⚙️ Deployment and Configuration
 
-### Azure Container Apps Deployment
+The solution provides multiple deployment options to suit different needs:
 
-Deploy the complete solution to Azure Container Apps:
+### 🚀 Automated Deployment Scripts
+
+All deployment scripts are located in the `doc-proc-deploy/` directory:
+
+- **Local Development**: `start-services-locally.sh` - Quick setup for development
+- **Docker Compose**: `compose.sh` - Containerized environment  
+- **Azure Cloud**: `deploy-azure-infra.sh`, `build-and-push-images.sh`, `deploy-apps.sh` - Complete Azure deployment
+
+📚 **[View comprehensive deployment documentation →](./doc-proc-deploy/README.md)**
+
+### Azure Cloud Deployment
+
+Deploy to Azure using the provided Bicep templates and automation scripts:
 
 ```bash
-cd doc-proc-deploy
-az deployment group create \
-  --resource-group myResourceGroup \
-  --template-file main.bicep \
-  --parameters environmentName=docproc-prod
+# 1. Deploy Azure infrastructure
+./doc-proc-deploy/deploy-azure-infra.sh -r myResourceGroup -l eastus -p myProject
+
+# 2. Build and push container images
+./doc-proc-deploy/build-and-push-images.sh -r myResourceGroup -p myProject  
+
+# 3. Deploy applications
+./doc-proc-deploy/deploy-apps.sh -r myResourceGroup -p myProject
 ```
+
+This creates:
+- **Container Registry** for storing Docker images
+- **Container Apps Environment** for hosting containerized applications
+- **Container Apps** (Backend API and Worker services)
+- **Static Web App** for the frontend
 
 ### Configuration Options
 

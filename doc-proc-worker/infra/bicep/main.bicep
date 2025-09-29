@@ -1,8 +1,7 @@
 @description('Location for all resources')
 param location string = resourceGroup().location
 
-@description('Name prefix for resources')
-@minLength(4)
+@description('Name prefix for worker resources')
 param namePrefix string = 'docproc'
 
 @description('Environment name (dev, staging, prod)')
@@ -16,9 +15,6 @@ param containerRegistryServer string
 
 @description('Container image for the backend app')
 param containerImage string
-
-@description('CORS allowed origins')
-param allowOrigins string[] = ['*']
 
 @description('CPU cores for the container')
 param cpuCores string = '1.0'
@@ -41,8 +37,7 @@ param additionalEnvironmentVariables array = []
 @description('Tags for resources')
 param tags object = {}
 
-var appName = '${namePrefix}-api-${environment}'
-
+var appName = '${namePrefix}-worker-${environment}'
 
 // Prepare environment variables
 var environmentVariables = concat([
@@ -61,21 +56,16 @@ var environmentVariables = concat([
 ], additionalEnvironmentVariables)
 
 
-// Use Azure Verified Module for Container App
-module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
-  name: 'apiAppDeployment'
+// Use Azure Verified Module for Container App (Worker)
+module workerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+  name: 'workerAppDeployment'
   params: {
     name: appName
     location: location
     tags: tags
     environmentResourceId: containerAppsEnvironmentId
-    corsPolicy: {
-      allowCredentials: true
-      allowedOrigins: allowOrigins
-      allowedMethods: ['*']
-      allowedHeaders: ['*']
-    }
     ingressAllowInsecure: false
+    disableIngress: true
     containers: [
       {
         name: appName
@@ -85,21 +75,10 @@ module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
           memory: memoryInGB
         }
         env: environmentVariables
-        probes: [
-          {
-            type: 'Liveness'
-            httpGet: {
-              path: '/api/health'
-              port: 8090
-            }
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          }
-        ]
       }
     ]
-    ingressExternal: true
-    ingressTargetPort: 8090
+    // Worker doesn't need external ingress
+    ingressExternal: false
     managedIdentities: {
       systemAssigned: false
       userAssignedResourceIds: [ userAssignedIdentityResourceId ]
@@ -113,6 +92,5 @@ module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
   }
 }
 
-output containerAppName string = apiApp.outputs.name
-output containerAppUrl string = apiApp.outputs.fqdn
-output containerAppId string = apiApp.outputs.resourceId
+output containerAppName string = workerApp.outputs.name
+output containerAppId string = workerApp.outputs.resourceId

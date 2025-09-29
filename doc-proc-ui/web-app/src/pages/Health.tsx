@@ -59,7 +59,7 @@ const Connections = () => {
           status: "connected",
           lastChecked: new Date().toISOString(),
           message: `API responding - connected`,
-          endpoint: (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:8000",
+          endpoint: (import.meta as any).env.VITE_API_BASE_URL,
           responseTime
         });
 
@@ -105,7 +105,7 @@ const Connections = () => {
           lastChecked: new Date().toISOString(),
           error: error instanceof Error ? error.message : "Connection failed",
           message: "Unable to reach backend API service",
-          endpoint: (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:8000"
+          endpoint: (import.meta as any).env.VITE_API_BASE_URL
         });
       }
 
