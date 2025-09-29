@@ -2,7 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 
 
 class CosmosDb():

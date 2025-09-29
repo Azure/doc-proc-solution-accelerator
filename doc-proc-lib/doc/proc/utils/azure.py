@@ -1,26 +1,40 @@
-from functools import lru_cache
 import logging
+from functools import lru_cache
 
-from azure.identity import DefaultAzureCredential
+from azure.identity import ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
 
-logger = logging.getLogger("doc-proc-ui.app.utils")
+logger = logging.getLogger("doc-proc-worker.app.utils")
 
 @lru_cache(maxsize=1)
-def get_azure_credential():
+def get_azure_credential(credential=None):
     """
     Get the appropriate credential for authentication.
         
+    :param credential: Credential for authentication (optional)
     :return: Credential object
     """
-    try:
-        credential = DefaultAzureCredential(logging_enable=True)
-        logger.debug(f"Initialized DefaultAzureCredential.")
-        return credential
-       
-    except Exception as e:
-        logger.error(f"Failed to initialize DefaultAzureCredential: {e}")
-        raise
-    
+    from dependencies import get_config
+    config = get_config()
+
+    if credential is None:
+        try:
+            client_id = config.get('AZURE_CLIENT_ID', "")
+            tenant_id = config.get('AZURE_TENANT_ID', "")
+
+            credential = ChainedTokenCredential(
+                ManagedIdentityCredential(client_id=client_id),
+                AzureCliCredential(tenant_id=tenant_id)
+            )
+            logger.debug("Initialized Credential.")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Credential: {e}")
+            raise
+    else:
+        logger.debug("Initialized with provided credential.")
+
+    return credential
+
 @lru_cache(maxsize=1)
 def get_azure_credential_with_details():
     """
@@ -29,8 +43,8 @@ def get_azure_credential_with_details():
     :return: Credential object
     """
     try:
-        credential = DefaultAzureCredential(logging_enable=True)
-        logger.debug(f"Initialized DefaultAzureCredential.")
+        credential = get_azure_credential()
+        logger.debug(f"Initialized Credential.")
         
         token_details = _get_token_details(credential)
         if token_details:
@@ -38,7 +52,7 @@ def get_azure_credential_with_details():
         
         return credential, token_details
     except Exception as e:
-        logger.error(f"Failed to initialize DefaultAzureCredential: {e}")
+        logger.error(f"Failed to initialize Credential: {e}")
         raise
 
 @lru_cache(maxsize=1)

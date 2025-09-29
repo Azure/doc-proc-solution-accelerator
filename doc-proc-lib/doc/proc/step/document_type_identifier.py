@@ -1,5 +1,7 @@
 import logging
 import os
+import base64
+
 from typing import List
 from enum import Enum
 from pathlib import Path
@@ -53,7 +55,7 @@ class DocumentTypeIdentifierStep(StepBase):
         logger.debug(f"Initialized DocumentTypeIdentifierStep with identification_methods: {self.identification_methods}")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         """
         Run the step processing logic for document type identification.
 
@@ -65,46 +67,24 @@ class DocumentTypeIdentifierStep(StepBase):
             StepInputOutput: Output with type identification results
         """
 
-        # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
-
-        # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-
+        doc = input_data.data.get('document', {})
+        
         try:
 
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
-
-            document_dict = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in document_dict:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
-            
+                logger.debug(f"Processing document: {doc}")
 
             # Process the file based on identification methods
-            identification_result = await self._process_document(
-                                                document_dict, self.identification_methods, context
-                                            )
+            identification_result = await self._process_document(doc, self.identification_methods, context)
 
-            result_document = {
-                **document_dict,
-                "document_type": identification_result,
-            }
+            doc['document_type'] = identification_result
 
             if self.debug_mode:
-                logger.debug(f"Successfully processed document: {result_document}")
+                logger.debug(f"Successfully processed document: {doc}")
             else:
-                logger.info(f"Successfully processed document: {result_document.get('file_path', 'unknown')}")
+                logger.info(f"Successfully processed document: {doc.get('file_path', 'unknown')}")
 
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_document)
+            return input_data
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
@@ -117,15 +97,7 @@ class DocumentTypeIdentifierStep(StepBase):
         """Process a document for type identification"""
         if not document or not isinstance(document, dict):
             raise ValueError("Invalid document format. Expected a dictionary with file metadata.")
-
-        # Validate that we have a file_path
-        if "file_path" not in document:
-            raise ValueError("Document is missing the required 'file_path' field.")
         
-        file_path = document["file_path"]
-        if not file_path or not os.path.exists(file_path):
-            raise ValueError(f"Invalid or non-existent file path: {file_path}")
-
         try:
             # Perform document type identification
             identification_result = await self._identify_document_type(
@@ -135,7 +107,7 @@ class DocumentTypeIdentifierStep(StepBase):
             return identification_result
                 
         except Exception as e:
-            logger.error(f"Document type identification failed for {file_path}: {str(e)}")
+            logger.error(f"Document type identification failed : {str(e)}")
             raise ValueError(f"Document type identification failed: {str(e)}")
 
 
@@ -174,18 +146,11 @@ class DocumentTypeIdentifierStep(StepBase):
         try:
             logger.debug(f"Identifying document by magic bytes: {document.get('file_path', 'unknown')}")
 
-            file_path = document.get("file_path", "")
-            if not file_path:
-                return {"error": "No file path available", "confidence": 0.0, "method": "magic_bytes"}
-            # Read the file content
-            if not Path(file_path).is_file():
-                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "magic_bytes"}
+            file_content = document.get("content", None)
+            encoding = document.get("encoding", "raw")
 
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-
-            if isinstance(file_content, str):
-                file_content = file_content.encode()
+            if encoding == 'base64':
+                file_content = base64.b64decode(file_content)
             
             # Use python-magic library for magic bytes detection
             mime_type = magic.from_buffer(file_content, mime=True)
@@ -251,7 +216,7 @@ class DocumentTypeIdentifierStep(StepBase):
         try:
             logger.debug(f"Identifying document by file extension: {document.get('file_path', 'unknown')}")
 
-            file_path = document.get("file_path", "")
+            file_path = document.get("name", "")
             if not file_path:
                 return {"error": "No file path available", "confidence": 0.0, "method": "file_extension"}
 

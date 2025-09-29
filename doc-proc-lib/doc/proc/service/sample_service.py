@@ -12,12 +12,12 @@ class SampleService(ServiceBase):
         super().__init__(name=name, type=type, settings=settings, **kwargs)
 
         # Initialize service-specific settings
-        self.sample_setting = settings.get('sample_setting') 
-        self.sample_optional = settings.get('sample_optional', 10)
-        self.sample_with_pattern = settings.get('sample_with_pattern')
-        self.sample_enum = settings.get('sample_enum', 'option1')
-        self.sample_sensitive = settings.get('sample_sensitive')
-        self.sample_boolean = settings.get('sample_boolean', False)
+        self.sample_setting = self.settings.get('sample_setting') 
+        self.sample_optional = self.settings.get('sample_optional', 10)
+        self.sample_with_pattern = self.settings.get('sample_with_pattern')
+        self.sample_enum = self.settings.get('sample_enum', 'option1')
+        self.sample_sensitive = self.settings.get('sample_sensitive')
+        self.sample_boolean = self.settings.get('sample_boolean', False)
 
         # Validate sample_setting
         if not self.sample_setting:

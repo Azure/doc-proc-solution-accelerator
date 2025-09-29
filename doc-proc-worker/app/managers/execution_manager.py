@@ -109,10 +109,7 @@ class ExecutionManager():
             
         # Execute pipeline for this batch
         result = await pipeline.run(input_data)
-        
-        with open(f"./tmp/{batch.id}_result.json", 'w') as f:
-            f.write(result.model_dump_json())
-        
+                
         return result
 
 

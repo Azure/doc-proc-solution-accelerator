@@ -5,7 +5,7 @@ import yaml
 from doc.proc.step.step_config import StepConfig
 from doc.proc.step.step_base import StepInstanceConfig
 from doc.proc.service.service_config import ServiceConfig
-
+from doc.proc.source.source_base import SourceInstanceConfig
 
 class PipelineSettingsConfig(BaseModel):
     """Settings for the pipeline execution."""
@@ -30,6 +30,7 @@ class PipelineConfig(BaseModel):
     execution_sequence: List[str] = None  # Order of step instance names
     settings: PipelineSettingsConfig = PipelineSettingsConfig()
     service_instances: List[ServiceInstanceConfig] = []  # List of service instances used in the pipeline
+    source_instances: List[SourceInstanceConfig] = []  # List of source instances used in the pipeline
 
     @staticmethod
     def from_dict(config: dict) -> "PipelineConfig":

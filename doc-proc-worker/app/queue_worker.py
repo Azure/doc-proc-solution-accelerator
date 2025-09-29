@@ -7,7 +7,9 @@ from typing import Optional
 from app.dependencies import get_execution_manager, get_queue_proxy
 from app.proxy.queue import StorageQueue, QueueMessage
 from app.managers.execution_manager import ExecutionManager
-from app.models.queue import (
+
+from doc.proc.step.step_base import StepExecutionError
+from doc.proc.models.queue import (
     QueueMessageWrapper, QueueMessageType, QueueBatchExecutionRequest,
     QueueBatchRetryRequest, QueueBatchCancelRequest, QueueWorkerStats
 )
@@ -224,6 +226,9 @@ class QueueWorker:
                 self.logger.error(f"Unknown message type: {wrapper.message_type}")
                 return False
                 
+        except StepExecutionError as e:
+            self.logger.error(f"Step execution error for message {wrapper.message_id}: {e}")
+            raise e
         except Exception as e:
             self.logger.error(f"Error handling message type {wrapper.message_type}: {e}")
             return False

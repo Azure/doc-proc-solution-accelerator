@@ -171,9 +171,9 @@ Return only the JSON output with extracted entities and relationships."""
         }
 
         # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
+        document = input_data.data.get("document", {})
+        if not document or not isinstance(document, dict):
+            logger.warning(f"No documents found in input data: {input_data.data}. Expected a dictionary of documents.")
             # do nothing if no documents are found
             return StepInputOutput(summary_data={
                                         **input_data.summary_data, f"{self.name}_stats": _stats
@@ -182,58 +182,40 @@ Return only the JSON output with extracted entities and relationships."""
                                        **input_data.data
                                    })
 
-        _stats["total_documents"] = len(documents)
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {document}")
 
-        # Iterate through each filtered document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
+            # Check if the document is a dictionary
+            if not isinstance(document, dict):
+                raise ValueError(f"Invalid document format: {document}. Expected a dictionary with attributes.")
+            
+            # Evaluate condition if present
+            if self.condition:
+                skip_document = self.evaluate_document_condition(document, input_data)
+                if skip_document:
+                    _stats["skipped_documents"] += 1
+                    logger.debug(f"Document skipped due to condition not met: {self.condition}")
 
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+            # Process each document
+            # This will extend the document with extracted entities for each page/chunk
+            doc_stats = await self.process_document(document=document, 
+                                                    context=context, 
+                                                    ai_model_inference_service=ai_model_inference_service)
+            
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {document}")
 
-                # Check if the document is a dictionary
-                if not isinstance(document, dict):
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with attributes.")
-                
-                # Evaluate condition if present
-                if self.condition:
-                    skip_document = self.evaluate_document_condition(document, input_data)
-                    if skip_document:
-                        _stats["skipped_documents"] += 1
-                        logger.debug(f"Document skipped due to condition not met: {self.condition}")
-                        continue
+        except Exception as e:
+            logger.error(f"Error processing document {document}: {e}")
+            _stats["failed_documents"] += 1
 
-                # Process each document
-                # This will extend the document with extracted entities for each page/chunk
-                doc_stats = await self.process_document(document=document, 
-                                                       context=context, 
-                                                       ai_model_inference_service=ai_model_inference_service)
-                
-                _stats["successful_documents"] += 1
-                _stats["total_entities_extracted"] += doc_stats.get("entities_extracted", 0)
-                _stats["total_relationships_extracted"] += doc_stats.get("relationships_extracted", 0)
-
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
-
-            except Exception as e:
-                logger.error(f"Error processing document {document}: {e}")
-                _stats["failed_documents"] += 1
-
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document {document}: {e}")
+            if self.fail_step_on_document_error:
+                # If the step is configured to fail on document error, raise an exception
+                raise StepExecutionError(f"Failed to process document {document}: {e}")
 
         # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
+        return input_data
     
     
     def get_ai_inference_service(self, context: "PipelineExecutionContext"):

@@ -36,13 +36,15 @@ class AIPowerPointTextExtractorStep(StepBase):
         self.extract_shapes = self.settings.get("extract_shapes", False)
         self.slides_to_convert = self.settings.get("num_slides", -1)  # -1 means all slides
 
+        self.prompts = self.settings.get("prompts", {})
+
         # get prompts from settings
-        self.system_prompt = self.settings.get("system_prompt", "")
+        self.system_prompt = self.prompts.get("system", self.settings.get("system_prompt", ""))
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.settings.get("user_prompt", "")
+        self.user_prompt = self.prompts.get("user", self.settings.get("user_prompt", ""))
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -63,11 +65,6 @@ class AIPowerPointTextExtractorStep(StepBase):
 
     async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         # Implement your PowerPoint text extraction logic
-
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
         
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
@@ -75,82 +72,33 @@ class AIPowerPointTextExtractorStep(StepBase):
             logger.error("Azure AI Model Inference Service not found in context.")
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "skipped_documents": 0,
-            "failed_documents": 0,
-        }
-
         # get documents from input data
-        documents = input_data.data.get("documents", [])
-
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents found in input data: {input_data.data}. Expected a list of documents.")
-            return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-        
-        _stats["total_documents"] = len(documents)
-
-        # Iterate through each document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
+        document = input_data.data.get("document", {})
             
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
-                
-                # Check if the document is a dictionary and has the 'file_path' key
-                if not isinstance(document, dict) or 'file_path' not in document:
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary with 'file_path' key.")
-                
-                # Evaluate condition if present
-                if self.condition:
-                    condition_met = self.evaluate_document_condition(document, input_data)
-                    if not condition_met:
-                        _stats["skipped_documents"] += 1
-                        logger.info(f"Document skipped due to condition not met: {self.condition}")
-                        continue
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {input_data.id}")
 
-                # Process each document
-                # This will extend the document with extracted text and images for each slide/chunk
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_model_inference_service=ai_model_inference_service)
+            # Process each document
+            # This will extend the document with extracted text and images for each slide/chunk
+            await self.process_document(document=document, 
+                                        context=context, 
+                                        ai_model_inference_service=ai_model_inference_service)
 
-                _stats["successful_documents"] += 1
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {input_data.id}")
+            else:
+                logger.info(f"Successfully processed document: {input_data.id}")
 
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
-                else:
-                    logger.info(f"Successfully processed document: {document.get('file_path', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
 
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
-
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
-
-        logger.info(f"Processed {_stats['total_documents']} total documents. Successful: {_stats['successful_documents']}, Skipped: {_stats['skipped_documents']}, Failed: {_stats['failed_documents']}.")
+            if self.fail_step_on_document_error:
+                # If the step is configured to fail on document error, raise an exception
+                raise StepExecutionError(f"Failed to process document: {e}")
         
         # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-    
+        return input_data
 
     def get_ai_inference_service(self, context: "PipelineExecutionContext"):
         """
@@ -183,18 +131,6 @@ class AIPowerPointTextExtractorStep(StepBase):
         :raises FileNotFoundError: If the PowerPoint file does not exist at the specified path.
         :return: None.
         """
-
-        pptx_file_path = document.get("file_path")
-        if not pptx_file_path:
-            # do nothing
-            logger.error("No input PowerPoint file path found in input data.")
-            raise ValueError("No input PowerPoint file path found in input data. Please check the input data and try again.")
-
-        # Check if the PowerPoint file exists
-        if not os.path.exists(pptx_file_path):
-            # do nothing
-            logger.error(f"PowerPoint file not found: {pptx_file_path}.")
-            raise FileNotFoundError(f"PowerPoint file not found: {pptx_file_path}. Please check the file path and try again.")
 
         # Check if the file is a PowerPoint document
         if not pptx_file_path.lower().endswith(('.pptx', '.ppt')):

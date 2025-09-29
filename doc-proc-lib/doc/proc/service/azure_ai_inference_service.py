@@ -2,12 +2,12 @@ import logging
 import os
 from typing import List
 
-from azure.identity import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, ChatRequestMessage, ChatCompletions
 
 from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from doc.proc.utils.azure import get_azure_credential
 
 logger = logging.getLogger("doc.proc.service.azure_ai_inference_service") # need to specify the logger name as this module is loaded dynamically
 
@@ -18,48 +18,26 @@ class AzureAIInferenceService(ServiceBase):
     def __init__(self, name: str, type: str, settings:dict, **kwargs):
         super().__init__(name=name, type=type, settings=settings, **kwargs)
 
-        self.endpoint = settings.get('endpoint', '').strip()
-        self.credential_type = settings.get('credential_type', '').strip()
+        self.account_name = self.settings.get('account_name', '').strip()
+        self.endpoint = f"{self.settings.get('endpoint', '')}/models"
+        self.credential_type = self.settings.get('credential_type', '').strip()
+        self.model = self.settings.get('model', 'chat').strip()
         self.api_key = ''
 
         # Validate endpoint
         if not self.endpoint:
             raise ValueError("Settings key 'endpoint' is required")
 
-        # Read the endpoint from environment variable if in ${ENV_VAR_NAME} format
-        if self.endpoint.startswith('${') and self.endpoint.endswith('}'):
-            env_var_name = self.endpoint[2:-1]
-            self.endpoint = os.getenv(env_var_name)
-            if not self.endpoint:
-                raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-
-
         # Validate credential type
         if not self.credential_type:
             raise ValueError("Settings key 'credential_type' is required")
-        
-        # Read the credential type from environment variable if in ${ENV_VAR_NAME} format        
-        if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
-            env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
-            if not self.credential_type:
-                raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        
-        
+                
         # Validate API key based on credential type
         if self.credential_type == 'azure_key_credential':
-            self.api_key = settings.get('api_key', '').strip()
+            self.api_key = self.settings.get('api_key', '').strip()
 
             if not self.api_key:
-                raise ValueError("Settings key 'api_key' is required for azure_key_credential")
-
-            # Read the API key from environment variable if in ${ENV_VAR_NAME} format
-            if self.api_key.startswith('${') and self.api_key.endswith('}'):
-                env_var_name = self.api_key[2:-1]
-                self.api_key = os.getenv(env_var_name)
-                if not self.api_key:
-                    raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-            
+                raise ValueError("Settings key 'api_key' is required for azure_key_credential")            
 
         elif self.credential_type == 'default_azure_credential':
             self.api_key = ''        
@@ -76,10 +54,12 @@ class AzureAIInferenceService(ServiceBase):
 
         if self.api_key not in ['', None]:
             self.chat_completions_client = ChatCompletionsClient(endpoint=self.endpoint, 
+                                                                 model=self.model,
                                                                  credential=AzureKeyCredential(self.api_key))
         else:
-            credential = DefaultAzureCredential()
+            credential = get_azure_credential()
             self.chat_completions_client = ChatCompletionsClient(endpoint=self.endpoint, 
+                                                                 model=self.model,
                                                                  credential=credential,
                                                                  credential_scopes=["https://cognitiveservices.azure.com/.default"])
 

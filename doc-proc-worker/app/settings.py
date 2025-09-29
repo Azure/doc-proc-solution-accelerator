@@ -3,13 +3,15 @@ from typing import Optional
 from functools import lru_cache
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from azure.appconfiguration import AzureAppConfigurationClient
 
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 
 load_dotenv()  # Load environment variables from .env file if present
 
 AZURE_APP_CONFIG_KEY_PREFIX = "doc-proc-worker."
+
+from dependencies import get_config
+config = get_config()
 
 class AppSettings(BaseModel):
     """
@@ -33,6 +35,8 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_STEP_INSTANCES: str = "step_instances"
     COSMOS_DB_CONTAINER_SERVICE_CATALOG: str = "service_catalog"
     COSMOS_DB_CONTAINER_SERVICE_INSTANCES: str = "service_instances"
+    COSMOS_DB_CONTAINER_SOURCE_CATALOG: str = "source_catalog"
+    COSMOS_DB_CONTAINER_SOURCE_INSTANCES: str = "source_instances"
     COSMOS_DB_CONTAINER_BATCH_EXECUTIONS: str = "batch_executions"
     COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS: str = "pipeline_executions"
     
@@ -54,31 +58,6 @@ class AppSettings(BaseModel):
     def _load_from_app_config(self):
         """Load configuration values from Azure App Configuration"""
         try:
-            # Get connection info from environment variables
-            connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING")
-            endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT")
-
-            print(f"Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
-
-            if not connection_string and not endpoint:
-                print("\033[91m🚨 DANGER: No Azure App Configuration connection string or endpoint found in environment variables\033[0m")
-                raise RuntimeError("Azure App Configuration connection info not provided in environment variables.")
-                
-            
-            # Create the client
-            if connection_string:
-                client = AzureAppConfigurationClient.from_connection_string(connection_string)
-            else:
-                credential = get_azure_credential()
-                client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
-
-            items = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_KEY_PREFIX}*"
-            )
-            
-            # Filter the items based on the key filter
-            config_items = [item for item in items]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefix '{AZURE_APP_CONFIG_KEY_PREFIX}*'.")
             
             # Define the configuration keys to load
             config_keys = [
@@ -90,6 +69,8 @@ class AppSettings(BaseModel):
                 "COSMOS_DB_CONTAINER_STEP_INSTANCES",
                 "COSMOS_DB_CONTAINER_SERVICE_CATALOG",
                 "COSMOS_DB_CONTAINER_SERVICE_INSTANCES",
+                "COSMOS_DB_CONTAINER_SOURCE_CATALOG",
+                "COSMOS_DB_CONTAINER_SOURCE_INSTANCES",
                 "COSMOS_DB_CONTAINER_BATCH_EXECUTIONS",
                 "COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS",
                 "STORAGE_ACCOUNT_WORKER_QUEUE_URL",
@@ -103,10 +84,8 @@ class AppSettings(BaseModel):
             # Load configuration values
             for key in config_keys:
                 try:
-                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_KEY_PREFIX}{key}"), None)
-                    if config_setting and config_setting.value:
-                        # Convert value to appropriate type
-                        value = config_setting.value
+                    value = config.get(key, default=None, allow_none=True)
+                    if value:
                         
                         # Handle type conversion
                         if key in ["WORKER_POOL_SIZE", "WORKER_SHUTDOWN_TIMEOUT", "WORKER_HEALTH_CHECK_INTERVAL"]:
@@ -114,18 +93,6 @@ class AppSettings(BaseModel):
                         elif key in ["DEBUG", "WORKER_AUTO_RESTART"]:
                             value = value.lower() in ("true", "1", "yes", "on")
                                                 
-                        setattr(self, key, value)
-                    
-                    # try to get the value from environment variable as fallback
-                    elif os.getenv(key):
-                        value = os.getenv(key)
-                        
-                        # Handle type conversion
-                        if key in ["WORKER_POOL_SIZE", "WORKER_SHUTDOWN_TIMEOUT", "WORKER_HEALTH_CHECK_INTERVAL"]:
-                            value = int(value)
-                        elif key in ["DEBUG", "WORKER_AUTO_RESTART"]:
-                            value = value.lower() in ("true", "1", "yes", "on")
-                        
                         setattr(self, key, value)
                     
                 except Exception as e:
@@ -146,6 +113,8 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_STEP_INSTANCES,
             self.COSMOS_DB_CONTAINER_SERVICE_CATALOG,
             self.COSMOS_DB_CONTAINER_SERVICE_INSTANCES,
+            self.COSMOS_DB_CONTAINER_SOURCE_CATALOG,
+            self.COSMOS_DB_CONTAINER_SOURCE_INSTANCES,
             self.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS,
             self.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS
         ]

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from azure.storage.queue.aio import QueueClient
 
 from app.models.vault import DocumentInfo, Vault
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 
 
 logger = logging.getLogger("doc-proc-ui.app.services.storage_queue_helper")

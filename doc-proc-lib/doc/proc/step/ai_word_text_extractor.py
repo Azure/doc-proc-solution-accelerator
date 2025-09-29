@@ -35,13 +35,15 @@ class AIWordTextExtractorStep(StepBase):
         self.extract_tables = self.settings.get("extract_tables", True)
         self.max_chunk_size = self.settings.get("max_chunk_size", 4000)
 
+        self.prompts = self.settings.get("prompts", {})
+
         # get prompts from settings
-        self.system_prompt = self.settings.get("system_prompt", "")
+        self.system_prompt = self.prompts.get("system", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.settings.get("user_prompt", "")
+        self.user_prompt = self.prompts.get("user", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -60,7 +62,7 @@ class AIWordTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         """
         Process input document to extract text and images from Word documents.
         
@@ -71,6 +73,7 @@ class AIWordTextExtractorStep(StepBase):
         Returns:
             StepInputOutput: Output with local file_path added to documents that were downloaded
         """
+        document = input_data.data.get("document", {})
 
         # Check if document has the required data structure
         if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:

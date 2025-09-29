@@ -17,56 +17,33 @@ class AzureAISearchService(ServiceBase):
     def __init__(self, name: str, type: str, settings:dict, **kwargs):
         super().__init__(name=name, type=type, settings=settings, **kwargs)
 
-        self.account_name = settings.get('account_name')
-        self.credential_type = settings.get('credential_type')
-        self.api_key = settings.get('api_key')
-        self.api_version = settings.get('api_version')
-        self.index_name = settings.get('index_name')
+        self.account_name = self.settings.get('account_name')
+        self.credential_type = self.settings.get('credential_type')
+        self.api_key = self.settings.get('api_key')
+        self.api_version = self.settings.get('api_version')
+        self.index_name = self.settings.get('index_name')
 
         # Validate account name
         if not self.account_name:
-            raise ValueError("Settings key 'account_name' is required")
-
-        if self.account_name.startswith('${') and self.account_name.endswith('}'):
-            env_var_name = self.account_name[2:-1]
-            self.account_name = os.getenv(env_var_name)
-            if not self.account_name:
-                raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-        
+            raise ValueError("Settings key 'account_name' is required")        
 
         self.endpoint = f"https://{self.account_name}.search.windows.net"
 
         # Validate credential type
         if not self.credential_type:
             raise ValueError("Settings key 'credential_type' is required")
-        
-        if self.credential_type.startswith('${') and self.credential_type.endswith('}'):
-            env_var_name = self.credential_type[2:-1]
-            self.credential_type = os.getenv(env_var_name)
-            if not self.credential_type:
-                raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
             
-            self.credential_type = self.credential_type.lower()
+        self.credential_type = self.credential_type.lower()
         
-
         # Validate API key based on credential type
         if self.credential_type == 'azure_key_credential':
-            self.api_key = settings.get('api_key')
+            self.api_key = self.settings.get('api_key')
 
             if not self.api_key:
                 raise ValueError("Settings key 'api_key' is required for azure_key_credential")
 
-            # Read the API key from environment variable
-            if self.api_key.startswith('${') and self.api_key.endswith('}'):
-                env_var_name = self.api_key[2:-1]
-                self.api_key = os.getenv(env_var_name)
-                if not self.api_key:
-                    raise ValueError(f"Environment variable '{env_var_name}' is not set or empty. Ensure it is defined in your environment or .env file.")
-            
-
         elif self.credential_type == 'default_azure_credential':
-            self.api_key = ''
-        
+            self.api_key = ''        
         else:
             raise ValueError(f"Unsupported credential type: {self.credential_type}. Supported types are 'azure_key_credential' and 'default_azure_credential'.")
 

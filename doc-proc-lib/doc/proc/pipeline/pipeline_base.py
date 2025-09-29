@@ -12,11 +12,31 @@ from doc.proc.step.step_base import StepInstanceConfig, StepBase, StepInputOutpu
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_base import ServiceBase
 from doc.proc.service.service_config import ServiceConfig
+from doc.proc.source.source_config import SourceConfig
+from doc.proc.source.source_manager import get_source
+from doc.proc.source.source_base import SourceBase, SourceInstanceConfig
+from doc.proc.models.content_identifier import ContentIdentifier
 from doc.proc.service.service_instance_loader import create_service_instance
 from doc.proc.step.step_instance_loader import create_step_instance
 from doc.proc.utils.secure_condition_evaluator import SecureConditionEvaluator
+from doc.proc.step.step_base import StepExecutionError
 
 logger = logging.getLogger("doc.proc.pipeline")
+
+class PipelineExecutionContext:
+    """Context for pipeline execution, can be extended with more attributes as needed."""
+
+    sources : List[SourceBase]
+    
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def get_service(self, service_name: str) -> Optional[ServiceBase]:
+        """Get a service by name from the execution context."""
+        if not hasattr(self, 'services') or not isinstance(self.services, list):
+            return None
+
+        return next((service['instance'] for service in self.services if service['name'] == service_name), None)
 
 
 class StepExecutionResult(BaseModel):
@@ -52,20 +72,6 @@ class PipelineExecutionResult(BaseModel):
     started_at: Optional[str] = None  # Start time in utc timezone in ISO format
     completed_at: Optional[str] = None  # Completion time in utc timezone in ISO format
 
-class PipelineExecutionContext:
-    """Context for pipeline execution, can be extended with more attributes as needed."""
-    
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-    def get_service(self, service_name: str) -> Optional[ServiceBase]:
-        """Get a service by name from the execution context."""
-        if not hasattr(self, 'services') or not isinstance(self.services, list):
-            return None
-
-        return next((service['instance'] for service in self.services if service['name'] == service_name), None)
-
-
 class PipelineExecutionError(Exception):
     """Custom exception for errors during pipeline execution."""
     pass
@@ -94,7 +100,9 @@ class Pipeline:
             
     """
 
-    def __init__(self, pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig], service_catalog_config: List[ServiceConfig]=None, **kwargs):
+    def __init__(self, pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig], 
+                 service_catalog_config: List[ServiceConfig]=None, 
+                 source_catalog_config: List[SourceConfig]=None,**kwargs):
         """
         Initialize the Pipeline instance with the provided configuration.
         !IMPORTANT!
@@ -104,6 +112,7 @@ class Pipeline:
         self.pipeline_config = pipeline_config
         self.step_catalog = step_catalog_config
         self.service_catalog = service_catalog_config
+        self.source_catalog = source_catalog_config
 
         if not self.pipeline_config:
             raise PipelineConfigError("Pipeline configuration cannot be None")
@@ -115,6 +124,7 @@ class Pipeline:
             raise PipelineConfigError("Services configuration must be a non-empty list if provided")
 
         self.services: List[ServiceBase] = []
+        self.sources: List[SourceBase] = []
         self.pipeline_step_instances: List[StepBase] = []
         self.pipeline_execution_steps: List[StepBase] = []
 
@@ -139,6 +149,9 @@ class Pipeline:
         if self.pipeline_config.service_instances and self.service_catalog:
             await self.__load_services()
 
+        if self.pipeline_config.source_instances and self.source_catalog:
+            await self.__load_sources()
+
         # Load steps and validate them
         self.__load_pipeline_step_instances()
         if not self.pipeline_step_instances:
@@ -151,6 +164,52 @@ class Pipeline:
 
         # Additional validation can be added here if needed
 
+    async def __load_sources(self):
+        """Load sources based on the configuration."""
+
+        logger.debug("Loading sources from configuration")
+
+        if not self.source_catalog or not isinstance(self.source_catalog, list) or len(self.source_catalog) == 0:
+            # do not raise an error if no sources are configured
+            # this allows pipelines to run without sources if not needed
+            return
+
+        for source_instance_config in self.pipeline_config.source_instances:
+
+            if source_instance_config.enabled == False:
+                logger.info(f"Source instance \"{source_instance_config.name}\" is disabled. Skipping loading.")
+                continue
+            
+            logger.debug(f"Loading pipeline source instance configuration: \"{source_instance_config.name}\" that references source catalog id \"{source_instance_config.source_catalog_id}\"")
+
+            if not isinstance(source_instance_config, SourceInstanceConfig):
+                raise TypeError(f"Source configuration must be an instance of SourceInstanceConfig, got \"{type(source_instance_config)}\"")
+
+            source_config = next((s for s in self.source_catalog if s.id == source_instance_config.source_catalog_id), None)
+            if not source_config:
+                raise PipelineConfigError(f"Source configuration for id \"{source_instance_config.source_catalog_id}\" not found in sources catalog.")
+
+            source_instance = await get_source(
+                source_config=source_config,
+                instance_settings=source_instance_config.settings
+            )
+
+            if not source_instance:
+                raise PipelineConfigError(f"Source instance \"{source_config.name}\" could not be created from configuration in the catalog.")
+
+            logger.info(f"Source instance \"{source_instance_config.name}\" loaded successfully.")
+
+            if source_config.test_connection:
+                logger.debug(f"Testing connection for source instance \"{source_instance_config.name}\"")
+                if not await source_instance.test_connection():
+                    raise PipelineConfigError(f"Source instance \"{source_instance_config.name}\" failed to pass the connection test")
+
+                logger.info(f"Source instance \"{source_instance_config.name}\" connection test passed successfully")
+
+            self.sources.append({ "name": source_instance_config.name,
+                                   "catalog_id": source_instance_config.source_catalog_id,
+                                   "instance": source_instance
+                                 })
 
     async def __load_services(self):
         """Load services based on the configuration."""
@@ -238,7 +297,9 @@ class Pipeline:
 
 
     @staticmethod
-    async def create(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> "Pipeline":
+    async def create(pipeline_config: PipelineConfig, step_catalog_config: List[StepConfig] = None, 
+                     service_catalog_config: List[ServiceConfig] = None, 
+                     source_catalog_config: List[SourceConfig] = None) -> "Pipeline":
         """Factory method to create a Pipeline instance from configuration."""
 
         if not pipeline_config:
@@ -249,7 +310,9 @@ class Pipeline:
         if not step_catalog_config or len(step_catalog_config) == 0:
             raise PipelineConfigError("Step catalog cannot be None or empty")
 
-        pipeline_instance = Pipeline(pipeline_config=pipeline_config, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
+        pipeline_instance = Pipeline(pipeline_config=pipeline_config, step_catalog_config=step_catalog_config, 
+                                     service_catalog_config=service_catalog_config,
+                                     source_catalog_config=source_catalog_config)
 
         # Load and validate the pipeline configuration and steps.
         try:
@@ -260,7 +323,7 @@ class Pipeline:
         logger.info(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
         return pipeline_instance
 
-    def _evaluate_document_condition(self, document: dict, condition: str) -> bool:
+    def _evaluate_document_condition(self, ci: ContentIdentifier, document: dict, condition: str) -> bool:
         """
         Evaluate a step's condition against a specific document.
         
@@ -281,7 +344,7 @@ class Pipeline:
             # Create evaluation context with document data
             evaluation_data = {}
 
-            logger.debug(f"Evaluating condition {condition} for document {document}")
+            logger.debug(f"Evaluating condition {condition} for document {ci}")
 
             # Add document data to evaluation context
             evaluation_data.update(document)
@@ -298,19 +361,18 @@ class Pipeline:
             logger.error(f"Error evaluating condition for document: {e}")
             raise Exception(f"Failed to evaluate condition '{condition}': {str(e)}")
 
-    async def _process_single_document(self, document_data: dict, context: PipelineExecutionContext) -> DocumentResult:
+    async def _process_single_document(self, ci: ContentIdentifier, context: PipelineExecutionContext) -> DocumentResult:
         """Process a single document through the pipeline steps."""
-        document_id = document_data.get('id', document_data.get('id', document_data.get('blob_name', 'unknown')))
-        logger.info(f"Starting document processing for document ID: {document_id}")
+        logger.info(f"Starting document processing for document ID: {ci.canonical_id}")
         
         document_start_time = datetime.now()
         
         # Create input data for this document
-        input_data = StepInputOutput(id=document_id, data=document_data, summary_data={})
+        input_data = StepInputOutput(id=ci, data={}, summary_data={})
         output_data = input_data
         
         document_result = DocumentResult(
-            document_id=document_id,
+            document_id=ci.canonical_id,
             result="NotStarted",
             elapsed_time_secs=0,
             data=output_data.data,
@@ -318,7 +380,7 @@ class Pipeline:
         )
         
         for step in self.pipeline_execution_steps:
-            logger.debug(f"Processing document {document_id} - Executing step: {step.name} (Enabled: {step.enabled})")
+            logger.debug(f"Processing document {ci.canonical_id} - Executing step: {step.name} (Enabled: {step.enabled})")
             
             step_start_time = datetime.now()
             step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
@@ -330,29 +392,34 @@ class Pipeline:
                     step_result.reason = "Step is not enabled"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     document_result.step_results.append(step_result)
-                    logger.info(f"Document {document_id} - Step {step.name} is skipped as it is not enabled.")
+                    logger.info(f"Document {ci.canonical_id} - Step {step.name} is skipped as it is not enabled.")
                     continue
 
                 # Evaluate the condition for the step
-                if step.condition and not self._evaluate_document_condition(document=output_data.data, condition=step.condition):
+                if step.condition and not self._evaluate_document_condition(ci=ci, document=output_data.data.get('document', {}), condition=step.condition):
                     step_result.result = "Skipped"
                     step_result.reason = "Condition not met"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     document_result.step_results.append(step_result)
-                    logger.info(f"Document {document_id} - Step {step.name} is skipped as condition is not met.")
+                    logger.info(f"Document {ci.canonical_id} - Step {step.name} is skipped as condition is not met.")
                     continue
 
                 # Update the context with the current step and document
                 context.current_step = step
-                context.current_document_id = document_id
+                context.current_document_id = ci.canonical_id
                 
                 # Run the step with the current output data and context
                 output_data = await step.run(output_data, context=context)
                 if not isinstance(output_data, StepInputOutput):
                     raise TypeError(f"Output data from step {step.name} must be an instance of StepInputOutput")
-                
+            
+            except StepExecutionError as e:
+                logger.error(f"Document {ci.canonical_id} - Step {step.name} failed: {str(e)}")
+                step_result.result = "Failed"
+                step_result.reason = f"Error executing step: {str(e)}"
+                step_result.error = str(e)
             except Exception as e:
-                logger.error(f"Document {document_id} - Error executing step {step.name}: {str(e)}")
+                logger.error(f"Document {ci.canonical_id} - Error executing step {step.name}: {str(e)}")
                 
                 step_result.result = "Failed"
                 step_result.reason = f"Error executing step: {str(e)}"
@@ -369,16 +436,16 @@ class Pipeline:
                     document_result.summary_data = output_data.summary_data
                     document_result.elapsed_time_secs = (datetime.now() - document_start_time).total_seconds()
                     
-                    logger.error(f"Document {document_id} - Processing failed due to step {step.name} error: {str(e)}")
+                    logger.error(f"Document {ci.canonical_id} - Processing failed due to step {step.name} error: {str(e)}")
                     return document_result
                 
                 continue
             
             step_elapsed_time = (datetime.now() - step_start_time).total_seconds()
-            logger.info(f"Document {document_id} - Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
+            logger.info(f"Document {ci.canonical_id} - Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
             
             if step.debug_mode:
-                logger.debug(f"Document {document_id} - Step {step.name} output data: {output_data.data}")
+                logger.debug(f"Document {ci.canonical_id} - Step {step.name} output data: {output_data.data}")
             
             step_result.result = "Succeeded"
             step_result.elapsed_time_secs = step_elapsed_time
@@ -391,9 +458,23 @@ class Pipeline:
         document_result.data = output_data.data
         document_result.summary_data = output_data.summary_data
         
-        logger.info(f"Document {document_id} processing completed with result: {document_result.result}. Elapsed time: {elapsed_time_secs:.2f} seconds.")
+        logger.info(f"Document {ci.canonical_id} processing completed with result: {document_result.result}. Elapsed time: {elapsed_time_secs:.2f} seconds.")
         
         return document_result
+    
+    async def get_document(self, content_identifier : ContentIdentifier) -> dict:
+
+        source = None
+
+        for src in self.sources:
+            if src['catalog_id'] == content_identifier.data_source_object_id:
+                source = src
+                break
+
+        if (source):
+            return await source['instance'].get_document(content_identifier)
+        
+        return None
 
     async def run(self, input_data: StepInputOutput) -> PipelineExecutionResult:
         """Run the pipeline with the given input data, processing documents in parallel."""
@@ -404,7 +485,7 @@ class Pipeline:
             logger.error("Pipeline execution steps are not defined. Please check the pipeline configuration.")
             raise PipelineConfigError("No execution steps defined in the pipeline")
 
-        context = PipelineExecutionContext(pipeline=self, services=self.services, start_time=datetime.now())
+        context = PipelineExecutionContext(pipeline=self, services=self.services, sources=self.sources, start_time=datetime.now())
 
         if not isinstance(input_data, StepInputOutput):
             logger.error("Input data must be an instance of StepInputOutput")
@@ -438,9 +519,11 @@ class Pipeline:
                 doc_context = PipelineExecutionContext(
                     pipeline=self, 
                     services=self.services, 
+                    sources=self.sources,
                     start_time=start_time
                 )
-                task = self._process_single_document(document, doc_context)
+                ci = ContentIdentifier(**document)
+                task = self._process_single_document(ci, doc_context)
                 document_tasks.append(task)
             
             # Execute all document processing tasks in parallel

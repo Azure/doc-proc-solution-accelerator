@@ -7,8 +7,7 @@ from datetime import datetime, timedelta
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.queue.aio import QueueClient
 
-
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 
 logger = logging.getLogger("doc-proc-worker.app.proxy.queue")
 

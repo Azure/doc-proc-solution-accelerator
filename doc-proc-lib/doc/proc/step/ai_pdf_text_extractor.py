@@ -33,13 +33,15 @@ class AIPDFTextExtractorStep(StepBase):
         self.png_output_folder = self.settings.get("png_output_folder", "./tmp/pdf_output_pngs")
         self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
 
+        self.prompts = self.settings.get("prompts", {})
+
         # get prompts from settings
-        self.system_prompt = self.settings.get("system_prompt", "")
+        self.system_prompt = self.prompts.get("system", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.settings.get("user_prompt", "")
+        self.user_prompt = self.prompts.get("user", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -57,7 +59,7 @@ class AIPDFTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
         """
         Run the step processing logic for PDF text extraction.
 
@@ -68,12 +70,6 @@ class AIPDFTextExtractorStep(StepBase):
         Returns:
             StepInputOutput: Output with text extracted from PDF
         """
-
-        # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
-
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self._get_ai_inference_service(context)
         if not ai_model_inference_service:
@@ -81,11 +77,12 @@ class AIPDFTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         # get document from input data
-        doc_to_process = document.data
+        doc_to_process = input_data.data.get("document", {})
+        
         if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            
+            logger.error(f"No document data found in input data: {doc_to_process}. Expected a dictionary of fields.")
+            raise StepExecutionError(f"No document data found in input data: {doc_to_process}. Expected a dictionary of fields.")
+
         try:
             if self.debug_mode:
                 logger.debug(f"Processing document: {doc_to_process}")
@@ -108,13 +105,11 @@ class AIPDFTextExtractorStep(StepBase):
                 logger.info(f"Successfully processed document: {doc_to_process.get('file_path', 'unknown')}")
                 
             # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+            return input_data
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
             raise e
-           
 
     def _get_ai_inference_service(self, context: "PipelineExecutionContext"):
         """

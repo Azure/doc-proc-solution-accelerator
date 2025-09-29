@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Run Crawler",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/doc-proc-crawler/run_crawler.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env" : {
+                "PYTHONPATH": "${workspaceFolder}/doc-proc-crawler;${workspaceFolder}/doc-proc-lib",
+                "APP_CONFIGURATION_URI" : "https://appcs-CHANGE-ME.azconfig.io",
+                "AZURE_CLIENT_ID" : "",
+                "AZURE_TENANT_ID" : "CHANGE-ME"
+            }
+        },
+        {
+            "name": "Run Worker",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/doc-proc-worker/run_worker.py",
+            "args" : ["--pool"],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env" : {
+                "PYTHONPATH": "${workspaceFolder}/doc-proc-worker;${workspaceFolder}/doc-proc-lib",
+                "APP_CONFIGURATION_URI" : "https://appcs-CHANGE-ME.azconfig.io",
+                "AZURE_CLIENT_ID" : "",
+                "AZURE_TENANT_ID" : "CHANGE-ME"
+            }
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

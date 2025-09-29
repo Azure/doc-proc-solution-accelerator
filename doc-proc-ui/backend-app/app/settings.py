@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from azure.appconfiguration import AzureAppConfigurationClient
 
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 
 load_dotenv()  # Load environment variables from .env file if present
 

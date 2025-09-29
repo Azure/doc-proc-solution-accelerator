@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from azure.storage.blob.aio import BlobServiceClient
 
 from app.db.cosmos import CosmosDb
-from app.utils import get_azure_credential
+from doc.proc.utils.azure import get_azure_credential
 from app.services.base import BaseService
 from app.services.storage_queue_helper import StorageQueueHelper
 from app.models.vault import AddDocumentRequest, Vault, DocumentInfo, PaginatedResponse

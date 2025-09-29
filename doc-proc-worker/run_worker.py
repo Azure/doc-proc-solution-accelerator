@@ -21,11 +21,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
 _settings = None  # Placeholder for app_settings import
 
+from connectors import CosmosDBClient
 
 async def check_cosmos_db_connectivity():
     """Check Cosmos DB connectivity before starting workers"""
-    from app.proxy.cosmos import CosmosDb
-    from app.utils import get_azure_credential
     from azure.cosmos import CosmosClient, exceptions
     
     logger = logging.getLogger("doc-proc-worker.run_worker")
@@ -45,7 +44,12 @@ async def check_cosmos_db_connectivity():
     
     try:
         # Test basic connectivity
-        cosmos_db = CosmosDb(endpoint=_settings.COSMOS_DB_ENDPOINT, database_name=_settings.COSMOS_DB_NAME)
+        settings = {
+            "DATABASE_ACCOUNT_NAME": _settings.COSMOS_DB_ENDPOINT.split("//")[-1].split(".")[0],
+            "DATABASE_NAME": _settings.COSMOS_DB_NAME,
+            "INIT_CONTAINERS": _settings.get_cosmos_db_containers(),
+        }
+        cosmos_db = CosmosDBClient(settings)
         
         # Try to get database info - this will fail if we can't connect or authenticate
         database = cosmos_db.database
