@@ -12,12 +12,11 @@ A comprehensive, enterprise-ready document processing solution built on Azure th
 
 This solution accelerator provides a production-ready foundation for building document processing applications on Azure. It includes:
 
-- **Modular Processing Pipeline**: A flexible Python library for creating custom document processing workflows
-- **Web-based Management UI**: React-based interface for managing pipelines, services, and monitoring executions
-- **Scalable Worker Architecture**: Celery-based background processing with Azure Storage Queue integration
-- **RESTful API Backend**: FastAPI-based service with Azure Cosmos DB for data persistence
-- **Infrastructure as Code**: Bicep templates for automated Azure deployment
-- **API Testing Suite**: Bruno collection for comprehensive API testing
+- **Modular Processing Pipeline**: A flexible Python library (`doc-proc-lib`) for creating custom document processing workflows
+- **Web-based Management UI**: React + TypeScript frontend (`doc-proc-web`) for managing pipelines, services, and monitoring executions
+- **Scalable Worker Architecture**: High-performance background worker service (`doc-proc-worker`) with Azure Storage Queue integration
+- **RESTful API Backend**: FastAPI-based service (`doc-proc-api`) with Azure Cosmos DB for data persistence
+- **Infrastructure as Code**: Bicep templates for automated Azure deployment (`doc-proc-deploy`)
 
 ## ✨ Key Benefits
 
@@ -49,10 +48,9 @@ The solution follows a microservices architecture with clear separation of conce
 
 📖 **[View detailed documentation →](./doc-proc-lib/README.md)**
 
-### 🎨 doc-proc-ui
-**The Management Interface** - A modern web application for managing and monitoring document processing workflows.
+### 🎨 doc-proc-web
+**The Management Interface** - A modern React-based web application for managing and monitoring document processing workflows.
 
-#### Web Application (`web-app/`)
 - **Technology Stack**: React 18 + TypeScript + Vite
 - **UI Framework**: Radix UI components with Tailwind CSS styling
 - **Features**:
@@ -62,7 +60,11 @@ The solution follows a microservices architecture with clear separation of conce
   - Interactive workflow designer
   - Responsive design for desktop and mobile
 
-#### Backend API (`backend-app/`)
+📖 **[View detailed documentation →](./doc-proc-web/README.md)**
+
+### 🚀 doc-proc-api
+**The Backend API** - FastAPI-based service providing RESTful APIs for document processing operations.
+
 - **Technology Stack**: FastAPI + Python with Azure Cosmos DB
 - **Features**:
   - RESTful API for all CRUD operations
@@ -71,34 +73,134 @@ The solution follows a microservices architecture with clear separation of conce
   - Pipeline configuration and execution
   - Health monitoring and diagnostics
   - CORS-enabled for web client integration
+  - Azure App Configuration integration
+  - Comprehensive error handling and validation
+
+📖 **[View detailed documentation →](./doc-proc-api/README.md)**
 
 ### ⚡ doc-proc-worker
-**The Processing Engine** - Scalable background processing service for executing document processing jobs.
+**The Processing Engine** - High-performance background processing service for executing document processing jobs at scale.
 
-- **Technology Stack**: Celery + Redis/Azure Service Bus + Python
-- **Features**:
-  - Azure Storage Queue integration for job management
-  - Distributed task processing with Celery
-  - Auto-scaling worker processes
-  - Comprehensive logging and error handling
-  - Docker containerization for easy deployment
-  - Health checks and monitoring endpoints
+- **Technology Stack**: Python with Azure Storage Queue integration
+- **Key Features**:
+  - Asynchronous queue processing with Azure Storage Queues
+  - Pipeline execution with step-by-step orchestration
+  - Batch processing with progress tracking and error recovery
+  - Multiprocessing support for CPU-intensive workloads
+  - Fault tolerance with retry mechanisms and graceful degradation
+  - Health monitoring with automatic restart capabilities
+  - Cloud-native Azure integration
 
-### 🚀 doc-proc-deploy
+📖 **[View detailed documentation →](./doc-proc-worker/README.md)**
+
+### 🏗️ doc-proc-deploy
 **Infrastructure as Code** - Automated deployment templates and scripts for Azure resources.
 
-- **Bicep Templates**: Infrastructure as Code for repeatable deployments
-- **Resource Provisioning**: Automated setup of Azure Container Apps, Cosmos DB, Storage Accounts
-- **Configuration Management**: Environment-specific configuration templates
-- **CI/CD Integration**: Scripts for automated deployment pipelines
+- **Bicep Templates**: Complete infrastructure provisioning with Azure Bicep
+- **Automated Scripts**: Shell scripts for streamlined deployment process
+- **Resource Provisioning**: Container Apps, Container Registry, Cosmos DB, Storage Accounts, App Configuration
+- **Environment Configuration**: Support for multiple environments (dev, staging, prod)
+- **CI/CD Ready**: Scripts designed for integration with automated pipelines
 
-### 🧪 Bruno API Collection
-**API Testing Suite** - Comprehensive API testing collection for development and QA.
+📖 **[View deployment documentation →](./doc-proc-deploy/README.md)**
 
-- **Complete Coverage**: Tests for all API endpoints (Services, Steps, Pipelines, Executions)
-- **Environment Management**: Separate configurations for development, staging, and production
-- **Health Checks**: Monitoring and diagnostic endpoints
-- **Integration Testing**: End-to-end workflow validation
+## 💡 Use Cases and Scenarios
+
+This solution accelerator can be applied across various industries and document processing workflows. Below are common use cases with domain-specific examples and configuration patterns.
+
+### 🏢 Financial Services
+
+#### **Invoice Processing Automation**
+Streamline accounts payable workflows with automated invoice processing:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   PDF/Email     │───▶│  Document AI    │───▶│   Validation    │───▶│   ERP System    │
+│   Invoice       │    │   Extraction    │    │   & Approval    │    │   Integration   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+#### **Loan Document Processing**
+Accelerate loan application processing with document verification:
+
+- **Bank Statements**: Extract transaction history, balance verification, income calculation
+- **Tax Returns**: Parse tax forms, verify income sources, calculate debt-to-income ratios
+- **Employment Letters**: Extract salary information, employment status, tenure
+
+### 🏥 Healthcare
+
+#### **Medical Records Digitization**
+Transform paper-based medical records into structured digital formats:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Scanned Chart  │───▶│      OCR +      │───▶│   FHIR Data     │───▶│      EHR        │
+│   Documents     │    │   Medical AI    │    │   Mapping       │    │   Integration   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+#### **Clinical Trial Document Processing**
+Process research documents and patient data for clinical trials:
+
+- **Consent Forms**: Extract patient consent status, trial parameters
+- **Case Report Forms**: Structure clinical observations and measurements
+- **Adverse Event Reports**: Parse safety data for regulatory compliance
+
+### ⚖️ Legal Services
+
+#### **Contract Analysis and Review**
+Automate contract review processes with AI-powered analysis:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Contract      │───▶│  Clause         │───▶│  Risk Analysis  │───▶│  Review         │
+│   Document      │    │  Extraction     │    │  & Compliance   │    │  Dashboard      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+
+#### **Legal Discovery Document Processing**
+Process large volumes of documents for litigation support:
+
+- **Email Processing**: Extract metadata, identify privileged communications
+- **Document Classification**: Categorize documents by relevance and privilege
+- **Redaction**: Automatically redact sensitive information
+
+### 🏭 Manufacturing & Supply Chain
+
+#### **Quality Control Documentation**
+Process inspection reports, certificates, and compliance documents:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Inspection     │───▶│  Data           │───▶│  Compliance     │───▶│  Quality        │
+│  Reports        │    │  Extraction     │    │  Verification   │    │  Dashboard      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+#### **Supplier Document Management**
+- **Certificates of Compliance**: Verify supplier certifications and standards
+- **Material Safety Data Sheets**: Extract safety information for regulatory compliance
+- **Purchase Orders**: Process and validate supplier documentation
+
+### 🎓 Education
+
+#### **Student Document Processing**
+Automate administrative processes in educational institutions:
+
+- **Transcripts**: Extract grades, course information, GPA calculations
+- **Application Documents**: Process admissions materials, essays, recommendations
+- **Financial Aid Forms**: Extract financial information for aid processing
+
+### 🏛️ Government & Public Sector
+
+#### **Permit and License Processing**
+Streamline government document processing workflows:
+
+- **Building Permits**: Extract project details, validate compliance requirements
+- **Business Licenses**: Process application forms, verify eligibility criteria
+- **Tax Documents**: Process returns, extract key financial data
+
 
 ## 🚀 Getting Started
 
@@ -111,203 +213,152 @@ Before getting started, ensure you have the following:
 - Node.js 18+ with npm
 - Docker Desktop (optional, for containerized development)
 - Git for version control
+- Azure CLI (required for Azure deployment)
 
 **Azure Resources:**
 - Azure subscription with appropriate permissions
-- Azure Cosmos DB account
-- Azure Blob Storage account
-- Azure AI Document Intelligence resource (optional)
-- Azure OpenAI resource (optional)
+- Resource group with required permissions (Contributor and User Access Administrator)  
+- Azure AI Model Deployment Quota for AI services
 
-### Quick Start (Local Development)
+### Quick Start Options
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Azure/doc-proc-solution-accelerator.git
-   cd doc-proc-solution-accelerator
-   ```
+Choose the deployment method that best fits your needs:
 
-2. **Set up the core library**
-   ```bash
-   cd doc-proc-lib
-   pip install -e .
-   ```
-
-3. **Start the backend API**
-   ```bash
-   cd ../doc-proc-ui/backend-app
-   pip install -r requirements.txt
-   
-   # Configure environment variables
-   export COSMOS_ENDPOINT="https://your-cosmos-account.documents.azure.com:443/"
-   export COSMOS_KEY="your-cosmos-key"
-   export COSMOS_DB_NAME="docproc"
-   
-   # Start the API server
-   python main.py
-   ```
-
-4. **Start the web interface**
-   ```bash
-   cd ../web-app
-   npm install
-   npm run dev
-   ```
-
-5. **Start the worker service** (optional)
-   ```bash
-   cd ../../doc-proc-worker
-   pip install -r requirements.txt
-   
-   # Configure Azure Storage Queue connection
-   export AZURE_STORAGE_CONNECTION_STRING="your-storage-connection-string"
-   
-   # Start the worker
-   python run_queue_worker.py
-   ```
-
-### Docker Compose Setup
-
-For a complete local development environment:
+#### ☁️ **Azure Cloud Deployment**
+Production-ready deployment on Azure with full scalability:
 
 ```bash
-cd doc-proc-ui/backend-app
-docker-compose up -d
+# 0. Clone the repository
+git clone https://github.com/Azure/doc-proc-solution-accelerator.git
+cd doc-proc-solution-accelerator
+
+# 1. Deploy Azure infrastructure (AI Foundry, Container Apps, Cosmos DB, Storage Account, etc.)
+./doc-proc-deploy/deploy-azure-infra.sh -g myResourceGroup -l westus -p docproc
+
+# 2. Build and push Docker images to Azure Container Registry
+./doc-proc-deploy/build-and-push-images.sh -r <registry-login-server>
+
+# 3. Deploy applications to Azure Container Apps
+./doc-proc-deploy/deploy-apps.sh -g myResourceGroup -p docproc
 ```
 
-This starts all services including databases and message queues.
+This creates:
+- **Azure Container Registry** for storing Docker images
+- **Azure Container Apps** for hosting API, Web and worker services
+- **Azure Cosmos DB** for configuration data persistence
+- **Azure Storage Account** for queue management and blob storage
+- **Azure App Configuration** for centralized configuration management
+- **Azure AI Foundry** for AI Services
 
-## 💡 Usage Examples and Scenarios
-
-### Common Use Cases
-
-#### 1. **Invoice Processing Workflow**
-```python
-# Example pipeline configuration for invoice processing
-pipeline_config = {
-    "name": "invoice_processing",
-    "steps": [
-        {"type": "blob_download", "input_container": "invoices"},
-        {"type": "document_intelligence", "model": "prebuilt-invoice"},
-        {"type": "data_extraction", "fields": ["vendor", "amount", "date"]},
-        {"type": "validation", "rules": ["amount > 0", "date_format"]},
-        {"type": "cosmos_store", "container": "processed_invoices"}
-    ]
-}
-```
-
-#### 2. **Document Classification System**
-- Automatically classify incoming documents by type
-- Route documents to appropriate processing pipelines
-- Extract metadata and store in searchable index
-
-#### 3. **Legal Document Analysis**
-- Extract key clauses and terms from contracts
-- Perform compliance checking against predefined rules
-- Generate summaries and risk assessments
-
-#### 4. **Medical Records Processing**
-- Extract patient information and medical codes
-- Anonymize sensitive data for research purposes
-- Structure unstructured clinical notes
-
-### Integration Patterns
-
-#### **API-First Integration**
-```javascript
-// Integrate with existing systems via REST API
-const response = await fetch('/api/pipelines/execute', {
-  method: 'POST',
-  body: JSON.stringify({
-    pipeline_id: 'invoice_processing',
-    input_data: { document_url: 'https://...' }
-  })
-});
-```
-
-#### **Event-Driven Processing**
-```python
-# React to Azure Storage events
-@app.route('/webhook/blob-created', methods=['POST'])
-def handle_blob_created(event):
-    # Trigger document processing pipeline
-    pipeline.execute_async(event.data.url)
-```
-
-## ⚙️ Deployment and Configuration
-
-### Azure Container Apps Deployment
-
-Deploy the complete solution to Azure Container Apps:
+#### 🔧 **Local Development**
+Once the Azure resources are deployed, you can run the solution services locally for development:
 
 ```bash
-cd doc-proc-deploy
-az deployment group create \
-  --resource-group myResourceGroup \
-  --template-file main.bicep \
-  --parameters environmentName=docproc-prod
+cd doc-proc-solution-accelerator
+
+# Configure environment variables for each service
+# Copy .env.example to .env and update with your Azure resource endpoints
+cp doc-proc-api/.env.example doc-proc-api/.env
+cp doc-proc-worker/.env.example doc-proc-worker/.env
+cp doc-proc-web/.env.example doc-proc-web/.env
+
+# Edit the .env files with your Azure resource information:
+# doc-proc-api/.env - Add Azure App Configuration endpoint
+# doc-proc-worker/.env - Add Azure App Configuration endpoint
+# doc-proc-web/.env - Update API base URL if different from http://localhost:8090
+
+# Start all services locally with auto-reload
+./doc-proc-deploy/start-services-locally.sh
 ```
 
-### Configuration Options
+**Required Configuration Values:**
+- `AZURE_APP_CONFIG_ENDPOINT`: Endpoint URL (format: `https://<app-config-name>.azconfig.io`)
+- `VITE_API_BASE_URL`: API endpoint for the web application (default: `http://localhost:8090`)
 
-#### Environment Variables
+This will start:
+- **API Server**: http://localhost:8090 (FastAPI backend)
+- **Web Application**: http://localhost:8080 (React frontend)
+- **Worker Service**: Background processing service
 
-**Backend API:**
-- `COSMOS_ENDPOINT` - Azure Cosmos DB endpoint
-- `COSMOS_KEY` - Cosmos DB access key
-- `COSMOS_DB_NAME` - Database name (default: docproc)
-- `ALLOW_ORIGINS` - CORS allowed origins
 
-**Worker Service:**
-- `AZURE_STORAGE_CONNECTION_STRING` - Storage queue connection
-- `CELERY_BROKER_URL` - Message broker URL
-- `CELERY_RESULT_BACKEND` - Result storage backend
 
-**Processing Library:**
-- `AZURE_OPENAI_ENDPOINT` - OpenAI service endpoint
-- `AZURE_OPENAI_API_KEY` - OpenAI access key
-- `DOCUMENT_INTELLIGENCE_ENDPOINT` - AI Document Intelligence endpoint
-- `BLOB_STORAGE_CONNECTION_STRING` - Blob storage connection
+💡 **For detailed instructions and additional options, see the [comprehensive deployment guide →](./doc-proc-deploy/README.md)**
 
-#### Scaling Configuration
 
-Configure auto-scaling for Container Apps:
+### 📊 Monitoring and Scaling
 
-```bicep
-resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  properties: {
-    configuration: {
-      scaling: {
-        minReplicas: 1
-        maxReplicas: 10
-        rules: [
-          {
-            name: 'http-scaling-rule'
-            http: {
-              metadata: {
-                concurrentRequests: '10'
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-}
-```
+#### Auto-Scaling Configuration
+
+Container Apps are configured with intelligent auto-scaling:
+
+- **HTTP-based scaling**: Scales based on concurrent requests
+- **Queue-based scaling**: Worker scales based on queue depth
+- **CPU/Memory scaling**: Scales based on resource utilization
+
+#### Health Monitoring
+
+All services include comprehensive health monitoring:
+- **Health check endpoints** for Container Apps
+- **Application Insights integration** for telemetry
+- **Log Analytics workspace** for centralized logging
+
+### 🔐 Security Features
+
+- **Managed Identity**: Services use managed identities for Azure resource access
+- **Key Vault integration**: Sensitive configuration stored in Azure Key Vault
+- **Network isolation**: Container Apps Environment with virtual network integration
+- **HTTPS enforcement**: All endpoints secured with SSL/TLS
 
 ## 🏷️ Repository Structure
 
 ```
 doc-proc-solution-accelerator/
-├── doc-proc-lib/           # Core processing library
-├── doc-proc-ui/           
-│   ├── web-app/           # React frontend application
-│   └── backend-app/       # FastAPI backend service
-├── doc-proc-worker/       # Celery background workers
-├── doc-proc-deploy/       # Infrastructure as Code (Bicep)
-├── Bruno/                 # API testing collection
-└── README.md             # This file
+├── doc-proc-lib/              # 🔧 Core processing library and pipeline engine
+│   ├── doc/                   # Processing modules and components
+│   ├── examples/              # Example pipelines and usage patterns
+│   ├── tests/                 # Unit and integration tests
+│   ├── pipeline_config.yaml   # Pipeline configuration examples
+│   ├── service_catalog.yaml   # Service definitions and configurations
+│   └── step_catalog.yaml      # Step definitions and configurations
+├── doc-proc-api/              # 🚀 FastAPI backend service
+│   ├── app/                   # Application code
+│   │   ├── db/               # Database models and operations
+│   │   ├── models/           # Pydantic models and schemas
+│   │   ├── routers/          # API route handlers
+│   │   └── services/         # Business logic services
+│   ├── infra/                # Infrastructure configuration for API
+│   ├── Dockerfile            # Container configuration
+│   └── requirements.txt      # Python dependencies
+├── doc-proc-web/              # 🎨 React + TypeScript frontend
+│   ├── src/                  # Source code
+│   │   ├── components/       # Reusable UI components
+│   │   ├── pages/           # Application pages
+│   │   ├── services/        # API integration services
+│   │   └── types/           # TypeScript type definitions
+│   ├── infra/               # Infrastructure configuration for web
+│   ├── Dockerfile           # Container configuration
+│   └── package.json         # Node.js dependencies
+├── doc-proc-worker/           # ⚡ Background processing worker
+│   ├── app/                  # Worker application code
+│   ├── demo/                 # Demo scripts and examples
+│   ├── infra/               # Infrastructure configuration for worker
+│   ├── tmp/                 # Temporary processing files
+│   ├── Dockerfile           # Container configuration
+│   └── requirements.txt     # Python dependencies
+├── doc-proc-deploy/           # 🏗️ Infrastructure as Code and deployment
+│   ├── infra/
+│   │   └── bicep/           # Azure Bicep templates
+│   │       ├── main.bicep   # Main infrastructure template
+│   │       └── modules/     # Reusable Bicep modules
+│   ├── deploy-azure-infra.sh     # Deploy infrastructure script
+│   ├── build-and-push-images.sh  # Build and push Docker images
+│   ├── deploy-apps.sh            # Deploy applications script
+│   ├── start-services-locally.sh # Local development setup
+│   └── DEPLOYMENT.md             # Detailed deployment guide
+├── bicepconfig.json          # Bicep configuration
+├── logo.svg                  # Solution logo
+├── LICENSE                   # MIT license
+└── README.md                 # This documentation
 ```
 
 ## 🤝 Contributing
@@ -329,14 +380,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: Report bugs and request features via GitHub Issues
 - **Discussions**: Community discussions and Q&A in GitHub Discussions
 
-## 🔮 Roadmap
-
-- [ ] Enhanced AI model integration (GPT-4, custom models)
-- [ ] Real-time processing dashboard
-- [ ] Advanced workflow orchestration
-- [ ] Enhanced security features
-- [ ] Performance monitoring and analytics
-
 ---
 
-⚡ **Ready to get started?** Follow the [Quick Start](#getting-started) guide above or dive deep into the [doc-proc-lib documentation](./doc-proc-lib/README.md).
+⚡ **Ready to get started?** Follow the [Getting Started](#-getting-started) guide above or dive deep into the [doc-proc-lib documentation](./doc-proc-lib/README.md).

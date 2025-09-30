@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 from app.dependencies import get_queue_service
 from app.services.queue_service import AzureStorageQueueService
 from app.models.queue_models import QueueBatchExecutionRequest
-from app.logging import setup_logger
+from app.log_setup import setup_logger
 
 
 async def quick_test():

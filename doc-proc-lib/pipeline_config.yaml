@@ -96,8 +96,8 @@ pipelines:
           identification_methods: "magic_bytes, file_extension" # Methods to use for document type identification, comma separated list of methods to use, available methods: magic_bytes, file_extension
     
       ## STEP 3.1: PDF Text Extractor
-      - name: pdf_text_extractor_1
-        step_catalog_id: pdf_text_extractor
+      - name: ai_pdf_text_extractor_1
+        step_catalog_id: ai_pdf_text_extractor
         enabled: true
         fail_pipeline_on_error: true
         retry_on_failure: false
@@ -109,13 +109,12 @@ pipelines:
         settings:
           png_output_folder: "./tmp/pdf-output/png"
           num_pages: 1 # Maximum number of pages to convert (-1 = all pages)
-          prompts:
-            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-            user: |
-              Extract the text from the following image into markdown and provide descriptions of images. 
-              Always format the markdown as follows to distinguish the text extracted from image descriptions:
-              
-              ==Extracted-Text==
+          system_prompt: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+          user_prompt: |
+            Extract the text from the following image into markdown and provide descriptions of images. 
+            Always format the markdown as follows to distinguish the text extracted from image descriptions:
+
+            ==Extracted-Text==
               {Insert extracted text as markdown here}
               ==End-Extracted-Text==
 
@@ -129,8 +128,8 @@ pipelines:
           presence_penalty: 0.0
 
       ## STEP 3.2: WORD Text Extractor
-      - name: word_text_extractor_1
-        step_catalog_id: word_text_extractor
+      - name: ai_word_text_extractor_1
+        step_catalog_id: ai_word_text_extractor
         enabled: true
         fail_pipeline_on_error: true
         retry_on_failure: false
@@ -145,13 +144,12 @@ pipelines:
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
           extract_tables: false # Whether to extract tables from slides
           max_chunk_size: 4000 # Maximum number of chars in each chunk
-          prompts:
-            system: "You are an AI assistant that helps convert images extracted from a word document to markdown text. Only output valid markdown."
-            user: |
-              Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
-              Always format the markdown as follows to distinguish the text extracted from image descriptions:
-              
-              ==Extracted-Text==
+          system_prompt: "You are an AI assistant that helps convert images extracted from a word document to markdown text. Only output valid markdown."
+          user_prompt: |
+            Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
+            Always format the markdown as follows to distinguish the text extracted from image descriptions:
+
+            ==Extracted-Text==
               {Insert extracted text as markdown here}
               ==End-Extracted-Text==
 
@@ -165,8 +163,8 @@ pipelines:
           presence_penalty: 0.0
 
       ## STEP 3.3: PPTX Text Extractor
-      - name: pptx_text_extractor_1
-        step_catalog_id: pptx_text_extractor
+      - name: ai_pptx_text_extractor_1
+        step_catalog_id: ai_pptx_text_extractor
         enabled: true
         fail_pipeline_on_error: true
         retry_on_failure: false
@@ -182,9 +180,8 @@ pipelines:
           extract_image_descriptions: false # Whether to extract descriptions from images in slides
           extract_shapes: false # Whether to extract shapes from slides
           extract_tables: false # Whether to extract tables from slides
-          prompts:
-            system: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
-            user: |
+          system_prompt: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
+          user_prompt: |
               Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
               Always format the markdown as follows to distinguish the text extracted from image descriptions:
               
@@ -290,9 +287,8 @@ pipelines:
           chunks_iterator_field: chunks
           chunk_field_to_apply_prompt_on: "markdown_text,text"
           output_field_name: custom_ai_prompt_output
-          prompts:
-            system: "You are an AI assistant. Please process the input accordingly."
-            user: "This is a custom AI prompt step. Please process the input accordingly.\nInput: {chunk_content}"
+          system_prompt: "You are an AI assistant. Please process the input accordingly."
+          user_prompt: "This is a custom AI prompt step. Please process the input accordingly.\nInput: {chunk_content}"
           max_completion_tokens: 4000
           temperature: 1.0
           top_p: 1.0

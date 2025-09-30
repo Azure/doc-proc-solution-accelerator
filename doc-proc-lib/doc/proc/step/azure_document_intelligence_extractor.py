@@ -19,6 +19,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
+        self.output_field_name = self.settings.get("output_field_name", "doc_intell_extraction")
         self.model_id = self.settings.get("model_id", "prebuilt-layout")
         self.extract_tables = self.settings.get("extract_tables", True)
         self.extract_key_value_pairs = self.settings.get("extract_key_value_pairs", True)
@@ -30,7 +31,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             logger.debug(f"Initialized AzureContentUnderstandingExtractorStep with settings: {self.settings} " \
                          f"Model ID: {self.model_id}, Extract tables: {self.extract_tables}, Extract key-value pairs: {self.extract_key_value_pairs} " \
                          f"Extract paragraphs: {self.extract_paragraphs}, Chunk by pages: {self.chunk_by_pages}" \
-                         f"Output format: {self.output_format}.")
+                         f"Output format: {self.output_format}., Output field name: {self.output_field_name}")
 
 
     async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
@@ -72,6 +73,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             if "file_path" not in doc_to_process:
                 raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
 
+            
             # Process the document
             # This will extend the document with extracted content using Azure Document Intelligence
             result_data = await self._process_document(document=doc_to_process,
@@ -158,7 +160,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             chunks_data = self._process_analysis_results(analysis_result, file_path)
 
             # Update the document with the processed chunks data
-            document['chunks'] = chunks_data
+            document[self.output_field_name] = chunks_data
 
             if self.debug_mode:
                 logger.debug(f"Extracted {len(chunks_data)} chunks from document: {file_path}")

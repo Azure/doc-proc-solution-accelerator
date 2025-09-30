@@ -1,35 +1,40 @@
 from functools import lru_cache
 
-from app.db.cosmos import CosmosDb
-from app.services.cosmos_db_service import CosmosDBService
-from app.services.pipeline_service import PipelineService
-from app.services.execution_service import ExecutionService
-from app.services.queue_service import AzureStorageQueueService
-from app.services.activity_log_service import ActivityLogService
+from app.proxy.cosmos import CosmosDb
+from app.proxy.queue import StorageQueue
+from app.managers.pipeline_manager import PipelineManager
+from app.managers.execution_manager import ExecutionManager
 
 from app.settings import app_settings
 
-@lru_cache()
+@lru_cache(maxsize=1)
 def get_cosmos_db() -> CosmosDb:
     """Get a singleton instance of CosmosDb"""
-    return CosmosDb(endpoint=app_settings.COSMOS_DB_ENDPOINT)
+    return CosmosDb(endpoint=app_settings.COSMOS_DB_ENDPOINT,
+                    database_name=app_settings.COSMOS_DB_NAME,
+                    init_containers=app_settings.get_cosmos_db_containers())
 
-def get_cosmos_db_service(container_name: str) -> CosmosDBService:
-    """Get CosmosDBService instance"""
-    return CosmosDBService(get_cosmos_db(), container_name=container_name)
+@lru_cache(maxsize=1)
+def get_queue_proxy() -> StorageQueue:
+    """Get StorageQueue instance"""
+    return StorageQueue(storage_account_queue_url=app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL,
+                        queue_name=app_settings.STORAGE_WORKER_QUEUE_NAME)
 
-def get_pipeline_service() -> PipelineService:
-    """Get PipelineService instance"""
-    return PipelineService(get_cosmos_db())
+@lru_cache(maxsize=1)
+def get_pipeline_manager() -> PipelineManager:
+    """Get PipelineManager instance"""
+    return PipelineManager(get_cosmos_db(),
+                           pipelines_container_name=app_settings.COSMOS_DB_CONTAINER_PIPELINES,
+                           step_catalog_container_name=app_settings.COSMOS_DB_CONTAINER_STEP_CATALOG,
+                           step_instances_container_name=app_settings.COSMOS_DB_CONTAINER_STEP_INSTANCES,
+                           service_catalog_container_name=app_settings.COSMOS_DB_CONTAINER_SERVICE_CATALOG,
+                           service_instances_container_name=app_settings.COSMOS_DB_CONTAINER_SERVICE_INSTANCES)
 
-def get_activity_log_service() -> ActivityLogService:
-    """Get ActivityLogService instance"""
-    return ActivityLogService(get_cosmos_db())
-
-def get_execution_service() -> ExecutionService:
-    """Get ExecutionService instance"""
-    return ExecutionService(get_cosmos_db(), get_pipeline_service(), get_activity_log_service())
-
-def get_queue_service() -> AzureStorageQueueService:
-    """Get AzureStorageQueueService instance"""
-    return AzureStorageQueueService()
+@lru_cache(maxsize=1)
+def get_execution_manager() -> ExecutionManager:
+    """Get ExecutionManager instance"""
+    return ExecutionManager(db=get_cosmos_db(), 
+                            pipeline_manager=get_pipeline_manager(), 
+                            batch_executions_container_name=app_settings.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS,
+                            pipeline_executions_container_name=app_settings.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS
+                           )

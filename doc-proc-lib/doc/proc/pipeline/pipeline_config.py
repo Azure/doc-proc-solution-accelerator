@@ -16,6 +16,7 @@ class PipelineSettingsConfig(BaseModel):
     retries: Optional[int] = 3  # Number of retries for failed steps
 
 class ServiceInstanceConfig(BaseModel):
+    id: Optional[str] = None  # Unique identifier for the service instance
     name: str  # Instance name in the pipeline
     service_catalog_id: str  # Reference to service id in the service catalog
     settings: Optional[dict] = None  # Additional settings for the service instance

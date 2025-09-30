@@ -80,7 +80,8 @@ class AzureAIInferenceService(ServiceBase):
         else:
             credential = DefaultAzureCredential()
             self.chat_completions_client = ChatCompletionsClient(endpoint=self.endpoint, 
-                                                                 credential=credential)
+                                                                 credential=credential,
+                                                                 credential_scopes=["https://cognitiveservices.azure.com/.default"])
 
         logger.debug(f"Initialized ChatCompletionsClient for Azure AI Inference Service: {self.name}")
 

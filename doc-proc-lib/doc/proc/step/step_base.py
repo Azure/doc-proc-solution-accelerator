@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 
 class StepInstanceConfig(pydantic.BaseModel):
+    id: Optional[str] = None  # Unique identifier for the step instance
     step_catalog_id: str  # Reference to step id in the step catalog
     name: str  # Instance name in the pipeline
     enabled: bool = True # Whether the step is enabled
@@ -17,7 +18,6 @@ class StepInstanceConfig(pydantic.BaseModel):
     retry_on_failure: bool = False # Whether to retry the step on failure
     retries: int = 3 # Number of retries for the step in case of failure
     timeout: int = 600 # Timeout for the step in seconds
-    fail_step_on_document_error: bool = False  # Whether to fail the step if document processing fails
     debug_mode: bool = False  # Enable debug mode for this step
     condition: Optional[str] = None  # Optional condition to evaluate before running the step
     services: List[str] = []  # References to service instances used by this step
@@ -74,7 +74,7 @@ class StepBase(ABC):
         self.timeout = instance_config.timeout
         # self.description = instance_config.description
         # self.tags = instance_config.tags or []
-        self.fail_step_on_document_error = instance_config.fail_step_on_document_error
+        # self.fail_step_on_document_error = instance_config.fail_step_on_document_error
         self.debug_mode = instance_config.debug_mode
         self.services = instance_config.services or []
         self.settings = instance_config.settings or {}
