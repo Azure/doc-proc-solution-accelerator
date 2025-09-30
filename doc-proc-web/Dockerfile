@@ -5,13 +5,13 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 # Copy package files for dependency installation
-COPY doc-proc-ui/web-app/package*.json ./
+COPY doc-proc-web/package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production=false
 
 # Copy source code
-COPY doc-proc-ui/web-app/. .
+COPY doc-proc-web/. .
 
 # Create dynamic .env file
 RUN echo "VITE_API_BASE_URL=DOCPROC_API_URL" > .env && \

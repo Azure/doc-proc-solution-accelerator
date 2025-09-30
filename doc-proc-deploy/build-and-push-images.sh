@@ -120,6 +120,16 @@ if ! command -v az &> /dev/null; then
     exit 1
 fi
 
+# Check if user is logged in to Azure
+if ! az account show &> /dev/null; then
+    echo -e "${YELLOW}⚠️ You are not logged in to Azure. Please login first.${NC}"
+    az login
+fi
+
+echo ""
+echo -e "${YELLOW}📋 Current Azure subscription:${NC}"
+az account show --output table
+
 # Login to Azure Container Registry
 echo ""
 echo -e "${BLUE}🔐 Logging in to Azure Container Registry...${NC}"
@@ -176,13 +186,13 @@ echo ""
 
 # Build API
 if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_API" = "true" ]; then
-    build_and_push "api" "doc-proc-ui/backend-app/Dockerfile" "."
+    build_and_push "api" "doc-proc-api/Dockerfile" "."
     echo "#" * 50
 fi
 
 # Build Web
 if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_WEB" = "true" ]; then
-    build_and_push "web" "doc-proc-ui/web-app/Dockerfile" "."
+    build_and_push "web" "doc-proc-web/Dockerfile" "."
 fi
 
 # Build worker

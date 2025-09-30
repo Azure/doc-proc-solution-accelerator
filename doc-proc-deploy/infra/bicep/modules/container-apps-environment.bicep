@@ -43,6 +43,7 @@ module containerAppsEnvironment 'br:mcr.microsoft.com/bicep/avm/res/app/managed-
     platformReservedDnsIP: '172.17.17.17'
     publicNetworkAccess: 'Enabled'
     managedIdentities: {
+      systemAssigned: true
       userAssignedResourceIds: userAssignedResourceIds
     }
   }

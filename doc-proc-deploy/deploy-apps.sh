@@ -16,10 +16,8 @@ NC='\033[0m' # No Color
 RESOURCE_GROUP=""
 NAME_PREFIX="docproc"
 ENVIRONMENT="dev"
-LOCATION="westus2"
 TAG="latest"
-DEPLOY_API="false"
-DEPLOY_WEB="false"
+DEPLOY_APP="false"
 DEPLOY_WORKER="false"
 DEPLOY_ALL="true"
 DEBUG="false"
@@ -34,10 +32,8 @@ usage() {
     echo "Optional:"
     echo "  -p, --name-prefix      Resource name prefix (default: docproc)"
     echo "  -e, --environment      Environment name (default: dev)"
-    echo "  -l, --location         Azure location (default: westus2)"
     echo "  -t, --tag              Image tag (default: latest)"
-    echo "  --api                  Deploy API app. If specified, only API app will be deployed."
-    echo "  --web                  Deploy frontend web app. If specified, only frontend app will be deployed."
+    echo "  --app                  Deploy API and WEB apps. If specified, only API and WEB apps will be deployed."
     echo "  --worker               Deploy worker app. If specified, only worker app will be deployed."
     echo "  -d, --debug            Enable debug logging"
     echo "  -h, --help             Show this help message"
@@ -64,21 +60,12 @@ while [[ $# -gt 0 ]]; do
             ENVIRONMENT="$2"
             shift 2
             ;;
-        -l|--location)
-            LOCATION="$2"
-            shift 2
-            ;;
         -t|--tag)
             TAG="$2"
             shift 2
             ;;
-        --api)
-             DEPLOY_API="true"
-             DEPLOY_ALL="false"
-            shift 1
-            ;;
-        --web)
-             DEPLOY_WEB="true"
+        --app)
+             DEPLOY_APP="true"
              DEPLOY_ALL="false"
             shift 1
             ;;
@@ -109,11 +96,20 @@ fi
 
 echo -e "${BLUE}🚀 Deploying applications to Azure${NC}"
 echo -e "${BLUE}Resource Group: $RESOURCE_GROUP${NC}"
-echo -e "${BLUE}Registry: $REGISTRY${NC}"
 echo -e "${BLUE}Name Prefix: $NAME_PREFIX${NC}"
 echo -e "${BLUE}Environment: $ENVIRONMENT${NC}"
 echo -e "${BLUE}Image Tag: $TAG${NC}"
-echo -e "${BLUE}Location: $LOCATION${NC}"
+echo ""
+
+# Check if user is logged in to Azure
+if ! az account show &> /dev/null; then
+    echo -e "${YELLOW}⚠️ You are not logged in to Azure. Please login first.${NC}"
+    az login
+fi
+
+echo ""
+echo -e "${YELLOW}📋 Current Azure subscription:${NC}"
+az account show --output table
 echo ""
 
     # Output what will be built
@@ -122,8 +118,8 @@ if [ "$DEPLOY_ALL" = "true" ]; then
     echo ""
 else
     echo -e "${BLUE}⚙️  Deploying selected apps:${NC}"
-    [ "$DEPLOY_API" = "true" ] && echo -e "${BLUE}✔️ API${NC}"
-    [ "$DEPLOY_WEB" = "true" ] && echo -e "${BLUE}✔️ Web${NC}"
+    [ "$DEPLOY_APP" = "true" ] && echo -e "${BLUE}✔️ API${NC}"
+    [ "$DEPLOY_APP" = "true" ] && echo -e "${BLUE}✔️ Web${NC}"
     [ "$DEPLOY_WORKER" = "true" ] && echo -e "${BLUE}✔️ Worker${NC}"
     echo ""
 fi
@@ -146,7 +142,8 @@ fi
 echo ""
 echo -e "${BLUE}Retrieving required parameters for deployment (${ENVIRONMENT})...${NC}"
 echo "------------------"
-echo -e "${BLUE}Retrieving Container Registry Login Server - (1/5)...${NC}"
+
+echo -e "${BLUE}Retrieving Container Registry Login Server - (1/4)...${NC}"
 # retrieve the ACR login server from the infra deployment
 REGISTRY="$(az deployment group show --resource-group $RESOURCE_GROUP --name \
                $(az deployment group list \
@@ -165,7 +162,7 @@ fi
 # wait for a few seconds to let connections settle
 sleep 2
 
-echo -e "${BLUE}Retrieving App Configuration endpoint - (2/5)...${NC}"
+echo -e "${BLUE}Retrieving App Configuration endpoint - (2/4)...${NC}"
 # retrieve the App Configuration endpoint from the infra deployment
 APP_CONFIG_STORE_ENDPOINT="$(az appconfig show --name $(az deployment group show --resource-group $RESOURCE_GROUP --name $(az deployment group list --resource-group $RESOURCE_GROUP --query "[?contains(name, 'doc-proc-infra')].name | [0]" --output tsv) --query "properties.outputs.appConfigStoreName.value" --output tsv) --query endpoint --output tsv)"
 if [ -z "$APP_CONFIG_STORE_ENDPOINT" ]; then
@@ -178,56 +175,42 @@ fi
 # wait for a few seconds to let connections settle
 sleep 2
 
-# retrieve the User Assigned Identity Client ID from the infra deployment
-echo -e "${BLUE}Retrieving User Assigned Identity Client ID - (3/5)...${NC}"
-USER_ASSIGNED_IDENTITY_CLIENT_ID="$(az deployment group show --resource-group $RESOURCE_GROUP --name $(az deployment group list --resource-group $RESOURCE_GROUP --query "[?contains(name, 'doc-proc-infra')].name | [0]" --output tsv) --query "properties.outputs.userAssignedIdentityClientId.value" --output tsv)"
-if [ -z "$USER_ASSIGNED_IDENTITY_CLIENT_ID" ]; then
-    echo -e "${RED}❌ User Assigned Identity Client ID not found. Please run deploy-azure-infra.sh first.${NC}"
+# retrieve the User Assigned Identity Name from the infra deployment
+echo -e "${BLUE}Retrieving User Assigned Identity Name - (3/4)...${NC}"
+USER_ASSIGNED_IDENTITY_NAME="$(az deployment group show --resource-group $RESOURCE_GROUP --name $(az deployment group list --resource-group $RESOURCE_GROUP --query "[?contains(name, 'doc-proc-infra')].name | [0]" --output tsv) --query "properties.outputs.userAssignedIdentityName.value" --output tsv)"
+if [ -z "$USER_ASSIGNED_IDENTITY_NAME" ]; then
+    echo -e "${RED}❌ User Assigned Identity Name not found. Please run deploy-azure-infra.sh first.${NC}"
     exit 1
 else
-    echo -e "${GREEN}✅ User Assigned Identity Client ID: $USER_ASSIGNED_IDENTITY_CLIENT_ID${NC}"
+    echo -e "${GREEN}✅ User Assigned Identity Name: $USER_ASSIGNED_IDENTITY_NAME${NC}"
 fi
 
 # wait for a few seconds to let connections settle
 sleep 2
-
-# retrieve the User Assigned Identity Resource ID from the infra deployment
-echo -e "${BLUE}Retrieving User Assigned Identity Resource ID - (4/5)...${NC}"
-USER_ASSIGNED_IDENTITY_RESOURCE_ID="$(az deployment group show --resource-group $RESOURCE_GROUP --name $(az deployment group list --resource-group $RESOURCE_GROUP --query "[?contains(name, 'doc-proc-infra')].name | [0]" --output tsv) --query "properties.outputs.userAssignedIdentityResourceId.value" --output tsv)"
-if [ -z "$USER_ASSIGNED_IDENTITY_RESOURCE_ID" ]; then
-    echo -e "${RED}❌ User Assigned Identity Resource ID not found. Please run deploy-azure-infra.sh first.${NC}"
-    exit 1
-else
-    echo -e "${GREEN}✅ User Assigned Identity Resource ID: $USER_ASSIGNED_IDENTITY_RESOURCE_ID${NC}"
-fi
-
-# wait for a few seconds to let connections settle
-sleep 2
-
 
 # Get Container Apps Environment ID from infrastructure deployment
-echo -e "${BLUE}Retrieving Container Apps Environment ID - (5/5)...${NC}"
-CONTAINER_APPS_ENV_ID=""
+echo -e "${BLUE}Retrieving Container Apps Environment - (4/4)...${NC}"
+CONTAINER_APPS_ENV_NAME=""
 RETRY_COUNT=0
 MAX_RETRIES=3
 
-while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$CONTAINER_APPS_ENV_ID" ]; do
+while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$CONTAINER_APPS_ENV_NAME" ]; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo -e "${BLUE}Attempt $RETRY_COUNT/$MAX_RETRIES: Retrieving Container Apps Environment ID...${NC}"
+    echo -e "${BLUE}Attempt $RETRY_COUNT/$MAX_RETRIES: Retrieving Container Apps Environment Name...${NC}"
 
-    CONTAINER_APPS_ENV_ID=$(az containerapp env list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '$NAME_PREFIX')].id | [0]" --output tsv 2>/dev/null)
+    CONTAINER_APPS_ENV_NAME=$(az containerapp env list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '$NAME_PREFIX')].name | [0]" --output tsv)
 
-    if [ -z "$CONTAINER_APPS_ENV_ID" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+    if [ -z "$CONTAINER_APPS_ENV_NAME" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
         echo -e "${YELLOW}⚠️ Container Apps Environment not found - could be a connectivity issue, retrying in 5 seconds...${NC}"
         sleep 5
     fi
 done
 
-if [ -z "$CONTAINER_APPS_ENV_ID" ]; then
+if [ -z "$CONTAINER_APPS_ENV_NAME" ]; then
     echo -e "${RED}❌ Container Apps Environment not found after $MAX_RETRIES attempts. Please run deploy-azure-infra.sh first.${NC}"
     exit 1
 else
-    echo -e "${GREEN}✅ Container Apps Environment ID: $CONTAINER_APPS_ENV_ID${NC}"
+    echo -e "${GREEN}✅ Container Apps Environment Name: $CONTAINER_APPS_ENV_NAME${NC}"
 fi
 
 echo ""
@@ -249,7 +232,7 @@ fi
 ######################################################################
 ## API APP DEPLOYMENT
 
-if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_API" == "true" ]; then
+if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_APP" == "true" ]; then
     # Deploy API
     echo -e "${BLUE}👷 Deploying API App...${NC}"
     API_DEPLOYMENT_NAME="doc-proc-apps-api-$(date +%s)"
@@ -267,17 +250,15 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_API" == "true" ]; then
 
         if az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
-            --template-file "doc-proc-ui/backend-app/infra/bicep/main.bicep" \
+            --template-file "doc-proc-api/infra/bicep/main.bicep" \
             --parameters \
-                location="$LOCATION" \
                 environment="$ENVIRONMENT" \
                 namePrefix="$NAME_PREFIX" \
                 containerImage="$REGISTRY/doc-proc-api:$TAG" \
-                containerAppsEnvironmentId="$CONTAINER_APPS_ENV_ID" \
+                containerAppsEnvironment="$CONTAINER_APPS_ENV_NAME" \
                 containerRegistryServer="$REGISTRY" \
                 appConfigStoreEndpoint="$APP_CONFIG_STORE_ENDPOINT" \
-                userAssignedIdentityClientId="$USER_ASSIGNED_IDENTITY_CLIENT_ID" \
-                userAssignedIdentityResourceId="$USER_ASSIGNED_IDENTITY_RESOURCE_ID" \
+                userAssignedIdentityName="$USER_ASSIGNED_IDENTITY_NAME" \
             --name "$API_DEPLOYMENT_NAME" \
             --output table ${optional_args[@]}; then
 
@@ -303,7 +284,9 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_API" == "true" ]; then
                 --name "${API_APP_NAME}" \
                 --resource-group "$RESOURCE_GROUP" \
                 --image "${REGISTRY}/doc-proc-api:${TAG}" \
-                --output none
+                --revision-suffix "$(date +%s)" \
+                --output none \
+                --no-wait
             echo -e "${GREEN}✅ Updated Container App to pull latest image${NC}"
 
             if [ -n "$API_URL" ]; then
@@ -337,7 +320,7 @@ fi
 ######################################################################
 ## WEB APP DEPLOYMENT
 
-if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_WEB" == "true" ]; then
+if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_APP" == "true" ]; then
     # Deploy Web App (Frontend)
     echo -e "${BLUE}🌐 Deploying Web App (Frontend)...${NC}"
     WEB_DEPLOYMENT_NAME="doc-proc-apps-web-$(date +%s)"
@@ -354,15 +337,14 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_WEB" == "true" ]; then
         if az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
             --name "$WEB_DEPLOYMENT_NAME" \
-            --template-file "doc-proc-ui/web-app/infra/bicep/main.bicep" \
+            --template-file "doc-proc-web/infra/bicep/main.bicep" \
             --parameters namePrefix="$NAME_PREFIX" \
                         environment="$ENVIRONMENT" \
-                        location="$LOCATION" \
-                        containerRegistryServer="$REGISTRY" \
                         containerImage="$REGISTRY/doc-proc-web:$TAG" \
                         backendApiUrl="$API_URL" \
-                        containerAppsEnvironmentId="$CONTAINER_APPS_ENV_ID" \
-                        userAssignedIdentityResourceId="$USER_ASSIGNED_IDENTITY_RESOURCE_ID" \
+                        containerAppsEnvironment="$CONTAINER_APPS_ENV_NAME" \
+                        containerRegistryServer="$REGISTRY" \
+                        userAssignedIdentityName="$USER_ASSIGNED_IDENTITY_NAME" \
             "${optional_args[@]}" \
             --output none; then
 
@@ -388,7 +370,9 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_WEB" == "true" ]; then
                 --name "${WEB_APP_NAME}" \
                 --resource-group "$RESOURCE_GROUP" \
                 --image "${REGISTRY}/doc-proc-web:${TAG}" \
-                --output none
+                --revision-suffix "$(date +%s)" \
+                --output none \
+                --no-wait
             echo -e "${GREEN}✅ Updated Container App to pull latest image${NC}"
 
             if [ -n "$WEB_URL" ]; then
@@ -442,15 +426,13 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_WORKER" == "true" ]; then
             --resource-group "$RESOURCE_GROUP" \
             --template-file "doc-proc-worker/infra/bicep/main.bicep" \
             --parameters \
-                location="$LOCATION" \
                 environment="$ENVIRONMENT" \
                 namePrefix="$NAME_PREFIX" \
                 containerImage="$REGISTRY/doc-proc-worker:$TAG" \
-                containerAppsEnvironmentId="$CONTAINER_APPS_ENV_ID" \
+                containerAppsEnvironment="$CONTAINER_APPS_ENV_NAME" \
                 containerRegistryServer="$REGISTRY" \
                 appConfigStoreEndpoint="$APP_CONFIG_STORE_ENDPOINT" \
-                userAssignedIdentityClientId="$USER_ASSIGNED_IDENTITY_CLIENT_ID" \
-                userAssignedIdentityResourceId="$USER_ASSIGNED_IDENTITY_RESOURCE_ID" \
+                userAssignedIdentityName="$USER_ASSIGNED_IDENTITY_NAME" \
             --name "$WORKER_DEPLOYMENT_NAME" \
             --output table ${optional_args[@]}; then
 
@@ -468,7 +450,9 @@ if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_WORKER" == "true" ]; then
                 --name "${WORKER_APP_NAME}" \
                 --resource-group "$RESOURCE_GROUP" \
                 --image "${REGISTRY}/doc-proc-worker:${TAG}" \
-                --output none
+                --revision-suffix "$(date +%s)" \
+                --output none \
+                --no-wait
             echo -e "${GREEN}✅ Restarted Container App to pull latest image${NC}"
 
             WORKER_SUCCESS=true
@@ -511,7 +495,6 @@ fi
 echo ""
 echo ""
 echo -e "${BLUE}🔧 Next Steps (if needed):${NC}"
-echo "1. Update environment variables for your applications"
-echo "2. Set up custom domains and SSL certificates"
-echo "3. Configure monitoring and logging"
+echo "1. Setup Sample Doc Proc Pipeline using setup-sample-pipeline.sh script"
+echo "  ./doc-proc-deploy/setup-sample-pipeline.sh -g $RESOURCE_GROUP -e $ENVIRONMENT"
 echo ""

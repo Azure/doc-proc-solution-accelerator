@@ -37,6 +37,19 @@ var blobRoleAssignments array = [for principalId in roleAssignedManagedIdentityP
         }
       ]
 
+var deployerRoleAssignments = [
+    {
+      principalId: deployer().objectId
+      principalType: 'User'
+      roleDefinitionIdOrName: 'Storage Blob Data Contributor'        
+    }
+    {
+      principalId: deployer().objectId
+      principalType: 'User'
+      roleDefinitionIdOrName: 'Storage Queue Data Contributor'        
+    }
+  ]
+
 // Use Azure Verified Module for Storage Account
 module storageAccount 'br/public:avm/res/storage/storage-account:0.27.0' = {
   params: {
@@ -75,7 +88,8 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.27.0' = {
     roleAssignments: concat(
       accountRoleAssignments,
       queueRoleAssignments,
-      blobRoleAssignments
+      blobRoleAssignments,
+      deployerRoleAssignments
     )
     tags: tags
   }

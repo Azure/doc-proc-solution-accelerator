@@ -16,4 +16,4 @@ azure-appconfiguration==1.7.1
 azure-storage-queue==12.13.0
 
 # Local doc-proc-lib package
--e ../../doc-proc-lib
+-e ../doc-proc-lib

@@ -28,7 +28,7 @@ class ServiceCatalogService(BaseService):
     
     async def _load_catalog_from_yaml(self) -> Dict[str, Any]:
         """Load service catalog from YAML file"""
-        catalog_path = os.path.join(os.path.dirname(__file__), "../../../../doc-proc-lib/service_catalog.yaml")
+        catalog_path = os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib/service_catalog.yaml")
         catalog = {"services_catalog": []}
         
         try:

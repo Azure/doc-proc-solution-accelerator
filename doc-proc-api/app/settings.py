@@ -69,8 +69,8 @@ class AppSettings(BaseModel):
         """Load configuration values from Azure App Configuration"""
         try:
             # Get connection info from environment variables
-            connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING")
-            endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT")
+            connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING", "")
+            endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT", "")
 
             print(f"doc-proc-ui.app: Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
 

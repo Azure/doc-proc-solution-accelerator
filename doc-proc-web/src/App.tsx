@@ -5,17 +5,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import AppLayout from "./components/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import Vaults from "./pages/Vaults";
-import Vaults4 from "./pages/Vaults4";
-import Health from "./pages/Health";
-import Pipeline from "./pages/Pipeline";
-import Step from "./pages/Steps";
-import StepInstances from "./pages/StepInstances";
-import Service from "./pages/Services";
-import ServiceInstances from "./pages/ServiceInstances";
-import NotFound from "./pages/NotFound";
+import AppLayout from "@/components/AppLayout";
+import Dashboard from "@/pages/Dashboard";
+import Vaults from "@/pages/Vaults";
+import Vaults4 from "@/pages/Vaults4";
+import Health from "@/pages/Health";
+import Pipeline from "@/pages/Pipeline";
+import Step from "@/pages/Steps";
+import StepInstances from "@/pages/StepInstances";
+import Service from "@/pages/Services";
+import ServiceInstances from "@/pages/ServiceInstances";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 

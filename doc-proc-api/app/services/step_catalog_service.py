@@ -23,7 +23,7 @@ class StepCatalogService(BaseService):
     
     async def _load_catalog_from_yaml(self) -> Dict[str, Any]:
         """Load step catalog from YAML file"""
-        catalog_path = os.path.join(os.path.dirname(__file__), "../../../../doc-proc-lib/step_catalog.yaml")
+        catalog_path = os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib/step_catalog.yaml")
         catalog = {"step_catalog": []}
         
         try:

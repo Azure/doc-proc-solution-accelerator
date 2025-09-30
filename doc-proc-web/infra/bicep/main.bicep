@@ -1,6 +1,3 @@
-@description('Location for all resources')
-param location string = resourceGroup().location
-
 @description('Name prefix for frontend resources')
 param namePrefix string = 'docproc'
 
@@ -8,7 +5,7 @@ param namePrefix string = 'docproc'
 param environment string = 'dev'
 
 @description('Container registry server')
-param containerRegistryServer string = ''
+param containerRegistryServer string
 
 @description('Container image')
 param containerImage string
@@ -25,11 +22,11 @@ param memoryInGB string = '2Gi'
 @description('Backend API URL for frontend configuration')
 param backendApiUrl string = ''
 
-@description('Container Apps Environment ID (existing)')
-param containerAppsEnvironmentId string
+@description('Container Apps Environment resource name where the container apps will be deployed')
+param containerAppsEnvironment string
 
-@description('User Assigned Identity Resource ID for container registry access')
-param userAssignedIdentityResourceId string = ''
+@description('User Assigned Identity Resource Name used as identity for the api app')
+param userAssignedIdentityName string
 
 @description('Tags for resources')
 param tags object = {
@@ -48,15 +45,25 @@ var environmentVariables = !empty(backendApiUrl) ? [
   }
 ] : []
 
+// Fetch existing User Assigned Identity
+resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  scope: resourceGroup()
+  name: userAssignedIdentityName
+}
+
+resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
+  name: containerAppsEnvironment
+  scope: resourceGroup()
+}
 
 // Use Azure Verified Module for Container App (Web App)
 module webApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
   name: 'webAppDeployment'
   params: {
     name: appName
-    location: location
+    location: resourceGroup().location
     tags: tags
-    environmentResourceId: containerAppsEnvironmentId
+    environmentResourceId: containerAppsEnvironmentResource.id
     corsPolicy: {
       allowCredentials: true
       allowedOrigins: allowOrigins
@@ -90,12 +97,12 @@ module webApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
     ingressTargetPort: 8080
     managedIdentities: {
       systemAssigned: false
-      userAssignedResourceIds: [ userAssignedIdentityResourceId ]
+      userAssignedResourceIds: [ userAssignedIdentity.id ]
     }
     registries: [
       {
         server: containerRegistryServer
-        identity: userAssignedIdentityResourceId
+        identity: userAssignedIdentity.id
       }
     ]
     scaleSettings: {

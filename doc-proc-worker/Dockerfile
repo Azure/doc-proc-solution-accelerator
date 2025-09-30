@@ -4,20 +4,18 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /app
+# Copy doc-proc-lib first (needed for requirements.txt)
+COPY doc-proc-lib ./doc-proc-lib
+
+WORKDIR /doc-proc-worker
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy doc-proc-lib first (needed for requirements.txt)
-COPY doc-proc-lib ./doc-proc-lib
 
-# Create a temporary requirements.txt with corrected path
-COPY doc-proc-worker/requirements.txt ./requirements-temp.txt
-RUN sed 's|-e ../doc-proc-lib|-e ./doc-proc-lib|' requirements-temp.txt > requirements.txt && \
-    rm requirements-temp.txt
+COPY doc-proc-worker/requirements.txt ./requirements.txt
 
 # Install deps
 RUN pip install --no-cache-dir -r requirements.txt

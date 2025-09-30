@@ -1,6 +1,3 @@
-@description('Location for all resources')
-param location string = resourceGroup().location
-
 @description('Name prefix for resources')
 @minLength(4)
 param namePrefix string = 'docproc'
@@ -8,8 +5,8 @@ param namePrefix string = 'docproc'
 @description('Environment name (dev, staging, prod)')
 param environment string = 'dev'
 
-@description('Container Apps Environment resource ID')
-param containerAppsEnvironmentId string
+@description('Container Apps Environment resource name where the container apps will be deployed')
+param containerAppsEnvironment string
 
 @description('Container Registry Server')
 param containerRegistryServer string
@@ -26,11 +23,8 @@ param cpuCores string = '1.0'
 @description('Memory in GB for the container')
 param memoryInGB string = '2Gi'
 
-@description('User Assigned Identity Client ID used by the api app to access resources')
-param userAssignedIdentityClientId string
-
-@description('User Assigned Identity Resource ID used as identity for the api app')
-param userAssignedIdentityResourceId string
+@description('User Assigned Identity Resource Name used as identity for the api app')
+param userAssignedIdentityName string
 
 @description('App Configuration Store resource endpoint')
 param appConfigStoreEndpoint string
@@ -56,19 +50,31 @@ var environmentVariables = concat([
   }
   {
     name: 'AZURE_CLIENT_ID'
-    value: userAssignedIdentityClientId
+    value: userAssignedIdentity.properties.clientId
   }
 ], additionalEnvironmentVariables)
 
+
+// Fetch existing User Assigned Identity
+resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  scope: resourceGroup()
+  name: userAssignedIdentityName
+}
+
+// Fetch existing Container Apps Environment
+resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
+  name: containerAppsEnvironment
+  scope: resourceGroup()
+}
 
 // Use Azure Verified Module for Container App
 module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
   name: 'apiAppDeployment'
   params: {
     name: appName
-    location: location
+    location: containerAppsEnvironmentResource.location
     tags: tags
-    environmentResourceId: containerAppsEnvironmentId
+    environmentResourceId: containerAppsEnvironmentResource.id
     corsPolicy: {
       allowCredentials: true
       allowedOrigins: allowOrigins
@@ -93,7 +99,7 @@ module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
               port: 8090
             }
             initialDelaySeconds: 5
-            periodSeconds: 30
+            periodSeconds: 60
           }
         ]
       }
@@ -101,13 +107,12 @@ module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
     ingressExternal: true
     ingressTargetPort: 8090
     managedIdentities: {
-      systemAssigned: false
-      userAssignedResourceIds: [ userAssignedIdentityResourceId ]
+      userAssignedResourceIds: [ userAssignedIdentity.id ]
     }
     registries: [
       {
         server: containerRegistryServer
-        identity: userAssignedIdentityResourceId
+        identity: userAssignedIdentity.id
       }
     ]
   }

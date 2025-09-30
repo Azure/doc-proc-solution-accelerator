@@ -19,6 +19,7 @@ module userAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-id
   }
 }
 
+output name string = userAssignedIdentity.outputs.name
 output resourceId string = userAssignedIdentity.outputs.resourceId
 output principalId string = userAssignedIdentity.outputs.principalId
 output clientId string = userAssignedIdentity.outputs.clientId

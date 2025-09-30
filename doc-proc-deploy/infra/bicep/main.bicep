@@ -28,10 +28,13 @@ param cosmosDBContainerNames array = [
 ]
 
 @description('Name of the blob storage container for vault documents')
-param vaultsContainerName string = 'vault-docs'
+param vaultsContainerName string = 'vaults'
 
 @description('Name of the storage queue for document processing requests that the worker will process')
 param docprocExecutionsQueueName string = 'docproc-execution-requests'
+
+@description('Location for AI Foundry resources')
+param aiFoundryLocation string = resourceGroup().location
 
 
 var resourceGroupId = resourceGroup().id
@@ -77,7 +80,7 @@ module appInsights 'modules/app-insights.bicep' = {
 module storage 'modules/storage.bicep' = {
   name: 'storageAccountDeployment.${substring(uniqueString(resourceGroup().id, deployment().name), 0, 8)}'
   params: {
-    storageAccountName: toLower('${namePrefix}sta${uniqueString(resourceGroupId)}')
+    storageAccountName: length('${namePrefix}sta${uniqueString(resourceGroupId)}') > 24 ? substring(toLower('${namePrefix}sta${uniqueString(resourceGroupId)}'), 0, 24) : toLower('${namePrefix}sta${uniqueString(resourceGroupId)}')
     location: location
     vaultsContainerName: vaultsContainerName
     docprocExecutionsQueueName: docprocExecutionsQueueName
@@ -212,6 +215,17 @@ module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
 }
 
 
+module aiFoundry 'modules/ai-foundry.bicep' = {
+  name: 'aiFoundryDeployment.${substring(uniqueString(resourceGroup().id, deployment().name), 0, 8)}'
+  params: {
+    aiFoundryBaseName: toLower(length('docprocai${environment}') > 12 ? substring('docprocai${environment}', 0, 12) : 'docprocai${environment}')
+    roleAssignedManagedIdentityPrincipalIds: [userAssignedIdentity.outputs.principalId]
+    location: aiFoundryLocation
+    tags: tags
+  }
+}
+
+output userAssignedIdentityName string = userAssignedIdentity.outputs.name
 output userAssignedIdentityPrincipalId string = userAssignedIdentity.outputs.principalId
 output userAssignedIdentityResourceId string = userAssignedIdentity.outputs.resourceId
 output userAssignedIdentityClientId string = userAssignedIdentity.outputs.clientId
@@ -222,3 +236,5 @@ output storageAccountName string = storage.outputs.name
 output appConfigStoreName string = appConfigStore.outputs.name
 output appConfigStoreEndpoint string = appConfigStore.outputs.endpoint
 output cosmosAccountName string = cosmosDb.outputs.cosmosAccountName
+output aiProjectName string = aiFoundry.outputs.aiProjectName
+output aiServicesName string = aiFoundry.outputs.aiServicesName

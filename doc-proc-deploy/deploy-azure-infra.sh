@@ -14,7 +14,8 @@ NC='\033[0m' # No Color
 
 # Default values
 RESOURCE_GROUP=""
-LOCATION="westus2"
+LOCATION="westus"
+AIFOUNDRY_LOCATION="westus"
 NAME_PREFIX="docproc"
 ENVIRONMENT="dev"
 DEBUG="false"
@@ -24,14 +25,15 @@ usage() {
     echo "Usage: $0 -g <resource-group> [options]"
     echo ""
     echo "Required:"
-    echo "  -g, --resource-group    Azure Resource Group name"
+    echo "  -g, --resource-group       Azure Resource Group name"
     echo ""
     echo "Optional:"
-    echo "  -l, --location         Azure location (default: eastus)"
-    echo "  -p, --name-prefix      Resource name prefix (default: docproc)"
-    echo "  -e, --environment      Environment name (default: dev)"
-    echo "  -d, --debug            Enable debug logging"
-    echo "  -h, --help             Show this help message"
+    echo "  -l, --location             Azure location (default: westus)"
+    echo "  -p, --name-prefix          Resource name prefix (default: docproc)"
+    echo "  -e, --environment          Environment name (default: dev)"
+    echo "  -a, --ai-foundry-location  AI Foundry location (default: westus)"
+    echo "  -d, --debug                Enable debug logging"
+    echo "  -h, --help                 Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 -g my-resource-group"
@@ -56,6 +58,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -e|--environment)
             ENVIRONMENT="$2"
+            shift 2
+            ;;
+        -a|--ai-foundry-location)
+            AIFOUNDRY_LOCATION="$2"
             shift 2
             ;;
         -d|--debug)
@@ -123,7 +129,7 @@ fi
 echo -e "${BLUE}🏗️ Ensuring resource group exists...${NC}"
 if ! az group show --name "$RESOURCE_GROUP" &> /dev/null; then
     echo -e "${YELLOW}Creating resource group: $RESOURCE_GROUP${NC}"
-    az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
+    az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --tags Environment="$ENVIRONMENT" Project="docproc-solution-accelerator"
     echo -e "${GREEN}✅ Resource group created${NC}"
 else
     echo -e "${GREEN}✅ Resource group already exists${NC}"
@@ -146,6 +152,7 @@ az deployment group create \
         namePrefix="$NAME_PREFIX" \
         environment="$ENVIRONMENT" \
         location="$LOCATION" \
+        aiFoundryLocation="$AIFOUNDRY_LOCATION" \
     --name "$DEPLOYMENT_NAME" \
     --output table ${optional_args[@]}
 
