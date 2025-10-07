@@ -33,10 +33,12 @@ async def get_catalog_service(service_id: str, service: ServiceCatalogService = 
         raise ApiException(message="Service not found in catalog", status_code=404)
     return ServiceCatalogDefinition(**catalog_service)
 
+
 @router.post("/initialize")
 async def initialize_catalog_services(service: ServiceCatalogService = Depends(get_service_catalog_service)):
     """Initialize default services from catalog"""
     return await service.initialize_service_catalog()
+
 
 #######################################################
 # Service Instance endpoints

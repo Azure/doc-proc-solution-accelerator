@@ -30,20 +30,31 @@ class PipelineManager():
         self._service_catalog_container_name = service_catalog_container_name
         self._step_instances_container_name = step_instances_container_name
         self._service_instances_container_name = service_instances_container_name
-        self._config_cache = None
+        
+        self._pipeline_factory = None
         self._pipeline_cache = {}
     
+    
         logger.info(f"PipelineManager initialized with pipelines_container: {pipelines_container_name}, step_catalog_container: {step_catalog_container_name}, service_catalog_container: {service_catalog_container_name}")
-  
+
+    async def __initialize_factory(self):
+        if not self._pipeline_factory:
+            
+            # Load step and service catalogs
+            step_catalog_config = await self._load_step_catalog_from_db()
+            service_catalog_config = await self._load_service_catalog_from_db()
+            
+            from doc.proc.pipeline.pipeline_factory import PipelineFactory
+            self._pipeline_factory = PipelineFactory(step_catalog_config=step_catalog_config,
+                                                     service_catalog_config=service_catalog_config)
+            
 
     async def load_pipeline(self, pipeline_name: str) -> Optional[Pipeline]:
         """Load a pipeline by name"""
         if pipeline_name in self._pipeline_cache:
             return self._pipeline_cache[pipeline_name]
         
-        # Load step and service catalogs
-        step_catalog_config = await self._load_step_catalog_from_db()
-        service_catalog_config = await self._load_service_catalog_from_db()
+        await self.__initialize_factory()
         
         # Load step and service instances
         service_instances = await self._load_service_instances_from_db()
@@ -53,11 +64,8 @@ class PipelineManager():
         pipeline_config = await self._load_pipeline_config(pipeline_name, step_instances, service_instances)
         
         if pipeline_config:
-            pipeline = await Pipeline.create(
-                pipeline_config=pipeline_config,
-                step_catalog_config=step_catalog_config,
-                service_catalog_config=service_catalog_config
-            )
+
+            pipeline = await self._pipeline_factory.create_pipeline(pipeline_config=pipeline_config)
             
             # Cache the pipeline
             self._pipeline_cache[pipeline_name] = pipeline
@@ -65,72 +73,6 @@ class PipelineManager():
             return pipeline
 
         return None
-
-    # async def load_pipeline(self, pipeline_name: str) -> Optional[Pipeline]:
-    #     """Load a pipeline by name"""
-    #     if pipeline_name in self._pipeline_cache:
-    #         return self._pipeline_cache[pipeline_name]
-        
-    #     # Load step and service catalogs
-    #     step_catalog_config = await self._load_step_catalog()
-    #     service_catalog_config = await self._load_service_catalog()
-            
-    #     # Create pipeline config
-    #     pipeline_config = await self._load_pipeline_config(step_catalog_config, service_catalog_config)
-        
-    #     if pipeline_config:
-    #         for pipeline in pipeline_config:
-    #             if pipeline.name == pipeline_name:
-    #                 # Create pipeline instance
-    #                 pipeline = await Pipeline.create(
-    #                     pipeline_config=pipeline,
-    #                     step_catalog_config=step_catalog_config,
-    #                     service_catalog_config=service_catalog_config
-    #                 )
-                    
-    #                 # Cache the pipeline
-    #                 self._pipeline_cache[pipeline_name] = pipeline
-                    
-    #                 return pipeline
-
-    #     return None
-
-    # # TODO: make this load from Cosmos DB instead
-    # async def _load_pipeline_config(self, step_catalog_config, service_catalog_config) -> List[PipelineConfig]:
-    #     """Load pipeline config from YAML"""
-
-    #     # load the pipeline config
-    #     config_path = os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib/pipeline_config.yaml")
-    #     try:
-    #         with open(config_path, 'r') as file:
-    #             yaml_str = file.read()
-    #         return PipelineConfig.from_yaml(yaml_str, step_catalog_config=step_catalog_config, service_catalog_config=service_catalog_config)
-    #     except FileNotFoundError:
-    #         raise
-
-    # # TODO: make this load from Cosmos DB instead
-    # async def _load_step_catalog(self) -> List[StepConfig]:
-    #     """Load step catalog from YAML"""
-    #     catalog_path = os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib/step_catalog.yaml")
-    #     try:
-    #         with open(catalog_path, 'r') as file:
-    #             yaml_str = file.read()
-    #         return StepConfig.from_yaml(yaml_str)
-    #     except FileNotFoundError:
-    #         raise
-
-    # # TODO: make this load from Cosmos DB instead
-    # async def _load_service_catalog(self) -> List[ServiceConfig]:
-    #     """Load service catalog from YAML"""
-    #     catalog_path = os.path.join(os.path.dirname(__file__), "../../../doc-proc-lib/service_catalog.yaml")
-    #     try:
-    #         with open(catalog_path, 'r') as file:
-    #             yaml_str = file.read()
-    #         return ServiceConfig.from_yaml(yaml_str)
-    #     except FileNotFoundError:
-    #         raise
-
-    
     
     async def _get_pipeline_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a pipeline instance by name from Cosmos DB"""
@@ -232,7 +174,6 @@ class PipelineManager():
         """Load service catalog from Cosmos DB"""
         query = "SELECT * FROM c"
         service_definitions = self._db.list(container=self._service_catalog_container_name, query=query)
-    
         return [ServiceConfig.from_dict(service) for service in service_definitions]
     
     

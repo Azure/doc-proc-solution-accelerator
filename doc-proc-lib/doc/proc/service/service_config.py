@@ -88,4 +88,8 @@ class ServiceConfig(BaseModel):
             raise ValueError(f"An error occurred while loading the service configuration: {str(e)}")
 
 
-    
+class ServiceInstanceConfig(BaseModel):
+    id: Optional[str] = None  # Unique identifier for the service instance
+    name: str  # Instance name in the pipeline
+    service_catalog_id: str  # Reference to service id in the service catalog
+    settings: Optional[dict] = None  # Additional settings for the service instance

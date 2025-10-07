@@ -130,7 +130,7 @@ const ViewPipelineOutput = ({
     try {
       // Find the document result for our specific document
       const documentResult = documentExecution.document_results.find(
-        (result: any) => result.document_id === selectedDocument.id
+        (result: any) => result.document_id?.unique_id === selectedDocument.id
       );
 
       if (!documentResult) {
@@ -224,7 +224,7 @@ const ViewPipelineOutput = ({
 
     // Find the document result for our specific document
     const documentResult = execution.document_results.find(
-      (result: any) => result.document_id === selectedDocument.id
+      (result: any) => result.document_id?.unique_id === selectedDocument.id
     );
     
     const stepResults = documentResult?.step_results || [];

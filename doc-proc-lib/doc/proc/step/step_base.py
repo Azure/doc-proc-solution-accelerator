@@ -1,39 +1,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 import hashlib
-import pydantic
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
+from doc.proc.models import Document, StepExecutionError
+from doc.proc.step.step_config import StepInstanceConfig
 
 if TYPE_CHECKING:
     # Avoid circular import issues by using string type hints
     from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-
-class StepInstanceConfig(pydantic.BaseModel):
-    id: Optional[str] = None  # Unique identifier for the step instance
-    step_catalog_id: str  # Reference to step id in the step catalog
-    name: str  # Instance name in the pipeline
-    enabled: bool = True # Whether the step is enabled
-    fail_pipeline_on_error: bool = False # Whether to fail the entire pipeline if this step fails
-    retry_on_failure: bool = False # Whether to retry the step on failure
-    retries: int = 3 # Number of retries for the step in case of failure
-    timeout: int = 600 # Timeout for the step in seconds
-    debug_mode: bool = False  # Enable debug mode for this step
-    condition: Optional[str] = None  # Optional condition to evaluate before running the step
-    services: List[str] = []  # References to service instances used by this step
-    settings: Optional[dict] = None # Additional settings for the step instance
-    
-
-class StepExecutionError(Exception):
-    """
-    Custom exception for errors during step execution.
-    """
-    pass
-
-class StepInputOutput(pydantic.BaseModel):
-    id: Optional[str] = None
-    summary_data: dict = None
-    data: dict = None
 
 
 class StepBase(ABC):
@@ -95,7 +70,7 @@ class StepBase(ABC):
         return sha1_hash.hexdigest()
     
     @abstractmethod
-    async def run(self, step_input: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step with the given input.
         Type hint for context is a string to avoid circular import.

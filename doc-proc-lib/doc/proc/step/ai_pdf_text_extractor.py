@@ -16,7 +16,10 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
+
 
 logger = logging.getLogger("doc.proc.step.ai_pdf_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
@@ -57,7 +60,7 @@ class AIPDFTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step processing logic for PDF text extraction.
 
@@ -70,9 +73,9 @@ class AIPDFTextExtractorStep(StepBase):
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self._get_ai_inference_service(context)
@@ -102,13 +105,11 @@ class AIPDFTextExtractorStep(StepBase):
                                                        ai_model_inference_service=ai_model_inference_service)
 
                 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {doc_to_process}")
-            else:
-                logger.info(f"Successfully processed document: {doc_to_process.get('file_path', 'unknown')}")
+            logger.debug(f"Successfully processed document: {document.id}")
+            
                 
             # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
+            return Document(summary_data = {**document.summary_data}, 
                                    data = result_data)
 
         except Exception as e:

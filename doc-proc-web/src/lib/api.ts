@@ -128,6 +128,7 @@ export interface Vault {
   description?: string;
   status: 'active' | 'inactive' | 'error';
   pipeline_name?: string;
+  source_instance_name?: string;
   processing_config: DocumentProcessingConfig;
   storage_config: StorageConfig;
   stats?: Record<string, any>;
@@ -141,6 +142,7 @@ export interface VaultCreateRequest {
   name: string;
   description?: string;
   pipeline_name: string;
+  source_instance_name?: string;
   processing_config?: DocumentProcessingConfig;
   storage_config?: StorageConfig;
   metadata?: Record<string, any>;
@@ -155,11 +157,12 @@ export interface VaultUpdateRequest {
 export interface DocumentInfo {
   id: string;
   name: string;
-  size_bytes: number;
+  content_id: any;
   content_type: string;
-  upload_date: string;
+  submit_date: string;
   processed_date?: string;
   status: string;
+  source: string;
   metadata: Record<string, any>;
 }
 
@@ -235,6 +238,117 @@ export interface StepInstanceUpdateRequest {
   debug_mode?: boolean;
 }
 
+// Source types based on backend models
+export interface SourceSettingsSchema {
+  type: string;
+  title?: string;
+  description?: string;
+  required?: boolean;
+  pattern?: string;
+  env_var?: string;
+  default?: string | number | boolean;
+  minimum?: number;
+  maximum?: number;
+  enum?: string[];
+  sensitive?: boolean;
+}
+
+export interface SourceUIMetadata {
+  icon?: string;
+  color?: string;
+  description_short?: string;
+  description_long?: string;
+}
+
+export interface SourceCatalogDefinition {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  module_name: string;
+  module_path: string;
+  class_name: string;
+  category?: string;
+  version?: string;
+  tags?: string[];
+  settings_schema?: Record<string, SourceSettingsSchema>;
+  ui_metadata?: SourceUIMetadata;
+}
+
+export interface SourceStatus {
+  status: 'connected' | 'error' | 'testing' | 'unknown';
+  message?: string;
+  tested_at?: string;
+  details?: Record<string, any>;
+}
+
+export interface SourceTestConnectionResponse {
+  instance_id: string;
+  instance_name?: string;
+  source_type?: string;
+  status: 'connected' | 'error' | 'testing';
+  message: string;
+  tested_at: string;
+  details?: Record<string, any>;
+}
+
+export interface SourceInstanceCrawlerSettings {
+  crawl_interval_minutes?: number;
+  max_documents?: number;
+  incremental?: boolean;
+  start_from?: string;
+  crawl_depth?: number;
+  check_for_updates?: boolean;
+  checkpoint_time?: string;
+  checkpoint_interval_minutes?: number;
+  retry_attempts?: number;
+  retry_delay_seconds?: number;
+  retry_backoff_multiplier?: number;
+  max_retry_delay_seconds?: number;
+  checkpoint_batch_size?: number;
+  timeout_seconds?: number;
+  concurrent_workers?: number;
+  rate_limit_requests_per_second?: number;
+  pause_on_error?: boolean;
+  skip_failed_documents?: boolean;
+  additional_settings?: Record<string, any>;
+}
+
+export interface SourceInstance {
+  id: string;
+  name: string;
+  source_catalog_id: string;
+  description?: string;
+  settings?: Record<string, any>;
+  crawler_settings?: SourceInstanceCrawlerSettings;
+  enabled: boolean;
+  test_connection: boolean;
+  status?: SourceStatus;
+  created: string;
+  updated: string;
+  catalog_definition?: SourceCatalogDefinition;
+}
+
+export interface SourceInstanceCreateRequest {
+  name: string;
+  source_catalog_id: string;
+  description?: string;
+  settings?: Record<string, any>;
+  crawler_settings?: SourceInstanceCrawlerSettings;
+  enabled?: boolean;
+  test_connection?: boolean;
+}
+
+export interface SourceInstanceUpdateRequest {
+  name: string;
+  source_catalog_id?: string;
+  description?: string;
+  settings?: Record<string, any>;
+  crawler_settings?: SourceInstanceCrawlerSettings;
+  enabled?: boolean;
+  test_connection?: boolean;
+}
+
 // Pipeline types based on backend models
 export interface PipelineSettings {
   enabled: boolean;
@@ -266,17 +380,18 @@ export interface CreatePipelineRequest {
   settings?: PipelineSettings;
 }
 
-export interface PipelineUpdateRequest {
-  description?: string;
-  steps?: string[];
-  execution_sequence?: string[];
-  version?: string;
-  settings?: PipelineSettings;
+export interface ContentIdentifier {
+  canonical_id: string;
+  unique_id: string;
+  multipart_id : string[];
+  source_id : string;
+  source_name : string;
+  metadata: Record<string, any>;
 }
 
 // Pipeline Execution types based on backend models
 export interface DocumentResult {
-  document_id: string;
+  document_id: ContentIdentifier;
   result: string;
   reason?: string;
   elapsed_time_ms?: number;
@@ -319,6 +434,7 @@ export interface DocumentExecutionStatus {
   batch_started_at?: string;
   batch_completed_at?: string;
   batch_metadata?: Record<string, any>;
+  batch_errors?: string[];
   document?: any;
 }
 
@@ -558,6 +674,62 @@ export class ApiManager {
   }
 
   // ##################################
+  // Source Catalog Methods
+  async getSourceCatalog(): Promise<SourceCatalogDefinition[]> {
+    return this.get('/api/sources/catalog');
+  }
+
+  async getCatalogSource(sourceId: string): Promise<SourceCatalogDefinition> {
+    return this.get(`/api/sources/catalog/${sourceId}`);
+  }
+
+  async getSourcesByType(sourceType: string): Promise<SourceCatalogDefinition[]> {
+    return this.get(`/api/sources/catalog/type/${sourceType}`);
+  }
+
+  async getSourcesByTags(tags: string): Promise<SourceCatalogDefinition[]> {
+    return this.get(`/api/sources/catalog/tags/${tags}`);
+  }
+
+  async initializeCatalogSources(): Promise<any> {
+    return this.post('/api/sources/initialize');
+  }
+
+  // Source Instance Methods
+  async getSourceInstances(): Promise<SourceInstance[]> {
+    return this.get('/api/sources/instances');
+  }
+
+  async getEnabledSourceInstances(): Promise<SourceInstance[]> {
+    return this.get('/api/sources/instances/enabled');
+  }
+
+  async getSourceInstancesByCatalogId(catalogId: string): Promise<SourceInstance[]> {
+    return this.get(`/api/sources/instances/catalog/${catalogId}`);
+  }
+
+  async getSourceInstance(id: string): Promise<SourceInstance> {
+    return this.get(`/api/sources/instances/${id}`);
+  }
+
+  async createSourceInstance(sourceData: SourceInstanceCreateRequest): Promise<SourceInstance> {
+    return this.post('/api/sources/instances', sourceData);
+  }
+
+  async updateSourceInstance(id: string, sourceData: SourceInstanceUpdateRequest): Promise<SourceInstance> {
+    return this.put(`/api/sources/instances/${id}`, sourceData);
+  }
+
+  async deleteSourceInstance(id: string): Promise<{ message: string }> {
+    return this.delete(`/api/sources/instances/${id}`);
+  }
+
+  // Source Instance Connection Testing
+  async testSourceConnection(id: string): Promise<SourceTestConnectionResponse> {
+    return this.post(`/api/sources/instances/${id}/test-connection`);
+  }
+
+  // ##################################
   // Pipeline Methods
   async getPipelines(): Promise<Pipeline[]> {
     return this.get('/api/pipelines');
@@ -774,6 +946,28 @@ export const stepsApi = {
   createInstance: (data: StepInstanceCreateRequest) => apiManager.createStepInstance(data),
   updateInstance: (id: string, data: StepInstanceUpdateRequest) => apiManager.updateStepInstance(id, data),
   deleteInstance: (id: string) => apiManager.deleteStepInstance(id),
+};
+
+export const sourcesApi = {
+  // Source Catalog
+  getCatalog: () => apiManager.getSourceCatalog(),
+  getCatalogSource: (id: string) => apiManager.getCatalogSource(id),
+  getSourcesByType: (sourceType: string) => apiManager.getSourcesByType(sourceType),
+  getSourcesByTags: (tags: string) => apiManager.getSourcesByTags(tags),
+  initializeCatalog: () => apiManager.initializeCatalogSources(),
+
+  // Source Instances
+  getInstances: () => apiManager.getSourceInstances(),
+  getEnabledInstances: () => apiManager.getEnabledSourceInstances(),
+  getInstancesByCatalogId: (catalogId: string) => apiManager.getSourceInstancesByCatalogId(catalogId),
+  getInstance: (id: string) => apiManager.getSourceInstance(id),
+  createInstance: (data: SourceInstanceCreateRequest) => apiManager.createSourceInstance(data),
+  updateInstance: (id: string, data: SourceInstanceUpdateRequest) => apiManager.updateSourceInstance(id, data),
+  deleteInstance: (id: string) => apiManager.deleteSourceInstance(id),
+  getVaultsBySourceInstance: (sourceInstanceName: string) => apiManager.getVaults().then(vaults => vaults.filter(v => v.source_instance_name === sourceInstanceName)),
+  
+  // Connection Testing
+  testConnection: (id: string) => apiManager.testSourceConnection(id),
 };
 
 export const pipelinesApi = {

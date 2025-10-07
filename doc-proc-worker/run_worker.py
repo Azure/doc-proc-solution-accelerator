@@ -24,9 +24,8 @@ _settings = None  # Placeholder for app_settings import
 
 async def check_cosmos_db_connectivity():
     """Check Cosmos DB connectivity before starting workers"""
+    from azure.cosmos import exceptions
     from app.proxy.cosmos import CosmosDb
-    from app.utils import get_azure_credential
-    from azure.cosmos import CosmosClient, exceptions
     
     logger = logging.getLogger("doc-proc-worker.run_worker")
     

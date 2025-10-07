@@ -6,7 +6,9 @@ from pathlib import Path
 import aiohttp
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.file_downloader")
 
@@ -38,7 +40,7 @@ class FileDownloaderStep(StepBase):
 
         logger.debug(f"Initialized FileDownloaderStep with temp_folder: {self.temp_folder}")
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Download files for documents that have blob storage references.
         
@@ -47,13 +49,13 @@ class FileDownloaderStep(StepBase):
             context: Pipeline execution context
             
         Returns:
-            StepInputOutput: Output with local file_path added to documents that were downloaded
+            Document: Output with local file_path added to documents that were downloaded
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get document from input data
         doc_to_process = document.data
@@ -67,10 +69,9 @@ class FileDownloaderStep(StepBase):
 
             processed_doc = await self._process_document(doc_to_process, context)
 
-            if self.debug_mode:
-                logger.debug(f"FileDownloaderStep completed processing. Document: {processed_doc}")
+            logger.debug(f"Successfully processed document: {document.id}")
 
-            return StepInputOutput(summary_data={**document.summary_data}, data=processed_doc)
+            return Document(summary_data={**document.summary_data}, data=processed_doc)
 
         except Exception as e:
             logger.error(f"Error in FileDownloaderStep: {e}")

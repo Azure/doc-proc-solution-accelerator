@@ -9,13 +9,14 @@ from typing import Any, Dict, List, Optional
 
 from azure.storage.queue.aio import QueueClient
 
+from doc.proc.providers.credential_provider import get_azure_credential
+
 from app.models.vault import DocumentInfo, Vault
-from app.utils import get_azure_credential
 
 
-logger = logging.getLogger("doc-proc-ui.app.services.storage_queue_helper")
+logger = logging.getLogger("doc-proc-api.services.document_queue_submitter")
 
-class StorageQueueHelper():
+class DocumentQueueSubmitter():
 
     def __init__(self, storage_queue_url: str, queue_name: str):
 
@@ -67,20 +68,19 @@ class StorageQueueHelper():
             raise ValueError("Documents list cannot be empty")
                 
         # Create documents info list
-        _documents = [{"id": doc.id, "blob_details": {**doc.blob_details}} for doc in documents if doc.id and doc.blob_details]
+        _documents = [{"id": doc.content_id.model_dump()} for doc in documents if doc.content_id]
 
         logger.info(f"Queueing {len(_documents)} documents in vault '{vault.name}' for processing in pipeline '{pipeline_to_process_documents}'")
 
         # create message content
         message = {
             "message_type": "batch_execution_request",
-            "pipeline_name": pipeline_to_process_documents,
+            "pipeline_name": vault.pipeline_name,
             "vault_id": vault.id,
             "documents": _documents,
             "batch_id": f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}_{len(_documents)}_docs",
             "priority": 0,
             "metadata": {
-                "source": "vault_document_processing",
                 "document_count": len(_documents),
                 "vault_name": vault.name,
             },

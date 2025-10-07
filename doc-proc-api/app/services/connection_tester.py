@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from app.services.service_instance_loader import create_service_instance
 
-logger = logging.getLogger("doc-proc-ui.app.services.connection_tester")
+logger = logging.getLogger("doc-proc-api.services.connection_tester")
 
 
 class ServiceConnectionTester:

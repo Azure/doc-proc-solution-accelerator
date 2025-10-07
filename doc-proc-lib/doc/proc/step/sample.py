@@ -2,18 +2,21 @@ import logging
 from typing import List
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 
 logger = logging.getLogger("doc.proc.step.sample_step")
 
+#TODO: fix this
 class SampleStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
         super().__init__(instance_config=instance_config, **kwargs)
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         # Implement your document step logic here
         logger.debug(f"Running SampleStep: {self.name} with input data: {input_data}")
         
@@ -26,7 +29,7 @@ class SampleStep(StepBase):
         documents = input_data.data.get("documents", [])
         if not documents or not isinstance(documents, list):
             logger.warning("No documents found in input data.")
-            return StepInputOutput(summary_data={f"{self.name}_stats": _stats}, data={"documents": []})
+            return Document(summary_data={f"{self.name}_stats": _stats}, data={"documents": []})
         
         _stats["total_documents"] = len(documents)
         

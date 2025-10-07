@@ -1,9 +1,6 @@
 from abc import abstractmethod
 
-
-class ServiceExecutionError(Exception):
-    """Custom exception for errors during service execution."""
-    pass
+from doc.proc.models import ServiceExecutionError
 
 
 class ServiceBase:

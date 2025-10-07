@@ -5,7 +5,7 @@ Unit tests for the AIPowerPointTextExtractorStep class.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from doc.proc.step.ai_pptx_text_extractor import AIPowerPointTextExtractorStep
-from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
+from doc.proc.models import StepInputOutput, StepExecutionError, StepInstanceConfig
 
 
 class TestAIPowerPointTextExtractorStep:

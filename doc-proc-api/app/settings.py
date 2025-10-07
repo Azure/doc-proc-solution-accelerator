@@ -3,14 +3,10 @@ from typing import Optional
 from functools import lru_cache
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from azure.appconfiguration import AzureAppConfigurationClient
 
-from app.utils import get_azure_credential
+from doc.proc.utils.ttl_cache import ttl_cache
 
-load_dotenv()  # Load environment variables from .env file if present
-
-AZURE_APP_CONFIG_COMMON_KEY_PREFIX = "doc-proc."
-AZURE_APP_CONFIG_API_KEY_PREFIX = "doc-proc.api."
+load_dotenv()
 
 class AppSettings(BaseModel):
     """
@@ -46,6 +42,8 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_SERVICE_INSTANCES: str = "service_instances"
     COSMOS_DB_CONTAINER_STEP_CATALOG: str = "step_catalog"
     COSMOS_DB_CONTAINER_STEP_INSTANCES: str = "step_instances"
+    COSMOS_DB_CONTAINER_SOURCE_CATALOG: str = "source_catalog"
+    COSMOS_DB_CONTAINER_SOURCE_INSTANCES: str = "source_instances"
     COSMOS_DB_CONTAINER_PIPELINES: str = "pipelines"
     COSMOS_DB_CONTAINER_VAULTS: str = "vaults"
     COSMOS_DB_CONTAINER_VAULT_DOCUMENTS: str = "vault_documents"
@@ -67,36 +65,12 @@ class AppSettings(BaseModel):
 
     def _load_from_app_config(self):
         """Load configuration values from Azure App Configuration"""
+        
+        print(f"doc-proc-ui.app: Loading configuration from doc-proc configuration provider...")
+        
         try:
-            # Get connection info from environment variables
-            connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING", "")
-            endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT", "")
-
-            print(f"doc-proc-ui.app: Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
-
-            if not connection_string and not endpoint:
-                print("\033[91m🚨 doc-proc-ui.app: DANGER: No Azure App Configuration connection string or endpoint found in environment variables\033[0m")
-                raise RuntimeError("Azure App Configuration connection info not provided in environment variables.")
-                
-            
-            # Create the client
-            if connection_string:
-                client = AzureAppConfigurationClient.from_connection_string(connection_string)
-            else:
-                credential = get_azure_credential()
-                client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
-
-            # Fetch configuration items with the specified prefix
-            items_common = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*"
-            )
-
-            items_api = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_API_KEY_PREFIX}*"
-            )
-
-            config_items = [item for item in items_common] + [item for item in items_api]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefixes '{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*' and '{AZURE_APP_CONFIG_API_KEY_PREFIX}*'.")
+            from app.dependencies import get_config_provider
+            config_provider = get_config_provider(refresh=True)
             
             # Define the configuration keys to load
             config_keys = [
@@ -120,11 +94,10 @@ class AppSettings(BaseModel):
             # Load configuration values
             for key in config_keys:
                 try:
-                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}{key}" or item.key == f"{AZURE_APP_CONFIG_API_KEY_PREFIX}{key}"), None)
-                    if config_setting and config_setting.value:
-                        # Convert value to appropriate type
-                        value = config_setting.value
-                        
+                    value = config_provider.get_config_value(key)
+                    
+                    if value is not None:
+                    
                         # Handle type conversion
                         if key in ["API_SERVER_PORT", "API_SERVER_WORKERS"]:
                             value = int(value)
@@ -137,25 +110,11 @@ class AppSettings(BaseModel):
                         
                         setattr(self, key, value)
                     
-                    # try to get the value from environment variable as fallback
-                    elif os.getenv(key):
-                        value = os.getenv(key)
-                        
-                        # Handle type conversion
-                        if key in ["API_SERVER_PORT", "API_SERVER_WORKERS"]:
-                            value = int(value)
-                        elif key == "DEBUG":
-                            value = value.lower() in ("true", "1", "yes", "on")
-                        elif key in ["ALLOW_ORIGINS", "ALLOW_METHODS", "ALLOW_HEADERS"]:
-                            value = [item.strip() for item in value.split(",")]
-                        elif key == "ALLOW_CREDENTIALS":
-                            value = value.lower() in ("true", "1", "yes", "on")
-                        
-                        setattr(self, key, value)
-                    
-                except Exception as e:
-                    print(f"doc-proc-ui.app: Could not load configuration key '{key}' from App Configuration nor from environment variables: {e}")
+                except KeyError as e:
+                    print(f"doc-proc-ui.app: Configuration key '{key}' not found in Azure App Configuration nor from environment variables: {e}.")
                     print("If using App Configuration, please ensure that the key exists with correct prefix.")
+                except Exception as e:
+                    print(f"An error occurred while loading configuration key '{key}': {e}")
                     continue
                     
         except Exception as e:
@@ -171,6 +130,8 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_SERVICE_INSTANCES,
             self.COSMOS_DB_CONTAINER_STEP_CATALOG,
             self.COSMOS_DB_CONTAINER_STEP_INSTANCES,
+            self.COSMOS_DB_CONTAINER_SOURCE_CATALOG,
+            self.COSMOS_DB_CONTAINER_SOURCE_INSTANCES,
             self.COSMOS_DB_CONTAINER_PIPELINES,
             self.COSMOS_DB_CONTAINER_VAULTS,
             self.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS,
@@ -200,10 +161,7 @@ class AppSettings(BaseModel):
             "redoc_url": self.REDOC_URL
         }
 
-@lru_cache()
+@ttl_cache(maxsize=1, ttl=60 * 10)  # Cache for 10 minutes
 def get_settings() -> AppSettings:
     """Get cached AppSettings instance"""
     return AppSettings()
-
-# Initialize settings
-app_settings: AppSettings = get_settings()

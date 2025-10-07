@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 
-from app.utils import get_azure_credential
+from doc.proc.providers.credential_provider import get_azure_credential
 
 class CosmosDb:
     def __init__(self, 

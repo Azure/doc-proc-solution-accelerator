@@ -41,16 +41,22 @@ class StorageConfig(BaseModel):
     connection_string: Optional[str] = Field(None, description="Storage connection string")
 
 
+class ContentIdentifierInfo(BaseModel):
+    canonical_id : str = Field(default=..., description='Canonical identifier for the content')
+    unique_id : Optional[str] = Field(default=None, description='Unique identifier for the content')
+    multipart_id : list[str] = Field(default_factory=list, description='List of multipart identifiers for the content')
+    source_id : str = Field(default=..., description='Identifier for the source instance of the content')
+    source_name : Optional[str] = Field(default=None, description='Name of the source instance of the content')
+    metadata : dict[str, object] | None = Field(default=None, description='Metadata associated with the content')
+
+
 class DocumentInfo(BaseModel):
     """Information about a document in a vault"""
     id: str = Field(..., description="Document ID")
     name: str = Field(..., description="Document name")
     vault_id: str = Field(..., description="ID of the vault this document belongs to")
-    size_bytes: int = Field(..., description="Document size in bytes")
-    content_type: str = Field(..., description="Document content type")
-    blob_url: str = Field(..., description="URL to the document in blob storage")
-    blob_details: Optional[Dict[str, str]] = Field(None, description="Details about the blob (storage_account, container, blob_name)")
-    upload_date: str = Field(..., description="Upload date in ISO format")
+    content_id: ContentIdentifierInfo = Field(..., description="Content identifier information")
+    submit_date: str = Field(..., description="Submission date in ISO format")
     processed_date: Optional[str] = Field(None, description="Processing date in ISO format")
     status: str = Field(default="pending", description="Processing status")
     source: Optional[str] = Field(None, description="Source of the document, where the document originated from. E.g., 'user_upload', 'api_upload', 'crawler', etc.")
@@ -77,6 +83,7 @@ class VaultCreateRequest(BaseModel):
     name: str = Field(..., description="Vault name")
     description: Optional[str] = Field(None, description="Vault description")
     pipeline_name: str = Field(..., description="Associated pipeline name")
+    source_instance_name: Optional[str] = Field(None, description="Name of the associated source instance")
     processing_config: Optional[DocumentProcessingConfig] = Field(
         None, description="Processing configuration"
     )
@@ -93,7 +100,7 @@ class Vault(BaseDoc):
     """Model for document vault"""
     status: VaultStatus = Field(default=VaultStatus.ACTIVE, description="Vault status")
     pipeline_name: str = Field(..., description="Associated pipeline name")
-    
+    source_instance_name: Optional[str] = Field(None, description="Name of the associated source instance")
     # Configuration
     processing_config: DocumentProcessingConfig = Field(default_factory=DocumentProcessingConfig, description="Document processing configuration")
     storage_config: StorageConfig = Field(default_factory=StorageConfig, description="Storage configuration")
@@ -101,11 +108,3 @@ class Vault(BaseDoc):
     stats: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Vault statistics")
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-
-class VaultAuditLog(BaseModel):
-    """Audit log entry for vault operations"""
-    timestamp: str = Field(..., description="Timestamp of the log entry in ISO format")
-    operation: str = Field(..., description="Operation performed (e.g., 'add_document', 'process_documents')")
-    user: Optional[str] = Field(None, description="User who performed the operation")
-    details: Dict[str, Any] = Field(default_factory=dict, description="Additional details about the operation")

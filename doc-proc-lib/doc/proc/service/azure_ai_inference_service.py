@@ -7,7 +7,8 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, ChatRequestMessage, ChatCompletions
 
-from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase
+from doc.proc.models import ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.azure_ai_inference_service") # need to specify the logger name as this module is loaded dynamically
 

@@ -2,18 +2,19 @@
 Health router for exposing health check endpoints.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from typing import Dict, Any
 
-from app.services.health_service import health_service, SystemHealth, ServiceHealth
+from app.services.health_service import HealthService, SystemHealth, ServiceHealth
+from app.dependencies import get_health_service
 from app.exceptions import ApiException
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 
 @router.get("/", response_model=SystemHealth)
-async def health():
+async def health(health_service: HealthService = Depends(get_health_service)):
     """
     Detailed health check that tests all configured services.
     This endpoint checks connectivity to Cosmos DB, Azure Storage, and Azure App Configuration.
@@ -30,7 +31,7 @@ async def health():
         raise ApiException(status_code=503, message=f"Health check failed", details=f"{str(e)}")
 
 @router.get("/{service_name}", response_model=ServiceHealth)
-async def service_health(service_name: str):
+async def service_health(service_name: str, health_service: HealthService = Depends(get_health_service)):
     """
     Check the health of a specific service.
     

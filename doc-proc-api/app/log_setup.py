@@ -1,6 +1,6 @@
 import logging
 
-from app.settings import app_settings
+
 # from azure.monitor.opentelemetry import configure_azure_monitor
 
 class CustomColoredFormatter(logging.Formatter):
@@ -29,6 +29,10 @@ class CustomColoredFormatter(logging.Formatter):
     
 
 def setup_logger():
+    
+    from app.settings import get_settings
+    app_settings = get_settings()
+    
     # Create a logger
     logger = logging.getLogger()
     

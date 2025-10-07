@@ -15,11 +15,13 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.ai_pptx_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
-
+# TODO: fix this one
 class AIPowerPointTextExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
@@ -61,14 +63,14 @@ class AIPowerPointTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         # Implement your PowerPoint text extraction logic
 
         # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-        
+        if not input_data or not isinstance(input_data, Document) or not hasattr(input_data, 'data') or input_data.data is None:
+            logger.error(f"Invalid input data: {input_data}. Expected Document instance.")
+            raise StepExecutionError(f"Invalid input data: {input_data}. Expected Document instance.")
+
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:

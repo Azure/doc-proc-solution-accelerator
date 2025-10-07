@@ -8,7 +8,8 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence.aio import DocumentIntelligenceClient, DocumentIntelligenceAdministrationClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, DocumentContentFormat, AnalyzeResult
 
-from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase
+from doc.proc.models import ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.azure_document_intelligence_service") # need to specify the logger name as this module is loaded dynamically
 

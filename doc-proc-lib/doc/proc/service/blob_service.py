@@ -8,7 +8,8 @@ from typing import Optional
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobServiceClient, ContainerClient
 
-from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase
+from doc.proc.models import ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.blob_service") # need to specify the logger name as this module is loaded dynamically
 

@@ -5,17 +5,16 @@ Health service for checking the status of various system components.
 import asyncio
 import os
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 import logging
+from pydantic import BaseModel
 
 from azure.cosmos import CosmosClient
 from azure.storage.queue import QueueServiceClient
 from azure.appconfiguration import AzureAppConfigurationClient
 from azure.core.exceptions import ServiceRequestError, ResourceNotFoundError
-from pydantic import BaseModel
 
-from app.settings import app_settings
-from app.utils import get_azure_credential, get_azure_credential_with_details
+from doc.proc.providers.credential_provider import get_azure_credential_with_details
 
 logger = logging.getLogger("doc-proc-ui.app.services.health_service")
 
@@ -40,11 +39,28 @@ class SystemHealth(BaseModel):
 
 class HealthService:
     """Service for checking the health of system components"""
-    
-    def __init__(self):
+
+    def __init__(self, 
+                 cosmos_endpoint: str = None, 
+                 cosmos_db_name: str = None,
+                 cosmos_db_containers: List[str] = None,
+                 blob_storage_account: str = None,
+                 blob_storage_container: str = None,
+                 storage_account_worker_queue_url: str = None,
+                 storage_worker_queue_name: str = None):
+        
+        self.cosmos_endpoint = cosmos_endpoint
+        self.cosmos_db_name = cosmos_db_name
+        self.cosmos_db_containers = cosmos_db_containers
+        self.blob_storage_account = blob_storage_account
+        self.blob_storage_container = blob_storage_container
+        self.storage_account_worker_queue_url = storage_account_worker_queue_url
+        self.storage_worker_queue_name = storage_worker_queue_name
+        
         self.cosmos_client: Optional[CosmosClient] = None
         self.queue_client: Optional[QueueServiceClient] = None
         self.app_config_client: Optional[AzureAppConfigurationClient] = None
+        
         
     async def check_all_services(self) -> SystemHealth:
         """Check the health of all configured services"""
@@ -101,9 +117,9 @@ class HealthService:
         start_time = datetime.now(timezone.utc)
         
         try:
-            logger.debug(f"Checking Cosmos DB health with endpoint: {app_settings.COSMOS_DB_ENDPOINT}")
-            
-            if not app_settings.COSMOS_DB_ENDPOINT:
+            logger.debug(f"Checking Cosmos DB health with endpoint: {self.cosmos_endpoint}")
+
+            if not self.cosmos_endpoint:
                 return ServiceHealth(
                     name="cosmos_db",
                     status="error",
@@ -118,12 +134,12 @@ class HealthService:
             # Create client if not exists
             if not self.cosmos_client:
                 self.cosmos_client = CosmosClient(
-                    url=app_settings.COSMOS_DB_ENDPOINT,
+                    url=self.cosmos_endpoint,
                     credential=credential
                 )
             
             # Try to get database info
-            database = self.cosmos_client.get_database_client(app_settings.COSMOS_DB_NAME)
+            database = self.cosmos_client.get_database_client(self.cosmos_db_name)
             
             # Simple read operation to test connectivity
             database_properties = database.read()
@@ -135,15 +151,15 @@ class HealthService:
                 status="connected",
                 message="Connected successfully",
                 details={
-                    "database_name": app_settings.COSMOS_DB_NAME,
+                    "database_name": self.cosmos_db_name,
                     "database_id": database_properties.get("id"),
-                    "container_count": len(app_settings.get_cosmos_db_containers()),
+                    "container_count": len(self.cosmos_db_containers) if self.cosmos_db_containers else 0,
                     "credential_type": "default_azure_credential",
                     "credential_details": token_details
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.COSMOS_DB_ENDPOINT
+                endpoint=self.cosmos_endpoint
             )
             
         except ResourceNotFoundError:
@@ -152,11 +168,11 @@ class HealthService:
                 name="cosmos_db",
                 status="error",
                 message="Database not found",
-                error=f"Database '{app_settings.COSMOS_DB_NAME}' not found",
+                error=f"Database '{self.cosmos_db_name}' not found",
                 details={"error_type": "ResourceNotFoundError"},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.COSMOS_DB_ENDPOINT
+                endpoint=self.cosmos_endpoint
             )
         except Exception as e:
             response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -168,7 +184,7 @@ class HealthService:
                 details={"error_type": type(e).__name__},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.COSMOS_DB_ENDPOINT
+                endpoint=self.cosmos_endpoint
             )
     
     
@@ -177,9 +193,9 @@ class HealthService:
         start_time = datetime.now(timezone.utc)
         
         try:
-            logger.debug(f"Checking blob storage health with account: {app_settings.BLOB_STORAGE_ACCOUNT_NAME} and container: {app_settings.BLOB_STORAGE_CONTAINER_NAME}")
-            
-            if not app_settings.BLOB_STORAGE_ACCOUNT_NAME or not app_settings.BLOB_STORAGE_CONTAINER_NAME:
+            logger.debug(f"Checking blob storage health with account: {self.blob_storage_account} and container: {self.blob_storage_container}")
+
+            if not self.blob_storage_account or not self.blob_storage_container:
                 return ServiceHealth(
                     name="blob_storage",
                     status="error",
@@ -193,14 +209,14 @@ class HealthService:
             from azure.storage.blob import BlobServiceClient
             
             # Create client
-            account_url = f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+            account_url = f"https://{self.blob_storage_account}.blob.core.windows.net"
             blob_service_client = BlobServiceClient(
                 account_url=account_url,
                 credential=credential
             )
             
             # Try to get container properties
-            container_client = blob_service_client.get_container_client(app_settings.BLOB_STORAGE_CONTAINER_NAME)
+            container_client = blob_service_client.get_container_client(self.blob_storage_container)
             properties = container_client.get_container_properties()
 
             response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -210,7 +226,7 @@ class HealthService:
                 status="connected",
                 message="Connected successfully",
                 details={
-                    "container_name": app_settings.BLOB_STORAGE_CONTAINER_NAME,
+                    "container_name": self.blob_storage_container,
                     "last_modified": properties.last_modified.isoformat() if properties.last_modified else None,
                     "lease_status": properties.lease.status if properties.lease else None,
                     "credential_type": "default_azure_credential",
@@ -218,7 +234,7 @@ class HealthService:
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=f"{account_url}/{app_settings.BLOB_STORAGE_CONTAINER_NAME}"
+                endpoint=f"{account_url}/{self.blob_storage_container}"
             )
             
         except ResourceNotFoundError:
@@ -226,12 +242,12 @@ class HealthService:
             return ServiceHealth(
                 name="blob_storage",
                 status="error",
-                message=f"Container '{app_settings.BLOB_STORAGE_CONTAINER_NAME}' not found",
-                error=f"Container '{app_settings.BLOB_STORAGE_CONTAINER_NAME}' not found",
+                message=f"Container '{self.blob_storage_container}' not found",
+                error=f"Container '{self.blob_storage_container}' not found",
                 details={"error_type": "ResourceNotFoundError"},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+                endpoint=f"https://{self.blob_storage_account}.blob.core.windows.net"
             )
         except Exception as e:
             response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -243,7 +259,7 @@ class HealthService:
                 details={"error_type": type(e).__name__},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=f"https://{app_settings.BLOB_STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+                endpoint=f"https://{self.blob_storage_account}.blob.core.windows.net"
             )
     
     async def _check_storage_queue_health(self) -> ServiceHealth:
@@ -251,10 +267,10 @@ class HealthService:
         start_time = datetime.now(timezone.utc)
         
         try:
-            
-            logger.debug(f"Checking storage queue health with URL: {app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL} and queue name: {app_settings.STORAGE_WORKER_QUEUE_NAME}")
-            
-            if not app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL:
+
+            logger.debug(f"Checking storage queue health with URL: {self.storage_account_worker_queue_url} and queue name: {self.storage_worker_queue_name}")
+
+            if not self.storage_account_worker_queue_url:
                 return ServiceHealth(
                     name="storage_queue",
                     status="error",
@@ -268,7 +284,7 @@ class HealthService:
             # Create client if not exists
             if not self.queue_client:
                 # Extract account URL from queue URL
-                account_url = app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
+                account_url = self.storage_account_worker_queue_url
                 
                 self.queue_client = QueueServiceClient(
                     account_url=account_url,
@@ -276,7 +292,7 @@ class HealthService:
                 )
             
             # Try to get queue properties
-            queue_client = self.queue_client.get_queue_client(app_settings.STORAGE_WORKER_QUEUE_NAME)
+            queue_client = self.queue_client.get_queue_client(self.storage_worker_queue_name)
             properties = queue_client.get_queue_properties()
 
             response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -286,7 +302,7 @@ class HealthService:
                 status="connected",
                 message="Connected successfully",
                 details={
-                    "queue_name": app_settings.STORAGE_WORKER_QUEUE_NAME,
+                    "queue_name": self.storage_worker_queue_name,
                     "approximate_message_count": properties.approximate_message_count,
                     "metadata": properties.metadata,
                     "credential_type": "default_azure_credential",
@@ -294,7 +310,7 @@ class HealthService:
                 },
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
+                endpoint=self.storage_account_worker_queue_url
             )
             
         except ResourceNotFoundError:
@@ -302,12 +318,12 @@ class HealthService:
             return ServiceHealth(
                 name="storage_queue",
                 status="error",
-                message=f"Queue '{app_settings.STORAGE_WORKER_QUEUE_NAME}' not found",
-                error=f"Queue '{app_settings.STORAGE_WORKER_QUEUE_NAME}' not found",
+                message=f"Queue '{self.storage_worker_queue_name}' not found",
+                error=f"Queue '{self.storage_worker_queue_name}' not found",
                 details={"error_type": "ResourceNotFoundError"},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
+                endpoint=self.storage_account_worker_queue_url
             )
         except Exception as e:
             response_time = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
@@ -319,7 +335,7 @@ class HealthService:
                 details={"error_type": type(e).__name__},
                 response_time_ms=response_time,
                 last_checked=datetime.now(timezone.utc).isoformat(),
-                endpoint=app_settings.STORAGE_ACCOUNT_WORKER_QUEUE_URL
+                endpoint=self.storage_account_worker_queue_url
             )
     
     async def _check_app_config_health(self) -> ServiceHealth:
@@ -409,6 +425,3 @@ class HealthService:
                 message=f"Unknown service: {service_name}",
                 last_checked=datetime.now(timezone.utc).isoformat()
             )
-
-# Singleton instance
-health_service = HealthService()

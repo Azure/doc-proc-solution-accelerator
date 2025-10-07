@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from typing import Dict, Any
 
-from doc.proc.step.step_base import StepInstanceConfig, StepInputOutput
+from doc.proc.models import StepInstanceConfig, StepInputOutput
 from doc.proc.service.service_base import ServiceBase
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 

@@ -5,10 +5,11 @@ import json
 from typing import List, Dict, Any
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.azure_doc_intelligence_extractor") # need to specify the logger name as this module is loaded dynamically
-
 
 class AzureDocumentIntelligenceExtractorStep(StepBase):
 
@@ -34,7 +35,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
                          f"Output format: {self.output_format}., Output field name: {self.output_field_name}")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step processing logic for Azure Document Intelligence extraction.
 
@@ -43,13 +44,13 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             context: Pipeline execution context
 
         Returns:
-            StepInputOutput: Output with extraction results
+            Document: Output with extraction results
         """
         
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get Azure Document Intelligence Service from context
         doc_intel_service = self._get_document_intelligence_service(context)
@@ -85,9 +86,9 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             else:
                 logger.info(f"Successfully processed document: {result_data.get('file_path')}")
 
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+            # Return the updated Document
+            return Document(summary_data = {**document.summary_data}, 
+                            data = result_data)
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")

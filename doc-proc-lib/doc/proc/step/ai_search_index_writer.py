@@ -3,16 +3,18 @@ import base64
 
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.ai_search_index_writer")
 
+#TODO: fix this
 class AISearchIndexWriterStep(StepBase):
     """
     Step to write to Azure AI Search Index.
     
     """
-
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
         super().__init__(instance_config=instance_config, **kwargs)
 
@@ -52,13 +54,13 @@ class AISearchIndexWriterStep(StepBase):
             logger.error(f"Error parsing index field mappings: {e}")
             raise ValueError("Invalid index field mappings format.")
 
-    
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+
+    async def run(self, input_data: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
 
         # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
+        if not input_data or not isinstance(input_data, Document) or not hasattr(input_data, 'data') or input_data.data is None:
+            logger.error(f"Invalid input data: {input_data}. Expected Document instance.")
+            raise StepExecutionError(f"Invalid input data: {input_data}. Expected Document instance.")
         
 
         # get Azure AI Search Service from context
@@ -78,7 +80,7 @@ class AISearchIndexWriterStep(StepBase):
         if not documents or not isinstance(documents, list):
             logger.warning(f"No documents list found in input data.")
             # skipping processing if no documents are found
-            return StepInputOutput(summary_data=
+            return Document(summary_data=
                                     {
                                         **input_data.summary_data, f"{self.name}_stats": _stats
                                     }, 
@@ -121,7 +123,7 @@ class AISearchIndexWriterStep(StepBase):
                     raise StepExecutionError(f"Failed to process document: {e}")
 
         # Return the updated StepInputOutput
-        return StepInputOutput(summary_data=
+        return Document(summary_data=
                                     {
                                         **input_data.summary_data, f"{self.name}_stats": _stats
                                     }, 

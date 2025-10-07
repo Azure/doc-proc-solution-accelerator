@@ -12,10 +12,13 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.entity_extractor") # need to specify the logger name as this module is loaded dynamically
 
+#TODO: fic this one
 class EntityExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
@@ -147,14 +150,14 @@ Output Format:
 
 Return only the JSON output with extracted entities and relationships."""
 
-    async def run(self, input_data: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, input_data: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """ Run the entity extractor step to process documents and extract entities."""
 
         # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, StepInputOutput) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected StepInputOutput instance.")
-        
+        if not input_data or not isinstance(input_data, Document) or not hasattr(input_data, 'data') or input_data.data is None:
+            logger.error(f"Invalid input data: {input_data}. Expected Document instance.")
+            raise StepExecutionError(f"Invalid input data: {input_data}. Expected Document instance.")
+
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
         if not ai_model_inference_service:

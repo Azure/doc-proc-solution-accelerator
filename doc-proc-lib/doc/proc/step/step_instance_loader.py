@@ -1,7 +1,7 @@
 import logging
 
-from doc.proc.step.step_base import StepBase, StepInstanceConfig
-from doc.proc.step.step_config import StepConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepConfig, StepInstanceConfig
 from doc.proc.utils.import_module import import_module
 
 logger = logging.getLogger("doc.proc.service.step_instance_loader")

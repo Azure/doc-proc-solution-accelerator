@@ -4,7 +4,9 @@ from typing import List
 import hashlib
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.excel_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
@@ -32,7 +34,7 @@ class ExcelTextExtractorStep(StepBase):
                          f"Sheets to process: {self.sheets_to_process}.")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step processing logic for Excel text extraction.
 
@@ -41,13 +43,13 @@ class ExcelTextExtractorStep(StepBase):
             context: Pipeline execution context
 
         Returns:
-            StepInputOutput: Output with text extracted from Excel
+            Document: Output with text extracted from Excel
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
         
         # get document from input data
         doc_to_process = document.data
@@ -70,14 +72,11 @@ class ExcelTextExtractorStep(StepBase):
             result_data = await self._process_document(document=doc_to_process, 
                                          context=context)
 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {doc_to_process}")
-            else:
-                logger.info(f"Successfully processed document: {doc_to_process.get('file_path', 'unknown')}")
+            logger.debug(f"Successfully processed document: {document.id}")
                 
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+            # Return the updated Document
+            return Document(summary_data = {**document.summary_data}, 
+                            data = result_data)
 
         except Exception as e:
             logger.error(f"Error processing document {document}: {e}")
