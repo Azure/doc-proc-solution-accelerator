@@ -15,8 +15,8 @@ from app.models.execution import (
     BatchExecution, BatchStatus, ActivityType,
     StepOutput, BatchExecutionRequest
 )
-from doc.proc.pipeline.pipeline_base import Pipeline, PipelineExecutionResult
-from doc.proc.step.step_base import StepInputOutput
+from doc.proc.pipeline.pipeline_base import Pipeline
+from doc.proc.models import Document, PipelineExecutionResult, PipelineInput, ContentIdentifier
 
 logger = logging.getLogger("doc-proc-worker.app.execution_manager")
 
@@ -84,6 +84,9 @@ class ExecutionManager():
             return True
 
         except Exception as e:
+            logger.error(f"Error executing batch {batch_id}: {e}")
+            logger.error(traceback.format_exc())
+            
             await self._update_batch_status(
                 batch_id=batch_id,
                 status=BatchStatus.FAILED,
@@ -97,22 +100,11 @@ class ExecutionManager():
         """Process the batch and return results"""
         
         # Create input data for the batch
-        input_data = StepInputOutput(
-                            summary_data={
-                                "batch_id": batch.id,
-                                "pipeline": pipeline.name
-                            },
-                            data={
-                                "documents": batch.documents
-                            }
-                        )
-            
+        _documents = [Document(id=ContentIdentifier(**doc.get("id")), data={}) for doc in batch.documents if doc.get("id")]
+        pipeline_input: PipelineInput = PipelineInput(documents=_documents)
+
         # Execute pipeline for this batch
-        result = await pipeline.run(input_data)
-        
-        with open(f"./tmp/{batch.id}_result.json", 'w') as f:
-            f.write(result.model_dump_json())
-        
+        result = await pipeline.run(input_data=pipeline_input)
         return result
 
 
@@ -214,7 +206,10 @@ class ExecutionManager():
             document_results = _pipeline_execution_result.get("document_results", [])
             for doc_result in document_results:
                 if "document_id" in doc_result and "result" in doc_result:
-                    doc_id = doc_result["document_id"]
+                    doc_unique_id = doc_result["document_id"].get("unique_id", "") if isinstance(doc_result["document_id"], dict) else ""
+                    if not doc_unique_id or doc_unique_id.strip() == "":
+                        continue
+                    
                     doc_status = doc_result["result"]
                     doc_reason = doc_result.get("reason", "")
                     doc_elapsed_time = doc_result.get("elapsed_time_secs", 0.0)
@@ -229,7 +224,10 @@ class ExecutionManager():
 
                     # Find the document in the batch and update its status
                     for batch_doc in batch_data.get("documents", []):
-                        if batch_doc.get("id", "") == doc_id:
+                        batch_doc_id = batch_doc.get("id", {})
+                        batch_doc_unique_id = batch_doc_id.get("unique_id", "") if isinstance(batch_doc_id, dict) else ""
+                        if batch_doc_unique_id == doc_unique_id:
+                            # Update status, reason, and elapsed_time_secs
                             batch_doc["status"] = doc_status
                             batch_doc["reason"] = doc_reason
                             batch_doc["elapsed_time_secs"] = doc_elapsed_time

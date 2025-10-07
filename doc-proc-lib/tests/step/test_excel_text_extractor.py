@@ -5,7 +5,7 @@ Unit tests for the ExcelTextExtractorStep class.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from doc.proc.step.excel_text_extractor import ExcelTextExtractorStep
-from doc.proc.step.step_base import StepInputOutput, StepExecutionError, StepInstanceConfig
+from doc.proc.models import StepInputOutput, StepExecutionError, StepInstanceConfig
 
 
 class TestExcelTextExtractorStep:

@@ -2,21 +2,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.settings import app_settings
+from app.settings import get_settings
 from app.log_setup import setup_logger
-from app.routers import services, health, steps, pipelines, vaults, status # dashboard
+from app.routers import services, health, steps, pipelines, vaults, status, sources # dashboard
 from app.startup import create_startup_handler, create_shutdown_handler
 from app.exceptions import add_exception_handlers
 
 def create_app() -> FastAPI:
-    app = FastAPI(**app_settings.get_fastapi_attributes())
+    settings = get_settings()
+    app = FastAPI(**settings.get_fastapi_attributes())
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=app_settings.ALLOW_ORIGINS,
-        allow_credentials=app_settings.ALLOW_CREDENTIALS,
-        allow_methods=app_settings.ALLOW_METHODS,
-        allow_headers=app_settings.ALLOW_HEADERS,
+        allow_origins=settings.ALLOW_ORIGINS,
+        allow_credentials=settings.ALLOW_CREDENTIALS,
+        allow_methods=settings.ALLOW_METHODS,
+        allow_headers=settings.ALLOW_HEADERS,
     )
     
     # Add startup and shutdown event handlers
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(services.router)
     app.include_router(steps.router)
+    app.include_router(sources.router)
     app.include_router(pipelines.router)
     app.include_router(vaults.router)
     app.include_router(status.router)
@@ -44,13 +46,14 @@ setup_logger()
 app = create_app()
 
 if __name__ == "__main__":
+    settings = get_settings()
     uvicorn.run(
         app="main:app",
-        reload=app_settings.DEBUG,
+        reload=settings.DEBUG,
         #reload=False,
-        host=app_settings.API_SERVER_HOST,
-        port=app_settings.API_SERVER_PORT,
-        workers=app_settings.API_SERVER_WORKERS,
-        log_level=str.lower(app_settings.LOG_LEVEL),
+        host=settings.API_SERVER_HOST,
+        port=settings.API_SERVER_PORT,
+        workers=settings.API_SERVER_WORKERS,
+        log_level=str.lower(settings.LOG_LEVEL),
         use_colors=True,
     )

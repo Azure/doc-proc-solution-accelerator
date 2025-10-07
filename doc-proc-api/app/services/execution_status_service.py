@@ -7,7 +7,7 @@ from app.services.base import BaseService
 from app.db.cosmos import CosmosDb
 from app.models.execution import BatchExecution, DocumentExecutionStatus, PipelineExecutionResult
 
-logger = logging.getLogger("doc-proc-ui.app.services.execution_status_service")
+logger = logging.getLogger("doc-proc-api.services.execution_status_service")
     
 class ExecutionStatusService(BaseService):
     """Service for managing pipeline execution results operations"""
@@ -212,7 +212,7 @@ class ExecutionStatusService(BaseService):
         
         query_template = f"""
         SELECT 
-            d.id as document_id,
+            d.id.unique_id as document_id,
             b.id as batch_id, 
             b.status as batch_status,
             b.pipeline_name,
@@ -221,12 +221,13 @@ class ExecutionStatusService(BaseService):
             b.started_at as batch_started_at,
             b.completed_at as batch_completed_at,
             b.metadata as batch_metadata,
+            b.errors as batch_errors,
             d as document
             FROM batch_executions b 
             join d in b.documents 
             where 
             b.id = @batch_id AND
-            d.id = @document_id
+            d.id.unique_id = @document_id
         ORDER BY b.started_at ASC
         """
         

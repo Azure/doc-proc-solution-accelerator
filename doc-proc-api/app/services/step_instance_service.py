@@ -82,7 +82,7 @@ class StepInstanceService(BaseService):
         if await self.validate_item(instance):
             return await self.create(instance)
         else:
-            raise ValueError("Invalid service instance data")
+            raise ValueError("Invalid step instance data")
     
     async def update_step_instance(self, step_instance_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing step instance"""

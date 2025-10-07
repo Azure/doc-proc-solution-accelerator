@@ -24,8 +24,11 @@ import {
   type StorageConfig,
   type DocumentProcessingConfig,
   pipelinesApi,
+  SourceInstance,
+  sourcesApi,
   ErrorWithData
 } from "@/lib/api";
+import { set } from "date-fns";
 
 
 interface CreateVaultDialogProps {
@@ -57,10 +60,15 @@ const CreateVaultDialog = ({
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelinesLoading, setPipelinesLoading] = useState(false);
 
+  // Source instance state
+  const [sourceInstances, setSourceInstances] = useState<SourceInstance[]>([]);
+  const [sourceInstancesLoading, setSourceInstancesLoading] = useState(false);
+
   const [formData, setFormData] = useState<VaultCreateRequest>({
     name: "",
     description: "",
     pipeline_name: "",
+    source_instance_name: "",
     processing_config: {
       auto_process_documents: true,
       supported_formats: ["pdf", "docx", "pptx", "excel"]
@@ -78,10 +86,14 @@ const CreateVaultDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useCustomStorage, setUseCustomStorage] = useState(false);
 
-  // Load pipelines when dialog opens
+  // Load pipelines and source instances when dialog opens
   useEffect(() => {
     if (open && pipelines.length === 0) {
       loadPipelines();
+    }
+
+    if (open && sourceInstances.length === 0) {
+      loadSourceInstances();
     }
   }, [open]);
 
@@ -101,6 +113,25 @@ const CreateVaultDialog = ({
       });
     } finally {
       setPipelinesLoading(false);
+    }
+  };
+
+  const loadSourceInstances = async () => {
+    try {
+      setSourceInstancesLoading(true);
+      const sourceInstancesData = await sourcesApi.getEnabledInstances();
+      setSourceInstances(sourceInstancesData);
+    } catch (error) {
+      console.error('Error loading source instances:', error);
+
+      const errMessage = error instanceof ErrorWithData ? error.details.message : 'Unknown error';
+      toast({
+        title: "Error",
+        description: `Failed to load source instances. ${errMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSourceInstancesLoading(false);
     }
   };
 
@@ -154,6 +185,7 @@ const CreateVaultDialog = ({
         name: formData.name,
         description: formData.description,
         pipeline_name: formData.pipeline_name,
+        source_instance_name: formData.source_instance_name,
         processing_config: formData.processing_config,
         metadata: formData.metadata
       };
@@ -178,6 +210,7 @@ const CreateVaultDialog = ({
       name: "",
       description: "",
       pipeline_name: "",
+      source_instance_name: "",
       processing_config: {
         auto_process_documents: true,
         supported_formats: ["pdf", "docx", "pptx", "excel"],
@@ -195,6 +228,7 @@ const CreateVaultDialog = ({
     setUseCustomStorage(false);
     // Reset pipelines to free up memory when dialog closes
     setPipelines([]);
+    setSourceInstances([]);
     onOpenChange(false);
   };
 
@@ -219,6 +253,7 @@ const CreateVaultDialog = ({
   };
 
   const selectedPipeline = pipelines.find(p => p.name === formData.pipeline_name);
+  const selectedSourceInstance = sourceInstances.find(s => s.name === formData.source_instance_name);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -376,6 +411,71 @@ const CreateVaultDialog = ({
               </div>
             </CardContent>
           </Card>
+
+
+          {/* Source Instance Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center">
+                <Workflow className="h-5 w-5 mr-2" />
+                Data Source
+              </CardTitle>
+              <CardDescription>
+                Select the data source that will provide documents for this vault.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="pipeline">
+                  Source
+                </Label>
+                <Select 
+                  value={formData.source_instance_name} 
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, source_instance_name: value });
+                  }}
+                  disabled={sourceInstancesLoading || sourceInstances.length === 0 || sourceInstances.filter(s => s.enabled === true).length === 0}
+                >
+                  <SelectTrigger className={""}>
+                    <SelectValue placeholder={sourceInstancesLoading ? "Loading source instances..." : sourceInstances.length === 0 ? "No source instances available" : "Select a source instance"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sourceInstances.map((sourceInstance) => (
+                      <SelectItem key={sourceInstance.id} value={sourceInstance.name}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{sourceInstance.name}</span>
+                          {sourceInstance.description && (
+                            <span className="text-sm text-muted-foreground">{sourceInstance.description}</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedSourceInstance && (
+                <Alert>
+                  <Workflow className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p><strong>Selected Source Instance:</strong> {selectedSourceInstance.name}</p>
+                      {selectedSourceInstance.description && (
+                        <p>{selectedSourceInstance.description}</p>
+                      )}
+                      {selectedSourceInstance.catalog_definition?.type && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-sm font-medium">Type:</span>
+                          <p>{selectedSourceInstance.catalog_definition.type}</p>
+                      </div>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+              </CardContent>
+          </Card>
+
 
           {/* Storage Configuration */}
           <Card>
@@ -545,7 +645,7 @@ const CreateVaultDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || loading || pipelinesLoading || pipelines.length === 0}
+            disabled={isSubmitting || loading || pipelinesLoading || pipelines.length === 0 || sourceInstancesLoading}
           >
             {isSubmitting ? "Creating..." : "Create Vault"}
           </Button>

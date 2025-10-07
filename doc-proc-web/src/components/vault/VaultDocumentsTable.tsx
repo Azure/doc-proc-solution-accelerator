@@ -823,6 +823,18 @@ const VaultDocumentsTable = ({
                   </div>
                 )}
 
+                {/* Errors */}
+                {statusDetail.batch_errors && statusDetail.batch_errors.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Batch Errors</Label>
+                    <div className="mt-2 p-3 bg-muted/50 rounded">
+                      <pre className="text-xs overflow-auto">
+                        {JSON.stringify(statusDetail.batch_errors, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
                 {/* Document Info from status */}
                 {statusDetail.document && (
                   <div>

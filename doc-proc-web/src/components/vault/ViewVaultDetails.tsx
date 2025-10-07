@@ -15,13 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { 
-  Play,
   ArrowLeft,
+  Database,
   Workflow,
   Activity,
   CheckCircle,
   AlertCircle,
-  Clock,
   FileText,
   RefreshCw,
   Settings,
@@ -213,6 +212,12 @@ const ViewVaultDetails = ({
             <Badge variant="outline" className="bg-blue-50">
               <Workflow className="h-3 w-3 mr-1" />
               Pipeline: {pipelineLoading ? "Loading..." : (pipeline?.name || vault.pipeline_name)}
+            </Badge>
+          )}
+          {vault.source_instance_name && (
+            <Badge variant="outline" className="bg-blue-50">
+              <Database className="h-3 w-3 mr-1" />
+              Source: {vault.source_instance_name}
             </Badge>
           )}
         </div>

@@ -76,6 +76,7 @@ class VaultService(BaseService):
             name=request.name,
             description=request.description,
             pipeline_name=request.pipeline_name,
+            source_instance_name=request.source_instance_name,
             processing_config=request.processing_config or Vault.model_fields['processing_config'].default_factory(),
             storage_config=request.storage_config or self._get_default_vault_storage_config(),
             stats={}
@@ -174,7 +175,7 @@ class VaultService(BaseService):
                         # processed_documents = len([doc for doc in documents if doc.status == "processed"])
                         # pending_documents = len([doc for doc in documents if doc.status == "pending"])
                         # failed_documents = len([doc for doc in documents if doc.status == "failed"])
-                        total_size_bytes = sum(doc.size_bytes for doc in documents)
+                        # total_size_bytes = sum(doc.size_bytes for doc in documents)
 
                 if self._execution_status_service:
                     active_batch_executions_count = await self._execution_status_service.get_batch_executions_count_for_vault(vault_id=vault_id, status_filter='running')
@@ -183,7 +184,7 @@ class VaultService(BaseService):
 
                 stats = {
                     "total_documents": total_documents,
-                    "total_size_bytes": total_size_bytes,
+                    #"total_size_bytes": total_size_bytes,
                     "active_batch_executions_count": active_batch_executions_count,
                     "completed_batch_executions_count": completed_batch_executions_count,
                     "failed_batch_executions_count": failed_batch_executions_count,
@@ -257,25 +258,8 @@ class VaultService(BaseService):
         
         # Add the document using the vault document service
         added_document = await self._vault_document_service.add_document(vault, document)
-        
-        # # Update stats
-        # vault.stats = vault.stats or VaultStats()
-        # vault.stats.total_documents += 1
-        # vault.stats.total_size_bytes += added_document.size_bytes
-        # if added_document.status == "processed":
-        #     vault.stats.processed_documents += 1
-        # elif added_document.status == "pending":
-        #     vault.stats.pending_documents += 1
-        # elif added_document.status == "failed":
-        #     vault.stats.failed_documents += 1
-        
-        # vault.stats.last_activity = datetime.now(timezone.utc).isoformat()
-        
-        # vault.touch()
-        # await self.update(vault.model_dump())
-        
+                
         return added_document
-
 
     async def remove_document(self, vault_id: str, document: DocumentInfo) -> bool:
         """Remove a document from a vault (updates stats)"""
@@ -283,19 +267,6 @@ class VaultService(BaseService):
         if not vault:
             return False
 
-        # # Update stats
-        # vault.stats.total_documents = max(0, vault.stats.total_documents - 1)
-        # vault.stats.total_size_bytes = max(0, vault.stats.total_size_bytes - document.size_bytes)
-        
-        # if document.status == "processed":
-        #     vault.stats.processed_documents = max(0, vault.stats.processed_documents - 1)
-        # elif document.status == "pending":
-        #     vault.stats.pending_documents = max(0, vault.stats.pending_documents - 1)
-        # elif document.status == "failed":
-        #     vault.stats.failed_documents = max(0, vault.stats.failed_documents - 1)
-
-        # vault.touch()
-        # await self.update(vault_id, vault.model_dump())
         return True
 
 
@@ -385,23 +356,23 @@ class VaultService(BaseService):
         parameters = [{"name": "@pipeline_name", "value": pipeline_name}]
         vaults_using_pipeline = await self.query(query=query, parameters=parameters)
         return [vault["name"] for vault in vaults_using_pipeline] if vaults_using_pipeline else []
-        # Here you would typically:
-        # 1. Get documents to process
-        # 2. Create batch execution request
-        # 3. Submit to processing queue
-        # For now, return a placeholder response
         
-        return {
-            "message": "Vault processing started",
-            "vault_id": request.vault_id,
-            "status": "processing",
-            "documents_to_process": vault.stats.total_documents if not request.document_ids else len(request.document_ids)
-        }
-
-
     async def check_pipeline_in_use_by_vault(self, pipeline_name: str) -> List[str]:
         """Check if a pipeline is used by any vault"""
         query = "SELECT * FROM c WHERE c.pipeline_name = @pipeline_name"
         parameters = [{"name": "@pipeline_name", "value": pipeline_name}]
         vaults_using_pipeline = await self.query(query=query, parameters=parameters)
         return [vault["name"] for vault in vaults_using_pipeline] if vaults_using_pipeline else []
+    
+    async def get_vaults_by_source_instance_name(self, source_instance_name: str) -> List[Vault]:
+        """Get all vaults for a specific source instance name"""
+        try:
+            query = "SELECT * FROM c WHERE c.source_instance_name = @source_instance_name"
+            parameters = [{"name": "@source_instance_name", "value": source_instance_name}]
+            
+            vaults = await self.query(query, parameters)
+            logger.info(f"Retrieved {len(vaults)} vaults for source instance '{source_instance_name}'")
+            return [Vault(**vault) for vault in vaults]
+        except Exception as e:
+            logger.error(f"Failed to get vaults by source instance name '{source_instance_name}': {e}")
+            raise

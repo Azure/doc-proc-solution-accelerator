@@ -2,9 +2,10 @@ from pydantic import BaseModel, ValidationError
 from typing import List, Optional, Tuple
 import yaml
 
-from doc.proc.step.step_config import StepConfig
-from doc.proc.step.step_base import StepInstanceConfig
-from doc.proc.service.service_config import ServiceConfig
+from doc.proc.step.step_config import StepConfig, StepInstanceConfig
+from doc.proc.service.service_config import ServiceConfig, ServiceInstanceConfig
+from doc.proc.source.source_config import SourceConfig
+from doc.proc.source.source_instance_config import SourceInstanceConfig
 
 
 class PipelineSettingsConfig(BaseModel):
@@ -15,11 +16,6 @@ class PipelineSettingsConfig(BaseModel):
     max_concurrent_runs: Optional[int] = 5  # Maximum number of concurrent documents processed by the pipeline
     retries: Optional[int] = 3  # Number of retries for failed steps
 
-class ServiceInstanceConfig(BaseModel):
-    id: Optional[str] = None  # Unique identifier for the service instance
-    name: str  # Instance name in the pipeline
-    service_catalog_id: str  # Reference to service id in the service catalog
-    settings: Optional[dict] = None  # Additional settings for the service instance
 
 class PipelineConfig(BaseModel):
     """Configuration for a single pipeline."""
@@ -30,6 +26,7 @@ class PipelineConfig(BaseModel):
     execution_sequence: List[str] = None  # Order of step instance names
     settings: PipelineSettingsConfig = PipelineSettingsConfig()
     service_instances: List[ServiceInstanceConfig] = []  # List of service instances used in the pipeline
+    source_instances: List[SourceInstanceConfig] = []  # List of source instances used in the pipeline
 
     @staticmethod
     def from_dict(config: dict) -> "PipelineConfig":
@@ -50,7 +47,7 @@ class PipelineConfig(BaseModel):
             raise ValueError(f"An error occurred while loading the pipeline configuration from file: {str(e)}")
 
     @staticmethod
-    def from_yaml(yaml_str: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None) -> List["PipelineConfig"]:
+    def from_yaml(yaml_str: str, step_catalog_config: List[StepConfig] = None, service_catalog_config: List[ServiceConfig] = None, source_catalog_config: List[SourceConfig] = None) -> List["PipelineConfig"]:
         """Load steps and pipelines configuration from a YAML string."""
         if not yaml_str:
             raise ValueError("YAML string cannot be empty")
@@ -72,6 +69,21 @@ class PipelineConfig(BaseModel):
                         if not s_found:
                             raise ValueError(f"Service instance '{service.name}' references unknown service catalog id '{service.service_catalog_id}' that could not be found in service catalog configuration. Available services: {[s.id for s in service_catalog_config]}")
 
+            # Load and validate source instances
+            source_instances: List[SourceInstanceConfig] = []
+            if config.get("source_instances"):
+                source_instances = [SourceInstanceConfig(**s) for s in config.get("source_instances", [])]
+                for source in source_instances:
+                    if not source.name or not source.source_catalog_id:
+                        raise ValueError(f"Source instance '{source.name}' is missing required fields: name or source_catalog_id.")
+
+                # Validate source instances against the source catalog
+                if source_catalog_config:
+                    for source in source_instances:
+                        s_found = next((s for s in source_catalog_config if s.id == source.source_catalog_id), None)
+                        if not s_found:
+                            raise ValueError(f"Source instance '{source.name}' references unknown source catalog id '{source.source_catalog_id}' that could not be found in source catalog configuration. Available sources: {[s.id for s in source_catalog_config]}")
+
             
             # Load and validate pipelines
             if not config.get("pipelines"):
@@ -91,6 +103,7 @@ class PipelineConfig(BaseModel):
                     raise ValueError(f"Pipeline '{pipeline.name}' has an invalid execution sequence. Some steps in the sequence do not match defined step names.")
 
                 pipeline.service_instances = service_instances  # Assign service instances to the pipeline
+                pipeline.source_instances = source_instances  # Assign source instances to the pipeline
 
                 # Validate step instances
                 for step in pipeline.steps:

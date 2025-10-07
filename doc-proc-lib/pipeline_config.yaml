@@ -7,7 +7,7 @@
 service_instances:
 
   - name: primary_blob_storage
-    service_catalog_id: azure_storage_01 # Reference to service in catalog
+    service_catalog_id: azure_storage_service_01 # Reference to service in catalog
     settings:
       account_name: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
       credential_type: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
@@ -322,7 +322,7 @@ pipelines:
     # PIPELINE EXECUTION
     # Define the execution sequence of the steps in the pipeline
     ## execution_sequence: [file_downloader_1, document_type_identifier_1, pdf_text_extractor_1, word_text_extractor_1, pptx_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1, ai_search_index_writer_1]
-    execution_sequence: [file_downloader_1, document_type_identifier_1, pdf_text_extractor_1, excel_text_extractor_1, custom_ai_prompt_1]
+    execution_sequence: [file_downloader_1]
 
     ##########################################################
     # PIPELINE SETTINGS

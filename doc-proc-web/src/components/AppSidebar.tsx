@@ -15,6 +15,8 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
+import { OnlineStatusIndicator } from "@/components/OnlineStatusIndicator";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const appNavigationItems = [
   {
@@ -64,11 +66,24 @@ const appConfigItems = [
         icon: Database,
       },
     ],
+  },
+  {
+    title: "Sources",
+    url: "/sources",
+    icon: Database,
+    subItems: [
+      {
+        title: "Source Instances",
+        url: "/source-instances",
+        icon: Database,
+      },
+    ],
   }
 ];
 
 export function AppSidebar() {
   const location = useLocation();
+  const onlineStatus = useOnlineStatus({ checkInterval: 60000 });
 
   return (
     <Sidebar>
@@ -131,6 +146,17 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      {/* Online Status Indicator at bottom */}
+      <div className="border-t px-6 py-3">
+        <OnlineStatusIndicator 
+          status={onlineStatus}
+          onRefresh={onlineStatus.refresh}
+          size="sm"
+          showText={true}
+          className="justify-center"
+        />
+      </div>
     </Sidebar>
   );
 }

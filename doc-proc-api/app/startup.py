@@ -5,7 +5,7 @@ import asyncio
 from typing import Dict, Any
 import logging
 
-from app.dependencies import get_service_catalog_service, get_step_catalog_service
+from app.dependencies import get_service_catalog_service, get_step_catalog_service, get_source_catalog_service
 
 
 logger = logging.getLogger("doc-proc-ui.app.startup")
@@ -58,6 +58,30 @@ async def initialize_step_catalog():
         raise e
 
 
+async def initialize_source_catalog():
+    """Initialize source catalog on startup"""
+    try:
+        logger.info("Initializing source catalog...")
+        source_catalog_service = get_source_catalog_service()
+        
+        # Load catalog services and sync to database
+        result = await source_catalog_service.initialize_source_catalog()
+                
+        logger.info("Source catalog initialization completed successfully")
+        logger.info(f"Total source in catalog: {result.get('total_catalog_sources', 0)}")
+        
+        return {
+            "status": "success",
+            "added_source_count": result.get('created_count', 0),
+            "source_count": result.get('total_catalog_sources', 0)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize step catalog: {str(e)}")
+        logger.exception(e)
+        raise e
+    
+
 async def startup_tasks():
     """Run all startup tasks"""
     logger.info("Starting application initialization tasks...")
@@ -65,6 +89,7 @@ async def startup_tasks():
     tasks = [
         initialize_service_catalog(),
         initialize_step_catalog(),
+        initialize_source_catalog(),
         # Add other startup tasks here
     ]
     

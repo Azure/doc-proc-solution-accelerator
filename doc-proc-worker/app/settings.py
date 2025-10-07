@@ -1,16 +1,11 @@
 import os
 from typing import Optional
 from functools import lru_cache
-from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 from azure.appconfiguration import AzureAppConfigurationClient
 
-from app.utils import get_azure_credential
-
-load_dotenv()  # Load environment variables from .env file if present
-
-AZURE_APP_CONFIG_COMMON_KEY_PREFIX = "doc-proc."
-AZURE_APP_CONFIG_WORKER_KEY_PREFIX = "doc-proc.worker."
+load_dotenv()
 
 class AppSettings(BaseModel):
     """
@@ -55,35 +50,11 @@ class AppSettings(BaseModel):
     def _load_from_app_config(self):
         """Load configuration values from Azure App Configuration"""
         try:
-            # Get connection info from environment variables
-            connection_string = os.getenv("AZURE_APP_CONFIG_CONNECTION_STRING")
-            endpoint = os.getenv("AZURE_APP_CONFIG_ENDPOINT")
+            print(f"Loading configuration from doc proc configuration provider...")
 
-            print(f"Loading configuration from Azure App Configuration with connection_string: '{connection_string}', endpoint: '{endpoint}'")
+            from app.dependencies import get_config_provider
+            config_provider = get_config_provider(refresh=True)
 
-            if not connection_string and not endpoint:
-                print("\033[91m🚨 DANGER: No Azure App Configuration connection string or endpoint found in environment variables\033[0m")
-                raise RuntimeError("Azure App Configuration connection info not provided in environment variables.")
-                
-            
-            # Create the client
-            if connection_string:
-                client = AzureAppConfigurationClient.from_connection_string(connection_string)
-            else:
-                credential = get_azure_credential()
-                client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
-
-            # Fetch configuration items with the specified prefix
-            items_common = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*"
-            )
-
-            items_worker = client.list_configuration_settings(
-                key_filter=f"{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}*"
-            )
-            
-            config_items = [item for item in items_common] + [item for item in items_worker]
-            print(f"Retrieved {len(config_items)} configuration items from Azure App Configuration. Only retrieved keys confirming to the prefixes '{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}*' and '{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}*'.")
             
             # Define the configuration keys to load
             config_keys = [
@@ -108,11 +79,9 @@ class AppSettings(BaseModel):
             # Load configuration values
             for key in config_keys:
                 try:
-                    config_setting = config_items and next((item for item in config_items if item.key == f"{AZURE_APP_CONFIG_COMMON_KEY_PREFIX}{key}" or item.key == f"{AZURE_APP_CONFIG_WORKER_KEY_PREFIX}{key}"), None)
-                    if config_setting and config_setting.value:
-                        # Convert value to appropriate type
-                        value = config_setting.value
-                        
+                    value = config_provider.get_config_value(key)
+                    
+                    if value is not None:
                         # Handle type conversion
                         if key in ["WORKER_POOL_SIZE", "WORKER_SHUTDOWN_TIMEOUT", "WORKER_HEALTH_CHECK_INTERVAL"]:
                             value = int(value)
@@ -121,21 +90,11 @@ class AppSettings(BaseModel):
                                                 
                         setattr(self, key, value)
                     
-                    # try to get the value from environment variable as fallback
-                    elif os.getenv(key):
-                        value = os.getenv(key)
-                        
-                        # Handle type conversion
-                        if key in ["WORKER_POOL_SIZE", "WORKER_SHUTDOWN_TIMEOUT", "WORKER_HEALTH_CHECK_INTERVAL"]:
-                            value = int(value)
-                        elif key in ["DEBUG", "WORKER_AUTO_RESTART"]:
-                            value = value.lower() in ("true", "1", "yes", "on")
-                        
-                        setattr(self, key, value)
-                    
-                except Exception as e:
-                    print(f"Could not load configuration key '{key}' from App Configuration nor from environment variables: {e}")
+                except KeyError as e:
+                    print(f"doc-proc-ui.app: Configuration key '{key}' not found in Azure App Configuration nor from environment variables: {e}.")
                     print("If using App Configuration, please ensure that the key exists with correct prefix.")
+                except Exception as e:
+                    print(f"An error occurred while loading configuration key '{key}': {e}")
                     continue
                     
         except Exception as e:

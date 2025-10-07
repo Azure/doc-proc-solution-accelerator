@@ -27,6 +27,7 @@ class DocumentExecutionStatus(BaseModel):
     batch_started_at: Optional[datetime] = Field(None, description="Start time of the batch execution")
     batch_completed_at: Optional[datetime] = Field(None, description="Completion time of the batch execution")
     batch_metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata associated with the batch execution")
+    batch_errors: Optional[List[str]] = Field(None, description="Errors encountered during batch execution")
     document: Optional[Dict[str, Any]] = Field(None, description="Document details and status")
 
 
@@ -37,7 +38,6 @@ class DocumentReference(BaseModel):
     url: Optional[str] = Field(None, description="Full URL to the blob")
     content_type: Optional[str] = Field(None, description="Document content type")
     size_bytes: Optional[int] = Field(None, description="Document size in bytes")
-
 
 
 class StepOutput(BaseModel):
@@ -51,7 +51,6 @@ class StepOutput(BaseModel):
     status: str
     error_message: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
 
 
 class BatchExecution(BaseModel):
@@ -80,7 +79,7 @@ class BatchExecution(BaseModel):
 
 class DocumentResult(BaseModel):
     """Model for individual document processing results"""
-    document_id: str = Field(..., description="Document ID")
+    document_id: dict = Field(..., description="Document ID")
     result: str = Field(..., description="Processing status (success/failed)")
     reason: Optional[str] = Field(None, description="Reason for the result status")
     elapsed_time_ms: Optional[int] = Field(None, description="Processing time in milliseconds")
@@ -102,8 +101,6 @@ class PipelineExecutionResult(BaseModel):
     document_results: List[DocumentResult] = Field(default_factory=list, description="Results for each document")
     # Summary statistics
     summary_stats: Dict[str, Any] = Field(default_factory=dict, description="Summary statistics")
-    
-    
     # Timing information
     started_at: Optional[str] = Field(None, description="Execution start time in utc timezone in ISO format")
     completed_at: Optional[str] = Field(None, description="Execution completion time in utc timezone in ISO format")

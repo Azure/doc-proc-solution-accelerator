@@ -6,7 +6,8 @@ import aiohttp
 from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 
-from doc.proc.service.service_base import ServiceBase, ServiceExecutionError
+from doc.proc.service.service_base import ServiceBase
+from doc.proc.models import ServiceExecutionError
 
 logger = logging.getLogger("doc.proc.service.azure_ai_search_service") # need to specify the logger name as this module is loaded dynamically
 

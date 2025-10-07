@@ -44,14 +44,14 @@ var tags = {
 }
 
 // User Assigned Identity for Container Apps to access other resources
-  module userAssignedIdentity 'modules/user-assigned-identity.bicep' = {
-    name: 'userAssignedIdentityDeployment.${substring(uniqueString(resourceGroup().id, deployment().name), 0, 8)}'
-    params: {
-      userAssignedIdentityName: toLower('${namePrefix}-uai-${uniqueString(resourceGroupId)}')
-      location: location
-      tags: tags
-    }
+module userAssignedIdentity 'modules/user-assigned-identity.bicep' = {
+  name: 'userAssignedIdentityDeployment.${substring(uniqueString(resourceGroup().id, deployment().name), 0, 8)}'
+  params: {
+    userAssignedIdentityName: toLower('${namePrefix}-uai-${uniqueString(resourceGroupId)}')
+    location: location
+    tags: tags
   }
+}
 
 // Log Analytics Workspace
 module logAnalytics 'modules/log-analytics-ws.bicep' = {
@@ -161,28 +161,33 @@ module appConfigStore 'modules/app-config-store.bicep' = {
       // shared key values, uses the prefix: 'doc-proc.<key>'
       {
         contentType: 'text/plain'
-        name: 'doc-proc.COSMOS_DB_ENDPOINT'
+        name: 'doc-proc.common.COSMOS_DB_ENDPOINT'
         value: cosmosDb.outputs.cosmosEndpoint
       }
       {
         contentType: 'text/plain'
-        name: 'doc-proc.COSMOS_DB_NAME'
+        name: 'doc-proc.common.COSMOS_DB_NAME'
         value: cosmosDbName
       }
       {
         contentType: 'text/plain'
-        name: 'doc-proc.STORAGE_ACCOUNT_WORKER_QUEUE_URL'
+        name: 'doc-proc.common.STORAGE_ACCOUNT_WORKER_QUEUE_URL'
         value: storage.outputs.queueUrl
       }
       {
         contentType: 'text/plain'
-        name: 'doc-proc.STORAGE_WORKER_QUEUE_NAME'
+        name: 'doc-proc.common.STORAGE_WORKER_QUEUE_NAME'
         value: storage.outputs.queueName
       }
       {
         contentType: 'text/plain'
-        name: 'doc-proc.APPINSIGHTS_INSTRUMENTATIONKEY'
+        name: 'doc-proc.common.APPINSIGHTS_INSTRUMENTATIONKEY'
         value: appInsights.outputs.instrumentationKey
+      }
+      {
+        contentType: 'text/plain'
+        name: 'sentinel'
+        value: 1
       }
       
     ]

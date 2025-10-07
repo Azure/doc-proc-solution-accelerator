@@ -8,11 +8,12 @@ from typing import Any, Dict, List, Optional
 
 from azure.storage.blob.aio import BlobServiceClient
 
+from doc.proc.providers.credential_provider import get_azure_credential
+
 from app.db.cosmos import CosmosDb
-from app.utils import get_azure_credential
 from app.services.base import BaseService
-from app.services.storage_queue_helper import StorageQueueHelper
-from app.models.vault import AddDocumentRequest, Vault, DocumentInfo, PaginatedResponse
+from app.services.document_queue_submitter import DocumentQueueSubmitter
+from app.models.vault import AddDocumentRequest, ContentIdentifierInfo, Vault, DocumentInfo, PaginatedResponse
 
 logger = logging.getLogger("doc-proc-ui.app.services.vault_documents_service")
 
@@ -20,10 +21,10 @@ class VaultDocumentsService(BaseService):
 
     def __init__(self, db: CosmosDb,
                        container_name: str = "vault_documents",
-                       storage_queue_helper: StorageQueueHelper = None):
+                       document_queue_submitter: DocumentQueueSubmitter = None):
 
         super().__init__(db, container_name)
-        self.storage_queue_helper = storage_queue_helper
+        self.document_queue_submitter = document_queue_submitter
 
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate vault document item"""
@@ -61,19 +62,21 @@ class VaultDocumentsService(BaseService):
             raise ValueError("Failed to upload file to blob storage")
 
         # add an entry to the documents collection in cosmos db
+        unique_id = "doc_" + uuid.uuid4().hex[:8]
         document = DocumentInfo(
-            id="doc_" + uuid.uuid4().hex[:8],
+            id=unique_id,
             vault_id=vault.id,
             name=file_name,
-            blob_url=blob_url,
-            blob_details={
-                "storage_account": vault.storage_config.account_name,
-                "container": vault.storage_config.container_name,
-                "blob": file_name_to_upload
-            },
-            size_bytes=file_size,
-            content_type=file_content_type,
-            upload_date=datetime.now(timezone.utc).isoformat()
+            content_id=ContentIdentifierInfo(
+                canonical_id=f'{vault.storage_config.account_name}::{vault.storage_config.container_name}::{file_name_to_upload}',
+                unique_id=unique_id,
+                multipart_id=[],
+                source_id=vault.id, #TODO: make this come from default vault source
+                source_name=vault.name, #TODO: make this come from default vault source
+                metadata={}
+            ),
+            submit_date=datetime.now(timezone.utc).isoformat(),
+            source="user_upload",
         )
 
         logger.debug(f"Adding document record to database: {document}")
@@ -125,17 +128,17 @@ class VaultDocumentsService(BaseService):
 
         logger.debug(f"Queuing documents '{len(documents)}' in vault '{vault.name}' for processing")
 
-        # send the documents in batches of 10 to the storage queue
+        # send the documents in batches of batch_size to the storage queue
         # TODO: make batch size configurable
         batch_size = 10
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
 
             try:
-                async with self.storage_queue_helper:
-                    _queue_result = await self.storage_queue_helper.queue_documents_for_processing(vault=vault,
-                                                                                                   pipeline_to_process_documents=vault.pipeline_name,
-                                                                                                   documents=batch)
+                async with self.document_queue_submitter:
+                    _queue_result = await self.document_queue_submitter.queue_documents_for_processing(vault=vault,
+                                                                                                       pipeline_to_process_documents=vault.pipeline_name,
+                                                                                                       documents=batch)
 
                 logger.info(f"Queued {len(batch)} documents for processing in vault '{vault.name}' with message ID: {_queue_result['message_id']}")
 
@@ -158,7 +161,6 @@ class VaultDocumentsService(BaseService):
                     document.metadata["last_processing_attempt"] = datetime.now(timezone.utc).isoformat()
                     document.metadata["pipeline_name"] = vault.pipeline_name
 
-                
 
             # Update the document records in the database
             await self.batch_upsert([document.model_dump() for document in documents])

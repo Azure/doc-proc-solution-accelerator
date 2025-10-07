@@ -7,7 +7,9 @@ from pathlib import Path
 import aiohttp
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.blob_store_output")
 
@@ -44,7 +46,7 @@ class BlobStoreOutputStep(StepBase):
 
         logger.debug(f"Initialized BlobStoreOutputStep with blob_container: {self.blob_container}, blob_path: {self.blob_path}")
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Upload the output document to Azure Blob Storage.
         
@@ -53,13 +55,13 @@ class BlobStoreOutputStep(StepBase):
             context: Pipeline execution context
 
         Returns:
-            StepInputOutput: Output with updated document metadata
+            Document: Output with updated document metadata
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get document from input data
         doc_data = document.data
@@ -76,14 +78,14 @@ class BlobStoreOutputStep(StepBase):
 
             logger.debug(f"BlobStoreOutputStep completed processing. Document: {doc_id}")
 
-            # Return the processed document, as this will be an instance of StepInputOutput
+            # Return the processed document, as this will be an instance of Document
             return processed_doc
 
         except Exception as e:
             logger.error(f"Error in BlobStoreOutputStep: {e}")
             raise e
 
-    async def _process_document(self, doc: StepInputOutput, context: "PipelineExecutionContext") -> dict:
+    async def _process_document(self, doc: Document, context: "PipelineExecutionContext") -> dict:
         """Process a single document for blob storage."""
         
         # get Azure Blob Storage Service from context

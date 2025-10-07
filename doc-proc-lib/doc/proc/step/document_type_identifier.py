@@ -5,7 +5,9 @@ from enum import Enum
 from pathlib import Path
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.document_type_identifier")
 
@@ -53,7 +55,7 @@ class DocumentTypeIdentifierStep(StepBase):
         logger.debug(f"Initialized DocumentTypeIdentifierStep with identification_methods: {self.identification_methods}")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step processing logic for document type identification.
 
@@ -62,13 +64,13 @@ class DocumentTypeIdentifierStep(StepBase):
             context: Pipeline execution context
             
         Returns:
-            StepInputOutput: Output with type identification results
+            Document: Output with type identification results
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get document from input data
         doc_to_process = document.data
@@ -97,14 +99,11 @@ class DocumentTypeIdentifierStep(StepBase):
                 "document_type": identification_result,
             }
 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {result_document}")
-            else:
-                logger.info(f"Successfully processed document: {result_document.get('file_path', 'unknown')}")
+            logger.debug(f"Successfully processed document: {document.id}")
 
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_document)
+            # Return the updated Document
+            return Document(summary_data = {**document.summary_data}, 
+                            data = result_document)
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")

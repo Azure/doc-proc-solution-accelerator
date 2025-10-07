@@ -14,6 +14,8 @@ param cosmosDBContainerNames array = [
   'service_instances'
   'step_catalog'
   'step_instances'
+  'source_catalog'
+  'source_instances'
   'vaults'
   'vault_documents'
   'batch_executions'

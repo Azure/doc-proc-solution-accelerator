@@ -8,7 +8,7 @@ from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError, Ht
 from azure.storage.queue.aio import QueueClient
 
 
-from app.utils import get_azure_credential
+from doc.proc.providers.credential_provider import get_azure_credential
 
 logger = logging.getLogger("doc-proc-worker.app.proxy.queue")
 
@@ -87,8 +87,6 @@ class StorageQueue():
             self._queue_client = QueueClient(account_url=self.storage_account_url, 
                                              queue_name=self.queue_name, 
                                              credential=get_azure_credential())
-            
-            # Ensure queue exists
             await self._queue_client.create_queue()
             logger.info(f"Connected to Azure Storage Queue: {self.queue_name}")
 

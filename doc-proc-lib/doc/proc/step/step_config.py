@@ -1,8 +1,9 @@
 from typing import Optional, List
-import pydantic
+from pydantic import BaseModel, RootModel, ValidationError
 import yaml
 
-class StepConfigUIMetadata(pydantic.BaseModel):
+
+class StepConfigUIMetadata(BaseModel):
     """UI metadata for step configuration."""
     icon: Optional[str] = None
     color: Optional[str] = None
@@ -10,7 +11,7 @@ class StepConfigUIMetadata(pydantic.BaseModel):
     description_long: Optional[str] = None
 
 
-class StepConfigSchemaParameter(pydantic.BaseModel):
+class StepConfigSchemaParameter(BaseModel):
     """Generic parameter for step configuration."""
     type: Optional[str] = None
     title: Optional[str] = None
@@ -26,7 +27,7 @@ class StepConfigSchemaParameter(pydantic.BaseModel):
     enum: Optional[List[str]] = None
 
 
-class StepConfigSchemaSettings(pydantic.RootModel[dict[str, "StepConfigSchemaParameter"]]):
+class StepConfigSchemaSettings(RootModel[dict[str, "StepConfigSchemaParameter"]]):
     """Generic settings for step configuration."""
 
     def __getitem__(self, item):
@@ -39,7 +40,7 @@ class StepConfigSchemaSettings(pydantic.RootModel[dict[str, "StepConfigSchemaPar
         return self.root
 
 
-class StepConfig(pydantic.BaseModel):
+class StepConfig(BaseModel):
     """Config class for global pipeline step catalog definitions."""
     
     id: str
@@ -83,9 +84,24 @@ class StepConfig(pydantic.BaseModel):
             return steps
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML format: {str(e)}")
-        except pydantic.ValidationError as ve:
+        except ValidationError as ve:
             raise ValueError(f"Validation error in pipeline configuration: {ve}")
         except Exception as e:
             raise ValueError(f"An error occurred while loading the pipeline configuration: {str(e)}")
         
 
+class StepInstanceConfig(BaseModel):
+    """Configuration for a step instance in a pipeline."""
+    
+    id: Optional[str] = None  # Unique identifier for the step instance
+    step_catalog_id: str  # Reference to step id in the step catalog
+    name: str  # Instance name in the pipeline
+    enabled: bool = True # Whether the step is enabled
+    fail_pipeline_on_error: bool = False # Whether to fail the entire pipeline if this step fails
+    retry_on_failure: bool = False # Whether to retry the step on failure
+    retries: int = 3 # Number of retries for the step in case of failure
+    timeout: int = 600 # Timeout for the step in seconds
+    debug_mode: bool = False  # Enable debug mode for this step
+    condition: Optional[str] = None  # Optional condition to evaluate before running the step
+    services: List[str] = []  # References to service instances used by this step
+    settings: Optional[dict] = None # Additional settings for the step instance

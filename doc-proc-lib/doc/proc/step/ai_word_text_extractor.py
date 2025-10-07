@@ -15,7 +15,9 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.ai_word_text_extractor") # need to specify the logger name as this module is loaded dynamically
 
@@ -60,7 +62,7 @@ class AIWordTextExtractorStep(StepBase):
                          f"Max completion tokens: {self.max_completion_tokens}, Temperature: {self.temperature}, Top P: {self.top_p}, Frequency penalty: {self.frequency_penalty}, Presence penalty: {self.presence_penalty}.")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Process input document to extract text and images from Word documents.
         
@@ -69,13 +71,13 @@ class AIWordTextExtractorStep(StepBase):
             context: Pipeline execution context
 
         Returns:
-            StepInputOutput: Output with local file_path added to documents that were downloaded
+            Document: Output with local file_path added to documents that were downloaded
         """
 
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
 
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
@@ -110,8 +112,8 @@ class AIWordTextExtractorStep(StepBase):
             else:
                 logger.info(f"Successfully processed document: {result_data.get('file_path')}")
 
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
+            # Return the updated Document
+            return Document(summary_data = {**document.summary_data}, 
                                    data = result_data)
 
         except Exception as e:

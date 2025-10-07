@@ -51,7 +51,7 @@ var deployerRoleAssignments = [
   ]
 
 // Use Azure Verified Module for Storage Account
-module storageAccount 'br/public:avm/res/storage/storage-account:0.27.0' = {
+module storageAccount 'br/public:avm/res/storage/storage-account:0.27.1' = {
   params: {
     // Required parameters
     name: storageAccountName

@@ -13,7 +13,9 @@ from azure.ai.inference.models import (
     )
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+from doc.proc.step.step_base import StepBase
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.custom_ai_prompt") # need to specify the logger name as this module is loaded dynamically
 
@@ -43,17 +45,12 @@ class CustomAIPromptStep(StepBase):
             raise ValueError("Output field name not found in settings.")
 
         # get prompts from settings
-        self.prompts = self.settings.get("prompts", {})
-        if not self.prompts:
-            logger.error("No prompts found in settings.")
-            raise StepExecutionError("No prompts found in settings.")
-
-        self.system_prompt = self.prompts.get("system", "")
+        self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
             logger.error("System prompt not found in settings.")
             raise StepExecutionError("System prompt not found in settings.")
 
-        self.user_prompt = self.prompts.get("user", "")
+        self.user_prompt = self.settings.get("user_prompt", "")
         if not self.user_prompt:
             logger.error("User prompt not found in settings.")
             raise StepExecutionError("User prompt not found in settings.")
@@ -68,7 +65,7 @@ class CustomAIPromptStep(StepBase):
             logger.debug(f"Initialized CustomAIPromptStep with settings: {self.settings}")
 
 
-    async def run(self, document: StepInputOutput, context: "PipelineExecutionContext", **kwargs) -> StepInputOutput:
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
         Run the step processing logic for AI custom prompt enrichment.
 
@@ -77,14 +74,14 @@ class CustomAIPromptStep(StepBase):
             context: Pipeline execution context
 
         Returns:
-            StepInputOutput: Output with AI enriched results as per the prompt
+            Document: Output with AI enriched results as per the prompt
         """
         
         # Check if document has the required data structure
-        if not document or not isinstance(document, StepInputOutput) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected StepInputOutput instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected StepInputOutput instance.")
-        
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self._get_ai_inference_service(context)
         if not ai_model_inference_service:
@@ -105,7 +102,7 @@ class CustomAIPromptStep(StepBase):
             doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {}
             # Validate required fields - now only chunks is required
             if self.chunks_iterator_field not in doc_to_process:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process.get('id', '')}. Document is missing the required '{self.chunks_iterator_field}' field.")
+                raise StepExecutionError(f"Invalid document format. Document is missing the required '{self.chunks_iterator_field}' field.")
 
             # Process the document
             # This will extend the document with extracted text and images for each page/chunk
@@ -113,14 +110,11 @@ class CustomAIPromptStep(StepBase):
                                                        context=context, 
                                                        ai_model_inference_service=ai_model_inference_service)
 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {result_data}")
-            else:
-                logger.info(f"Successfully processed document: {result_data.get('id', '')}")
-
-            # Return the updated StepInputOutput
-            return StepInputOutput(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+            logger.debug(f"Successfully processed document: {document.id}")
+            
+            # Return the updated Document
+            return Document(summary_data = {**document.summary_data}, 
+                            data = result_data)
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")

@@ -27,7 +27,9 @@ dependencies = [
     "azure-core==1.35.1",
     "azure-identity==1.25.0",
     "azure-storage-blob==12.26.0",
+    "azure-storage-file-share==12.22.0",
     "azure-ai-documentintelligence==1.0.2",
+    azure.appconfiguration.provider==2.2.0
     "pymupdf==1.26.4",
     "python-magic==0.4.27",
     "python-docx==1.2.0",

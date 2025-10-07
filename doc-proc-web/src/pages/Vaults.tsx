@@ -7,8 +7,9 @@ import {
   Plus, 
   Search, 
   FolderOpen, 
-  FileText, 
+  FileText,
   Workflow,
+  Database,
   Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -222,6 +223,12 @@ const Vaults = () => {
                       Pipeline
                     </Badge>
                   )}
+                  {vault.source_instance_name && (
+                    <Badge variant="outline" className="bg-blue-50">
+                      <Database className="h-3 w-3 mr-1" />
+                      Source
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -249,6 +256,14 @@ const Vaults = () => {
                       <span className="text-muted-foreground">Pipeline:</span>
                       <span className="text-xs bg-blue-100 px-2 py-1 rounded">
                         {vault.pipeline_name}
+                      </span>
+                    </div>
+                  )}
+                  {vault.source_instance_name && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Source:</span>
+                      <span className="text-xs bg-blue-100 px-2 py-1 rounded">
+                        {vault.source_instance_name}
                       </span>
                     </div>
                   )}
