@@ -92,6 +92,11 @@ class SourceInstance(BaseModel):
     catalog_definition: Optional[SourceCatalogDefinition] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    is_system: bool = Field(False, description="Whether the source instance is a system instance, and should not be shown on the UI.")
+    # Runtime crawl state
+    last_crawl_at: Optional[str] = Field(None, description="Last crawl timestamp. In UTC tz ISO 8601 format")
+    last_crawl_status: Optional[str] = Field(None, description="Last crawl status")
+    crawl_checkpoint: Optional[str] = Field(None, description="Crawl checkpoint")
 
 
 class SourceInstanceCreateRequest(BaseModel):

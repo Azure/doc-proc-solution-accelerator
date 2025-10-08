@@ -29,6 +29,8 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_STEP_INSTANCES: str = "step_instances"
     COSMOS_DB_CONTAINER_SERVICE_CATALOG: str = "service_catalog"
     COSMOS_DB_CONTAINER_SERVICE_INSTANCES: str = "service_instances"
+    COSMOS_DB_CONTAINER_SOURCE_CATALOG: str = "source_catalog"
+    COSMOS_DB_CONTAINER_SOURCE_INSTANCES: str = "source_instances"
     COSMOS_DB_CONTAINER_BATCH_EXECUTIONS: str = "batch_executions"
     COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS: str = "pipeline_executions"
     
@@ -66,6 +68,8 @@ class AppSettings(BaseModel):
                 "COSMOS_DB_CONTAINER_STEP_INSTANCES",
                 "COSMOS_DB_CONTAINER_SERVICE_CATALOG",
                 "COSMOS_DB_CONTAINER_SERVICE_INSTANCES",
+                "COSMOS_DB_CONTAINER_SOURCE_CATALOG",
+                "COSMOS_DB_CONTAINER_SOURCE_INSTANCES",
                 "COSMOS_DB_CONTAINER_BATCH_EXECUTIONS",
                 "COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS",
                 "STORAGE_ACCOUNT_WORKER_QUEUE_URL",
@@ -111,6 +115,8 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_STEP_INSTANCES,
             self.COSMOS_DB_CONTAINER_SERVICE_CATALOG,
             self.COSMOS_DB_CONTAINER_SERVICE_INSTANCES,
+            self.COSMOS_DB_CONTAINER_SOURCE_CATALOG,
+            self.COSMOS_DB_CONTAINER_SOURCE_INSTANCES,
             self.COSMOS_DB_CONTAINER_BATCH_EXECUTIONS,
             self.COSMOS_DB_CONTAINER_PIPELINE_EXECUTIONS
         ]

@@ -22,9 +22,6 @@
 .PARAMETER Environment
     Environment name (default: dev)
 
-.PARAMETER Debug
-    Enable debug logging
-
 .PARAMETER Help
     Show help message
 
@@ -51,10 +48,6 @@ param(
     [Parameter(Mandatory = $false, HelpMessage = "Environment name (default: dev)")]
     [Alias("e")]
     [string]$Environment = "dev",
-
-    [Parameter(Mandatory = $false, HelpMessage = "Enable debug logging")]
-    [Alias("d")]
-    [switch]$Debug,
 
     [Parameter(Mandatory = $false, HelpMessage = "Show help message")]
     [Alias("h")]
@@ -187,10 +180,6 @@ $deploymentArgs = @(
     "--name", $DeploymentName,
     "--output", "table"
 )
-
-if ($Debug) {
-    $deploymentArgs += "--debug"
-}
 
 # Execute deployment
 try {

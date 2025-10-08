@@ -44,9 +44,11 @@ class StorageConfig(BaseModel):
 class ContentIdentifierInfo(BaseModel):
     canonical_id : str = Field(default=..., description='Canonical identifier for the content')
     unique_id : Optional[str] = Field(default=None, description='Unique identifier for the content')
-    multipart_id : list[str] = Field(default_factory=list, description='List of multipart identifiers for the content')
     source_id : str = Field(default=..., description='Identifier for the source instance of the content')
     source_name : Optional[str] = Field(default=None, description='Name of the source instance of the content')
+    source_type : Optional[str] = Field(default=None, description='Type of the data source (e.g., azure_blob, azure_files, sharepoint)')
+    container : Optional[str] = Field(default=None, description='Container or bucket name where the content is stored')
+    path : Optional[str] = Field(default=None, description='Path or location of the content within the source')
     metadata : dict[str, object] | None = Field(default=None, description='Metadata associated with the content')
 
 
@@ -68,14 +70,6 @@ class UploadDocumentResponse(BaseModel):
     filename: str = Field(..., description="Name of the uploaded file")
     document: Optional[DocumentInfo] = Field(None, description="Information about the uploaded document")
     error: Optional[str] = Field(None, description="Status message")
-
-
-class AddDocumentRequest(BaseModel):
-    """Request model for adding a document to a vault"""
-    name: str = Field(..., description="Document name")
-    blob_url: str = Field(..., description="URL to the document in blob storage")
-    source: Optional[str] = Field(None, description="Source of the document, where the document originated from. E.g., 'user_upload', 'api_upload', 'crawler', etc.")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
 class VaultCreateRequest(BaseModel):
@@ -101,6 +95,7 @@ class Vault(BaseDoc):
     status: VaultStatus = Field(default=VaultStatus.ACTIVE, description="Vault status")
     pipeline_name: str = Field(..., description="Associated pipeline name")
     source_instance_name: Optional[str] = Field(None, description="Name of the associated source instance")
+    default_source_instance_name: Optional[str] = Field(None, description="Name of the default source instance created for this vault")
     # Configuration
     processing_config: DocumentProcessingConfig = Field(default_factory=DocumentProcessingConfig, description="Document processing configuration")
     storage_config: StorageConfig = Field(default_factory=StorageConfig, description="Storage configuration")

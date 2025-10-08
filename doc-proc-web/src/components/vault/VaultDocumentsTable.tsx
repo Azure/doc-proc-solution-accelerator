@@ -508,14 +508,6 @@ const VaultDocumentsTable = ({
           ...docStatuses
         }));
         
-        // Show success message for batch operations
-        // const updatedCount = Object.keys(docStatuses).length;
-        // if (updatedCount > 0) {
-        //   toast({
-        //     title: "Status Updated",
-        //     description: `Successfully refreshed status for ${updatedCount} document${updatedCount !== 1 ? 's' : ''}`,
-        //   });
-        // }
       } else {
         console.log(`Fetching single status for document ${documentIds[0]}`);
         
@@ -527,12 +519,6 @@ const VaultDocumentsTable = ({
           ...prev,
           [documentIds[0]]: status
         }));
-        
-        // // Show informative message for single document refresh
-        // toast({
-        //   title: "Status Updated",
-        //   description: `Document status updated to: ${status}`,
-        // });
       }
     } catch (error) {
       console.error('Error fetching document statuses:', error);
@@ -553,13 +539,6 @@ const VaultDocumentsTable = ({
         const successCount = results.filter(r => r.status === 'fulfilled').length;
         const failCount = results.filter(r => r.status === 'rejected').length;
         
-        // if (successCount > 0) {
-        //   toast({
-        //     title: "Partial Success",
-        //     description: `Updated ${successCount} document${successCount !== 1 ? 's' : ''}, ${failCount} failed`,
-        //     variant: failCount > 0 ? "destructive" : "default",
-        //   });
-        // }
       } else {
         toast({
           title: "Status Update Failed",
@@ -946,7 +925,7 @@ const VaultDocumentsTable = ({
             {/* Time Filter */}
             <div className="flex items-center space-x-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="timeFilter">Filter by Upload Time:</Label>
+              <Label htmlFor="timeFilter">Filter by Submission Time:</Label>
               <Select value={timeFilter} onValueChange={handleTimeFilterChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Select time range" />
@@ -1130,20 +1109,20 @@ const VaultDocumentsTable = ({
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => handleSort("size_bytes")}
+                    onClick={() => handleSort("source")}
                   >
                     <div className="flex items-center">
-                      Size
-                      {renderSortIcon("size_bytes")}
+                      Source
+                      {renderSortIcon("source")}
                     </div>
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => handleSort("upload_date")}
+                    onClick={() => handleSort("submit_date")}
                   >
                     <div className="flex items-center">
-                      Upload Date
-                      {renderSortIcon("upload_date")}
+                      Submit Date
+                      {renderSortIcon("submit_date")}
                     </div>
                   </TableHead>
                   <TableHead 
@@ -1183,14 +1162,14 @@ const VaultDocumentsTable = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {formatFileSize(doc.size_bytes)}
+                      {doc.source || "Unknown"}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex flex-col">
-                          <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                          <span>{new Date(doc.submit_date).toLocaleDateString()}</span>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(doc.upload_date).toLocaleTimeString()}
+                            {new Date(doc.submit_date).toLocaleTimeString()}
                           </span>
                         </div>
                         {(() => {

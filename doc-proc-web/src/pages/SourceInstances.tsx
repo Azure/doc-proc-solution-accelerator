@@ -271,16 +271,18 @@ const SourceInstances = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {categoryInstances.map((instance) => (
-                  <SourceInstanceCard
-                    key={instance.id}
-                    instance={instance}
-                    vault={vaults && vaults.length > 0 ? vaults.find(v => v.source_instance_name === instance.name) || null : null}
-                    onConfigure={() => handleConfigureInstance(instance)}
-                    onToggleEnabled={(enabled) => handleToggleEnabled(instance.id, enabled)}
-                    onTestConnection={() => handleTestConnection(instance.id, instance.name)}
-                    onDelete={() => handleDeleteInstance(instance.id, instance.name)}
-                    isTestingConnection={testingConnections.has(instance.id)}
-                  />
+                  instance.is_system !== true && (
+                    <SourceInstanceCard
+                      key={instance.id}
+                      instance={instance}
+                      vault={vaults && vaults.length > 0 ? vaults.find(v => v.source_instance_name === instance.name) || null : null}
+                      onConfigure={() => handleConfigureInstance(instance)}
+                      onToggleEnabled={(enabled) => handleToggleEnabled(instance.id, enabled)}
+                      onTestConnection={() => handleTestConnection(instance.id, instance.name)}
+                      onDelete={() => handleDeleteInstance(instance.id, instance.name)}
+                      isTestingConnection={testingConnections.has(instance.id)}
+                    />
+                  )
                 ))}
               </div>
             </div>

@@ -8,19 +8,7 @@ param cosmosAccountName string
 param cosmosDbName string = 'docproc'
 
 @description('Optional: Cosmos DB container names used in the application')
-param cosmosDBContainerNames array = [
-  'pipelines'
-  'service_catalog'
-  'service_instances'
-  'step_catalog'
-  'step_instances'
-  'source_catalog'
-  'source_instances'
-  'vaults'
-  'vault_documents'
-  'batch_executions'
-  'pipeline_executions'
-]
+param cosmosDBContainerNames array
 
 @description('Required: List of principal IDs (managed identity or user) to be assigned Cosmos DB SQL Data Contributor role')
 param cosmosDBDataContributorPrincipalIds string[]
@@ -51,9 +39,9 @@ module cosmosDb 'br:mcr.microsoft.com/bicep/avm/res/document-db/database-account
     sqlDatabases: [
       {
         name: cosmosDbName
-        containers: [for containerName in cosmosDBContainerNames: {
-            name: containerName
-            paths: ['/id']
+        containers: [for container in cosmosDBContainerNames: {
+            name: container.name
+            paths: [container.partitionKey]
             kind: 'Hash'
           }
         ]

@@ -7,7 +7,7 @@ from doc.proc.service.service_config import ServiceConfig
 logger = logging.getLogger("doc.proc.service.service_instance_loader")
 
 
-def create_service_instance(service_config: ServiceConfig, instance_settings: dict = None) -> ServiceBase:
+def create_service_instance(instance_name: str, service_config: ServiceConfig, instance_settings: dict = None) -> ServiceBase:
     """Get an instance of the specified service type."""
 
     # Validate service_config
@@ -60,7 +60,7 @@ def create_service_instance(service_config: ServiceConfig, instance_settings: di
         logger.debug(f"Service instance settings: {settings}")
 
         # Create an instance of the service class
-        service_instance = service_class(name=service_config.name, type=service_config.type, settings=settings)
+        service_instance = service_class(name=instance_name, type=service_config.type, settings=settings)
 
         if not issubclass(service_class, ServiceBase):
             raise TypeError(f"Service class \"{service_config.class_name}\" must be a subclass of ServiceBase.")

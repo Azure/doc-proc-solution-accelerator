@@ -61,7 +61,10 @@ class HealthService:
         self.queue_client: Optional[QueueServiceClient] = None
         self.app_config_client: Optional[AzureAppConfigurationClient] = None
         
-        
+        credential, token_details = get_azure_credential_with_details()
+        self.credential = credential
+        self.token_details = token_details
+
     async def check_all_services(self) -> SystemHealth:
         """Check the health of all configured services"""
         services = {}
@@ -128,9 +131,11 @@ class HealthService:
                     last_checked=datetime.now(timezone.utc).isoformat(),
                     endpoint="Not configured"
                 )
-            
-            credential, token_details = get_azure_credential_with_details()
-            
+
+            credential, token_details = (self.credential, self.token_details)
+            if not credential or not token_details:
+                credential, token_details = get_azure_credential_with_details()
+
             # Create client if not exists
             if not self.cosmos_client:
                 self.cosmos_client = CosmosClient(
@@ -205,7 +210,10 @@ class HealthService:
                     endpoint="Not configured"
                 )
             
-            credential, token_details = get_azure_credential_with_details()
+            credential, token_details = (self.credential, self.token_details)
+            if not credential or not token_details:
+                credential, token_details = get_azure_credential_with_details()
+                
             from azure.storage.blob import BlobServiceClient
             
             # Create client
@@ -280,7 +288,10 @@ class HealthService:
                     endpoint="Not configured"
                 )
             
-            credential, token_details = get_azure_credential_with_details()
+            credential, token_details = (self.credential, self.token_details)
+            if not credential or not token_details:
+                credential, token_details = get_azure_credential_with_details()
+                
             # Create client if not exists
             if not self.queue_client:
                 # Extract account URL from queue URL
@@ -367,7 +378,10 @@ class HealthService:
                     self.app_config_client = AzureAppConfigurationClient.from_connection_string(connection_string)
                     endpoint_display = "Connection String"
                 else:
-                    credential, token_details = get_azure_credential_with_details()
+                    credential, token_details = (self.credential, self.token_details)
+                    if not credential or not token_details:
+                        credential, token_details = get_azure_credential_with_details()
+                
                     self.app_config_client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
                     endpoint_display = endpoint
             else:

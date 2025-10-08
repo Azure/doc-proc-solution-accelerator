@@ -11,8 +11,6 @@ httpx==0.28.1
 
 azure-cosmos==4.9.0
 azure-storage-queue==12.13.0
-azure-storage-blob==12.24.0
-azure-identity==1.19.0
 
 # Local doc-proc-lib package
 -e ../doc-proc-lib

@@ -7,9 +7,11 @@ from app.proxy.cosmos import CosmosDb
 
 from doc.proc.pipeline.pipeline_base import Pipeline
 from doc.proc.pipeline.pipeline_config import PipelineConfig, PipelineSettingsConfig, ServiceInstanceConfig
+from doc.proc.source.source_instance_config import SourceInstanceConfig
 from doc.proc.step.step_base import StepInstanceConfig
 from doc.proc.step.step_config import StepConfig
 from doc.proc.service.service_config import ServiceConfig
+from doc.proc.source.source_config import SourceConfig
 
 logger = logging.getLogger("doc-proc-worker.app.pipeline_manager")
 
@@ -22,7 +24,9 @@ class PipelineManager():
                  step_catalog_container_name: str = "step_catalog",
                  step_instances_container_name: str = "step_instances",
                  service_catalog_container_name: str = "service_catalog",
-                 service_instances_container_name: str = "service_instances"):
+                 service_instances_container_name: str = "service_instances",
+                 source_catalog_container_name: str = "source_catalog",
+                 source_instances_container_name: str = "source_instances"):
         
         self._db = db
         self._pipelines_container_name = pipelines_container_name
@@ -30,6 +34,8 @@ class PipelineManager():
         self._service_catalog_container_name = service_catalog_container_name
         self._step_instances_container_name = step_instances_container_name
         self._service_instances_container_name = service_instances_container_name
+        self._source_catalog_container_name = source_catalog_container_name
+        self._source_instances_container_name = source_instances_container_name
         
         self._pipeline_factory = None
         self._pipeline_cache = {}
@@ -43,11 +49,13 @@ class PipelineManager():
             # Load step and service catalogs
             step_catalog_config = await self._load_step_catalog_from_db()
             service_catalog_config = await self._load_service_catalog_from_db()
+            source_catalog_config = await self._load_source_catalog_from_db()
             
             from doc.proc.pipeline.pipeline_factory import PipelineFactory
             self._pipeline_factory = PipelineFactory(step_catalog_config=step_catalog_config,
-                                                     service_catalog_config=service_catalog_config)
-            
+                                                     service_catalog_config=service_catalog_config,
+                                                     source_catalog_config=source_catalog_config)
+
 
     async def load_pipeline(self, pipeline_name: str) -> Optional[Pipeline]:
         """Load a pipeline by name"""
@@ -56,12 +64,13 @@ class PipelineManager():
         
         await self.__initialize_factory()
         
-        # Load step and service instances
+        # Load step, service and source instances
         service_instances = await self._load_service_instances_from_db()
         step_instances = await self._load_step_instances_from_db(service_instances=service_instances)
-                
+        source_instances = await self._load_source_instances_from_db()
+        
         # Create pipeline config
-        pipeline_config = await self._load_pipeline_config(pipeline_name, step_instances, service_instances)
+        pipeline_config = await self._load_pipeline_config(pipeline_name, step_instances, service_instances, source_instances)
         
         if pipeline_config:
 
@@ -81,7 +90,7 @@ class PipelineManager():
         results = self._db.list(container=self._pipelines_container_name, query=query, parameters=parameters)
         return results[0] if results else None
 
-    async def _load_pipeline_config(self, pipeline_name:str, step_instances:List[StepInstanceConfig], service_instances:List[ServiceInstanceConfig]) -> PipelineConfig:
+    async def _load_pipeline_config(self, pipeline_name:str, step_instances:List[StepInstanceConfig], service_instances:List[ServiceInstanceConfig], source_instances:List[SourceInstanceConfig]) -> PipelineConfig:
         """Load pipeline config from Cosmos DB"""
         query = "SELECT * FROM c WHERE c.name = @name"
         parameters = [{"name": "@name", "value": pipeline_name}]
@@ -131,7 +140,8 @@ class PipelineManager():
                                          steps=_pipeline_step_instances,
                                          execution_sequence=_pipeline_execution_sequence,
                                          settings=_pipeline_settings,
-                                         service_instances=_pipeline_service_instances)
+                                         service_instances=_pipeline_service_instances,
+                                         source_instances=source_instances)
 
 
         return pipeline_config
@@ -155,94 +165,33 @@ class PipelineManager():
                 item["services"] = linked_services
         return [StepInstanceConfig(**item) for item in step_instances]
     
-    # TODO: cache the loaded config
     async def _load_step_catalog_from_db(self) -> List[StepConfig]:
         """Load step catalog from Cosmos DB"""
         query = "SELECT * FROM c"
         step_definitions = self._db.list(container=self._step_catalog_container_name, query=query)
         return [StepConfig.from_dict(step) for step in step_definitions]
     
-    # TODO: cache the loaded config
     async def _load_service_instances_from_db(self) -> List[ServiceInstanceConfig]:
         """Load service instances from Cosmos DB"""
         query = "SELECT * FROM c"
         results = self._db.list(container=self._service_instances_container_name, query=query)
         return [ServiceInstanceConfig(**item) for item in results]
     
-    # TODO: cache the loaded config
     async def _load_service_catalog_from_db(self) -> List[ServiceConfig]:
         """Load service catalog from Cosmos DB"""
         query = "SELECT * FROM c"
         service_definitions = self._db.list(container=self._service_catalog_container_name, query=query)
         return [ServiceConfig.from_dict(service) for service in service_definitions]
     
+    async def _load_source_instances_from_db(self) -> List[SourceInstanceConfig]:
+        """Load source instances from Cosmos DB"""
+        query = "SELECT * FROM c"
+        results = self._db.list(container=self._source_instances_container_name, query=query)
+        return [SourceInstanceConfig(**item) for item in results]
     
-    # async def list_config_pipelines(self) -> List[Dict[str, Any]]:
-    #     """List all pipelines from configuration"""
-    #     config = await self.get_config()
-    #     return config.get("pipelines", [])
+    async def _load_source_catalog_from_db(self) -> List[SourceConfig]:
+        """Load source catalog from Cosmos DB"""
+        query = "SELECT * FROM c"
+        source_definitions = self._db.list(container=self._source_catalog_container_name, query=query)
+        return [SourceConfig.from_dict(source) for source in source_definitions]
     
-    # async def get_service_instances(self) -> List[Dict[str, Any]]:
-    #     """Get all service instances from configuration"""
-    #     config = await self.get_config()
-    #     return config.get("service_instances", [])
-    
-    # async def create_pipeline_instance(self, pipeline_data: Dict[str, Any]) -> Dict[str, Any]:
-    #     """Create a pipeline instance based on configuration"""
-    #     config_pipeline = await self.get_pipeline_by_name(pipeline_data.get("config_name"))
-    #     if config_pipeline:
-    #         # Use configuration as base
-    #         instance = {
-    #             "id": pipeline_data.get("name", config_pipeline.get("name")),
-    #             "name": pipeline_data.get("name", config_pipeline.get("name")),
-    #             "description": config_pipeline.get("description"),
-    #             "version": config_pipeline.get("version"),
-    #             "steps": config_pipeline.get("steps", []),
-    #             "execution_sequence": config_pipeline.get("execution_sequence", []),
-    #             "settings": {**config_pipeline.get("settings", {}), **pipeline_data.get("settings", {})},
-    #             "config_name": pipeline_data.get("config_name"),
-    #             "status": pipeline_data.get("status", "active"),
-    #             "created_at": pipeline_data.get("created_at"),
-    #             "updated_at": pipeline_data.get("updated_at")
-    #         }
-    #     else:
-    #         # Create custom pipeline
-    #         instance = {
-    #             "id": pipeline_data.get("name"),
-    #             "name": pipeline_data.get("name"),
-    #             "description": pipeline_data.get("description", ""),
-    #             "version": pipeline_data.get("version", "1.0"),
-    #             "steps": pipeline_data.get("steps", []),
-    #             "execution_sequence": pipeline_data.get("execution_sequence", []),
-    #             "settings": pipeline_data.get("settings", {}),
-    #             "status": pipeline_data.get("status", "active"),
-    #             "created_at": pipeline_data.get("created_at"),
-    #             "updated_at": pipeline_data.get("updated_at")
-    #         }
-        
-    #     if await self.validate_item(instance):
-    #         return await self.create(instance)
-    #     else:
-    #         raise ValueError("Invalid pipeline instance data")
-    
-    # async def get_pipeline_steps(self, pipeline_id: str) -> List[Dict[str, Any]]:
-    #     """Get all steps for a specific pipeline"""
-    #     pipeline = await self.get_by_id(pipeline_id)
-    #     if pipeline:
-    #         return pipeline.get("steps", [])
-    #     return []
-    
-    # async def update_pipeline_status(self, pipeline_id: str, status: str) -> Optional[Dict[str, Any]]:
-    #     """Update pipeline status"""
-    #     pipeline = await self.get_by_id(pipeline_id)
-    #     if pipeline:
-    #         pipeline["status"] = status
-    #         pipeline["updated_at"] = pipeline.get("updated_at")  # This should be set by the caller
-    #         return await self.update(pipeline)
-    #     return None
-    
-    # async def get_pipelines_by_status(self, status: str) -> List[Dict[str, Any]]:
-    #     """Get all pipelines with a specific status"""
-    #     query = "SELECT * FROM c WHERE c.status = @status"
-    #     parameters = [{"name": "@status", "value": status}]
-    #     return await self.list_all(query, parameters)

@@ -129,6 +129,7 @@ export interface Vault {
   status: 'active' | 'inactive' | 'error';
   pipeline_name?: string;
   source_instance_name?: string;
+  default_source_instance_name?: string;
   processing_config: DocumentProcessingConfig;
   storage_config: StorageConfig;
   stats?: Record<string, any>;
@@ -327,6 +328,10 @@ export interface SourceInstance {
   created: string;
   updated: string;
   catalog_definition?: SourceCatalogDefinition;
+  is_system?: boolean;
+  last_crawl_at?: string;
+  last_crawl_status?: string;
+  crawl_checkpoint?: string;
 }
 
 export interface SourceInstanceCreateRequest {
@@ -386,6 +391,8 @@ export interface ContentIdentifier {
   multipart_id : string[];
   source_id : string;
   source_name : string;
+  container?: string;
+  path?: string;
   metadata: Record<string, any>;
 }
 

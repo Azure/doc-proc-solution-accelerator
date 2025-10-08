@@ -18,6 +18,7 @@ TAG="latest"
 BUILD_API="false"
 BUILD_WEB="false"
 BUILD_WORKER="false"
+BUILD_CRAWLER="false"
 BUILD_ALL="true"
 
 # Function to show usage
@@ -32,6 +33,7 @@ usage() {
     echo "  --api                 Build API app image. If specified, only API image will be built."
     echo "  --web                 Build web app image. If specified, only web image will be built."
     echo "  --worker              Build worker app image. If specified, only worker image will be built."
+    echo "  --crawler              Build crawler app image. If specified, only crawler image will be built."
     echo "  -h, --help            Show this help message"
     echo ""
     echo "Examples:"
@@ -67,6 +69,11 @@ while [[ $# -gt 0 ]]; do
              BUILD_ALL="false"
             shift 1
             ;;
+        --crawler)
+             BUILD_CRAWLER="true"
+             BUILD_ALL="false"
+            shift 1
+            ;;
         -h|--help)
             usage
             ;;
@@ -90,13 +97,14 @@ echo ""
 
 # Output what will be built
 if [ "$BUILD_ALL" = "true" ]; then
-    echo -e "${BLUE}⚙️  Building all images (API, Web, Worker)${NC}"
+    echo -e "${BLUE}⚙️  Building all images (API, Web, Worker, Crawler)${NC}"
     echo ""
 else
     echo -e "${BLUE}⚙️  Building selected images:${NC}"
     [ "$BUILD_API" = "true" ] && echo -e "${BLUE}✔️ API${NC}"
     [ "$BUILD_WEB" = "true" ] && echo -e "${BLUE}✔️ Web${NC}"
     [ "$BUILD_WORKER" = "true" ] && echo -e "${BLUE}✔️ Worker${NC}"
+    [ "$BUILD_CRAWLER" = "true" ] && echo -e "${BLUE}✔️ Crawler${NC}"
     echo ""
 fi
 
@@ -200,6 +208,11 @@ if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_WORKER" = "true" ]; then
     build_and_push "worker" "doc-proc-worker/Dockerfile" "."
 fi
 
+# Build crawler
+if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_CRAWLER" = "true" ]; then
+    build_and_push "crawler" "doc-proc-crawler/Dockerfile" "."
+fi
+
 echo -e "${GREEN}🎉 Image(s) built and pushed successfully!${NC}"
 echo ""
 echo ""
@@ -212,6 +225,9 @@ if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_WEB" = "true" ]; then
 fi
 if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_WORKER" = "true" ]; then
     echo -e "${GREEN}✅ $REGISTRY/doc-proc-worker:$TAG${NC}"
+fi
+if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_CRAWLER" = "true" ]; then
+    echo -e "${GREEN}✅ $REGISTRY/doc-proc-crawler:$TAG${NC}"
 fi
 
 echo ""

@@ -19,14 +19,14 @@ import { OnlineStatusIndicator } from "@/components/OnlineStatusIndicator";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const appNavigationItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
+  // {
+  //   title: "Dashboard",
+  //   url: "/",
+  //   icon: LayoutDashboard,
+  // },
   {
     title: "Vaults",
-    url: "/vaults",
+    url: "/",
     icon: Vault,
   },
   {
@@ -83,7 +83,7 @@ const appConfigItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const onlineStatus = useOnlineStatus({ checkInterval: 60000 });
+  const onlineStatus = useOnlineStatus({ checkInterval: 5*60*1000 }); // check every 5 minutes
 
   return (
     <Sidebar>

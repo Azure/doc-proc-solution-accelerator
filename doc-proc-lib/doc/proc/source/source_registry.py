@@ -67,21 +67,21 @@ class SourceRegistry:
         if not source_config:
             raise ValueError(f"Source configuration not found: {source_id}")
 
-        # Create a copy of the config with the instance name
-        instance_config = SourceConfig(
-            id=source_config.id,
-            name=instance_name,
-            description=source_config.description,
-            type=source_config.type,
-            module_name=source_config.module_name,
-            module_path=source_config.module_path,
-            class_name=source_config.class_name,
-            settings_schema=source_config.settings_schema,
-            ui_metadata=source_config.ui_metadata,
-            tags=source_config.tags
-        )
+        # # Create a copy of the config with the instance name
+        # instance_config = SourceConfig(
+        #     id=source_config.id,
+        #     name=source_config.name,
+        #     description=source_config.description,
+        #     type=source_config.type,
+        #     module_name=source_config.module_name,
+        #     module_path=source_config.module_path,
+        #     class_name=source_config.class_name,
+        #     settings_schema=source_config.settings_schema,
+        #     ui_metadata=source_config.ui_metadata,
+        #     tags=source_config.tags
+        # )
 
-        instance = create_source_instance(instance_config, instance_settings)
+        instance = create_source_instance(instance_name, source_config, instance_settings)
         
         # Cache the instance
         cache_key = f"{source_id}_{instance_name}"

@@ -7,7 +7,7 @@ from doc.proc.source.source_config import SourceConfig
 logger = logging.getLogger("doc.proc.source.source_instance_loader")
 
 
-def create_source_instance(source_config: SourceConfig, instance_settings: dict = None) -> SourceBase:
+def create_source_instance(instance_name: str, source_config: SourceConfig, instance_settings: dict = None) -> SourceBase:
     """Get an instance of the specified source type."""
 
     # Validate source_config
@@ -60,7 +60,7 @@ def create_source_instance(source_config: SourceConfig, instance_settings: dict 
         logger.debug(f"Source instance settings: {settings}")
 
         # Create an instance of the source class
-        source_instance = source_class(name=source_config.name, type=source_config.type, settings=settings)
+        source_instance = source_class(name=instance_name, type=source_config.type, settings=settings)
 
         if not issubclass(source_class, SourceBase):
             raise TypeError(f"Source class \"{source_config.class_name}\" must be a subclass of SourceBase.")

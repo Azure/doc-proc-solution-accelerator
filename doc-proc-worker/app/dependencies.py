@@ -44,7 +44,9 @@ def get_pipeline_manager() -> PipelineManager:
                            step_catalog_container_name=app_settings.COSMOS_DB_CONTAINER_STEP_CATALOG,
                            step_instances_container_name=app_settings.COSMOS_DB_CONTAINER_STEP_INSTANCES,
                            service_catalog_container_name=app_settings.COSMOS_DB_CONTAINER_SERVICE_CATALOG,
-                           service_instances_container_name=app_settings.COSMOS_DB_CONTAINER_SERVICE_INSTANCES)
+                           service_instances_container_name=app_settings.COSMOS_DB_CONTAINER_SERVICE_INSTANCES,
+                           source_catalog_container_name=app_settings.COSMOS_DB_CONTAINER_SOURCE_CATALOG,
+                           source_instances_container_name=app_settings.COSMOS_DB_CONTAINER_SOURCE_INSTANCES)
 
 @ttl_cache(maxsize=1, ttl=-1)  # Cache indefinitely
 def get_execution_manager() -> ExecutionManager:

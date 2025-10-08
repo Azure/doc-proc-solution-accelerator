@@ -40,91 +40,91 @@ sources:
       description_long: "Crawls and retrieves documents from Azure Blob Storage containers with support for various authentication methods."
     tags: [azure, cloud, storage, blobs]
 
-  - id: azure_files
-    name: "Azure Files"
-    description: "Crawl documents from Azure File Shares"
-    type: azure_files
-    module_name: azure_files_source
-    module_path: ./doc/proc/source/azure_files_source.py
-    class_name: AzureFilesSource
-    version: "1.0"
-    settings_schema:
-      account_name:
-        type: string
-        title: "Storage Account Name"
-        description: "Azure Storage Account name"
-        required: true
-        env_var: AZURE_STORAGE_ACCOUNT_NAME
-      share_name:
-        type: string
-        title: "File Share Name"
-        description: "Azure File Share name to crawl"
-        required: true
-        env_var: AZURE_FILES_SHARE_NAME
-      credential_type:
-        type: string
-        title: "Credential Type"
-        description: "Authentication method to use"
-        required: true
-        enum: [default_azure_credential, azure_key_credential]
-        default: default_azure_credential
-      credential_key:
-        type: string
-        title: "Storage Account Key"
-        description: "Storage account access key (required for azure_key_credential)"
-        sensitive: true
-        env_var: AZURE_STORAGE_ACCOUNT_KEY
-    ui_metadata:
-      icon: "folder-network"
-      color: "#0078d4"
-      description_short: "Azure Files crawler"
-      description_long: "Crawls and retrieves documents from Azure File Shares with hierarchical directory support."
-    tags: [azure, cloud, storage, files]
+  # - id: azure_files
+  #   name: "Azure Files"
+  #   description: "Crawl documents from Azure File Shares"
+  #   type: azure_files
+  #   module_name: azure_files_source
+  #   module_path: ./doc/proc/source/azure_files_source.py
+  #   class_name: AzureFilesSource
+  #   version: "1.0"
+  #   settings_schema:
+  #     account_name:
+  #       type: string
+  #       title: "Storage Account Name"
+  #       description: "Azure Storage Account name"
+  #       required: true
+  #       env_var: AZURE_STORAGE_ACCOUNT_NAME
+  #     share_name:
+  #       type: string
+  #       title: "File Share Name"
+  #       description: "Azure File Share name to crawl"
+  #       required: true
+  #       env_var: AZURE_FILES_SHARE_NAME
+  #     credential_type:
+  #       type: string
+  #       title: "Credential Type"
+  #       description: "Authentication method to use"
+  #       required: true
+  #       enum: [default_azure_credential, azure_key_credential]
+  #       default: default_azure_credential
+  #     credential_key:
+  #       type: string
+  #       title: "Storage Account Key"
+  #       description: "Storage account access key (required for azure_key_credential)"
+  #       sensitive: true
+  #       env_var: AZURE_STORAGE_ACCOUNT_KEY
+  #   ui_metadata:
+  #     icon: "folder-network"
+  #     color: "#0078d4"
+  #     description_short: "Azure Files crawler"
+  #     description_long: "Crawls and retrieves documents from Azure File Shares with hierarchical directory support."
+  #   tags: [azure, cloud, storage, files]
 
-  - id: sharepoint_online
-    name: "SharePoint Online"
-    description: "Crawl documents from SharePoint Online document libraries"
-    type: sharepoint
-    module_name: sharepoint_source
-    module_path: ./doc/proc/source/sharepoint_source.py
-    class_name: SharePointSource
-    version: "1.0"
-    settings_schema:
-      tenant_id:
-        type: string
-        title: "Tenant ID"
-        description: "Azure AD Tenant ID (GUID)"
-        required: true
-        pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-        env_var: AZURE_TENANT_ID
-      client_id:
-        type: string
-        title: "Application Client ID"
-        description: "Azure AD Application (client) ID"
-        required: true
-        pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-        env_var: AZURE_CLIENT_ID
-      client_secret:
-        type: string
-        title: "Client Secret"
-        description: "Azure AD Application client secret"
-        required: true
-        sensitive: true
-        env_var: AZURE_CLIENT_SECRET
-      site_url:
-        type: string
-        title: "SharePoint Site URL"
-        description: "Full URL to the SharePoint site"
-        required: true
-        pattern: "^https://.*\\.sharepoint\\.com.*"
-      library_name:
-        type: string
-        title: "Document Library Name"
-        description: "Name of the document library to crawl"
-        default: "Documents"
-    ui_metadata:
-      icon: "sharepoint"
-      color: "#036c70"
-      description_short: "SharePoint Online crawler"
-      description_long: "Crawls and retrieves documents from SharePoint Online document libraries using Microsoft Graph API."
-    tags: [sharepoint, microsoft, cloud, collaboration]
+  # - id: sharepoint_online
+  #   name: "SharePoint Online"
+  #   description: "Crawl documents from SharePoint Online document libraries"
+  #   type: sharepoint
+  #   module_name: sharepoint_source
+  #   module_path: ./doc/proc/source/sharepoint_source.py
+  #   class_name: SharePointSource
+  #   version: "1.0"
+  #   settings_schema:
+  #     tenant_id:
+  #       type: string
+  #       title: "Tenant ID"
+  #       description: "Azure AD Tenant ID (GUID)"
+  #       required: true
+  #       pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+  #       env_var: AZURE_TENANT_ID
+  #     client_id:
+  #       type: string
+  #       title: "Application Client ID"
+  #       description: "Azure AD Application (client) ID"
+  #       required: true
+  #       pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+  #       env_var: AZURE_CLIENT_ID
+  #     client_secret:
+  #       type: string
+  #       title: "Client Secret"
+  #       description: "Azure AD Application client secret"
+  #       required: true
+  #       sensitive: true
+  #       env_var: AZURE_CLIENT_SECRET
+  #     site_url:
+  #       type: string
+  #       title: "SharePoint Site URL"
+  #       description: "Full URL to the SharePoint site"
+  #       required: true
+  #       pattern: "^https://.*\\.sharepoint\\.com.*"
+  #     library_name:
+  #       type: string
+  #       title: "Document Library Name"
+  #       description: "Name of the document library to crawl"
+  #       default: "Documents"
+  #   ui_metadata:
+  #     icon: "sharepoint"
+  #     color: "#036c70"
+  #     description_short: "SharePoint Online crawler"
+  #     description_long: "Crawls and retrieves documents from SharePoint Online document libraries using Microsoft Graph API."
+  #   tags: [sharepoint, microsoft, cloud, collaboration]

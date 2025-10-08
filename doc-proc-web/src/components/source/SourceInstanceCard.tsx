@@ -159,6 +159,32 @@ const SourceInstanceCard = ({
           </div>
         )}
 
+        {(instance.last_crawl_at || instance.last_crawl_status) && (
+          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+            {instance.last_crawl_at && (
+              <div>
+                <p className="text-muted-foreground">Last Crawl At</p>
+                <p className="font-medium">
+                  {new Date(instance.last_crawl_at).toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            )}
+            {instance.last_crawl_status && (
+              <div>
+                <p className="text-muted-foreground">Last Crawl Status</p>
+                <p className="font-medium capitalize">{instance.last_crawl_status}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Switch

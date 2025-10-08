@@ -356,7 +356,7 @@ class Pipeline:
     async def _process_single_document(self, document: Document, context: PipelineExecutionContext) -> DocumentResult:
         """Process a single document through the pipeline steps."""
         document_id = document.id
-        logger.info(f"Starting document processing for document ID: {document_id}")
+        logger.debug(f"Starting document processing for document ID: {document_id}")
         
         document_start_time = datetime.now()
         
@@ -372,7 +372,7 @@ class Pipeline:
         )
         
         for step in self.pipeline_execution_steps:
-            logger.debug(f"Processing document {document_id} - Executing step: {step.name} (Enabled: {step.enabled})")
+            logger.debug(f"Executing step: {step.name} (Enabled: {step.enabled})")
             
             step_start_time = datetime.now()
             step_result = StepExecutionResult(step_name=step.name, result="NotStarted", elapsed_time_secs=0)
@@ -384,7 +384,7 @@ class Pipeline:
                     step_result.reason = "Step is not enabled"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     document_result.step_results.append(step_result)
-                    logger.info(f"Document {document_id} - Step {step.name} is skipped as it is not enabled.")
+                    logger.debug(f"Document {document_id} - Step {step.name} is skipped as it is not enabled.")
                     continue
 
                 # Evaluate the condition for the step
@@ -393,7 +393,7 @@ class Pipeline:
                     step_result.reason = "Condition not met"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
                     document_result.step_results.append(step_result)
-                    logger.info(f"Document {document_id} - Step {step.name} is skipped as condition is not met.")
+                    logger.debug(f"Document {document_id} - Step {step.name} is skipped as condition is not met.")
                     continue
 
                 # Update the context with the current step and document
@@ -430,11 +430,8 @@ class Pipeline:
                 continue
             
             step_elapsed_time = (datetime.now() - step_start_time).total_seconds()
-            logger.info(f"Document {document_id} - Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
-            
-            if step.debug_mode:
-                logger.debug(f"Document {document_id} - Step {step.name} output data: {_document_data.data}")
-            
+            logger.debug(f"Document {document_id} - Step {step.name} executed successfully. Elapsed time: {step_elapsed_time:.2f} seconds.")
+              
             step_result.result = "Succeeded"
             step_result.elapsed_time_secs = step_elapsed_time
             document_result.step_results.append(step_result)
@@ -445,15 +442,15 @@ class Pipeline:
         document_result.elapsed_time_secs = elapsed_time_secs
         document_result.data = _document_data.data
         document_result.summary_data = _document_data.summary_data
-        
-        logger.info(f"Document {document_id} processing completed with result: {document_result.result}. Elapsed time: {elapsed_time_secs:.2f} seconds.")
-        
+
+        logger.debug(f"Document {document_id} processing completed with result: {document_result.result}. Elapsed time: {elapsed_time_secs:.2f} seconds.")
+
         return document_result
 
     async def run(self, input_data: PipelineInput) -> PipelineExecutionResult:
         """Run the pipeline with the given input data, processing documents in parallel."""
 
-        logger.info(f"Starting pipeline '{self.name}' execution with input data")
+        logger.debug(f"Starting pipeline '{self.name}' execution with input data")
 
         if not self.pipeline_execution_steps:
             logger.error("Pipeline execution steps are not defined. Please check the pipeline configuration.")
@@ -481,8 +478,8 @@ class Pipeline:
         documents = input_data.documents
         
         if documents and isinstance(documents, list) and len(documents) > 0:
-            logger.info(f"Processing {len(documents)} documents in parallel")
-            
+            logger.debug(f"Processing {len(documents)} documents in parallel")
+
             idx = 0
             # Process all documents in parallel
             document_tasks = []
@@ -501,25 +498,9 @@ class Pipeline:
             
             # Execute all document processing tasks in parallel
             document_results = await asyncio.gather(*document_tasks, return_exceptions=True)
-            print(document_results)
-            # Process results and handle any exceptions
-            # for i, result in enumerate(document_results):
+
             for result in document_results:
-                
-                # if isinstance(result, Exception):
-                #     logger.error(f"Document {i} processing failed with exception: {str(result)}")
-                #     # Create a failed document result for exceptions
-                #     failed_result = DocumentResult(
-                #         document_id=f"document_{i}",
-                #         result="Failed",
-                #         reason=f"Document processing failed with exception: {str(result)}",
-                #         elapsed_time_secs=0,
-                #         step_results=[]
-                #     )
-                #     pipeline_execution_result.document_results.append(failed_result)
-                # else:
                 pipeline_execution_result.document_results.append(result)
-            
                         
             # Determine overall pipeline result
             successful_docs = len([dr for dr in pipeline_execution_result.document_results if dr.result == "Succeeded"])
@@ -546,7 +527,7 @@ class Pipeline:
             
         else:
             # Fallback to single document processing
-            logger.info("No documents array found, processing as single input")
+            logger.debug("No documents array found, processing as single input")
             
             document_result = await self._process_single_document(input_data.data, context)
             pipeline_execution_result.document_results.append(document_result)

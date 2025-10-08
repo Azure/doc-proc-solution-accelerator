@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import uuid
 import os
@@ -115,13 +116,13 @@ class ExecutionManager():
 
         output_data = pipeline_execution_result.model_dump()
         
+        with open("output_data.txt", "w+b") as f:
+            f.write(output_data.__str__().encode('utf-8'))
+        
         # clean up the data field for each document
         for doc_result in output_data.get("document_results", []):
-            # remove all fields except id and file_path
-            doc_result_data = doc_result.get("data", {})
-            for k in list(doc_result_data.keys()):
-                if k not in ["id", "file_path"]:
-                    doc_result_data.pop(k)
+            # remove the data field
+            doc_result.pop("data", None) if "data" in doc_result and isinstance(doc_result["data"], dict) else None
 
         output_data["id"] = result_id
         output_data["batch_execution_id"] = batch_id

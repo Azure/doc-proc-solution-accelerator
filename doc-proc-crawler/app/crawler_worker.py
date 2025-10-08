@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import traceback
 
+from matplotlib.pylab import size
+
 
 from app.dependencies import get_cosmos_proxy, get_storage_queue_proxy
 from app.proxy.cosmos import CosmosDb
@@ -98,7 +100,7 @@ class CrawlerWorker:
 
             # Get the vault that is associated with this source instance
             self.logger.debug("Retrieving associated vault for source instance...")
-            vault = await self._get_associated_vault()
+            vault = self._get_associated_vault()
             if not vault:
                 raise RuntimeError(f"No Vault is associated with source instance {self.source_instance_id}. Cannot proceed with crawling.")
             self.vault = vault
@@ -119,9 +121,9 @@ class CrawlerWorker:
                 source_instance=item,
                 catalog_definition=catalog_item
             )
-            
+
             self.logger.info(f"Successfully loaded source instance and created source: {self.source.name}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to load source instance {self.source_instance_id}: {e}")
             raise
@@ -129,7 +131,7 @@ class CrawlerWorker:
     async def _run_processing_loop(self):
         """Main processing loop for continuous crawling of the source instance"""
         self.logger.info("Starting crawler processing loop for source instance...")
-        
+
         if not self.source_instance or not self.source:
             raise RuntimeError("Source instance not loaded")
 
@@ -138,8 +140,8 @@ class CrawlerWorker:
             try:
                 # Check if source instance is enabled and ready for crawling
                 if not self._should_crawl_now():
-                    self.logger.debug("Source instance interval for crawling not met, waiting...")
-                    
+                    self.logger.info("Source instance interval for crawling not met, waiting...")
+
                     # Wait before next check
                     for _ in range(crawl_interval_seconds):
                         if self._shutdown_requested:
@@ -151,10 +153,10 @@ class CrawlerWorker:
                             self._shutdown_requested = True
                             break
                     continue
-                
+
                 # Perform crawl of this source instance
                 await self._process_source_instance()
-                
+
                 # Wait before next crawl cycle
                 crawl_interval = crawl_interval_seconds
                 self.logger.info(f"Crawl completed. Waiting {crawl_interval} seconds before next crawl.")
@@ -190,6 +192,15 @@ class CrawlerWorker:
         """Check if the source instance should be crawled now"""
         if not self.source_instance.enabled:
             return False
+        
+        # Get the vault that is associated with this source instance
+        self.logger.debug("Retrieving associated vault for source instance...")
+        vault = self._get_associated_vault()
+        if not vault:
+            self.logger.error(f"No Vault is associated with source instance {self.source_instance_id}. Cannot proceed with crawling.")
+            return False
+        # set the vault
+        self.vault = vault
         
         # Check crawler settings for interval
         crawl_interval_seconds = self._get_crawl_interval()
@@ -324,8 +335,8 @@ class CrawlerWorker:
             #TODO: implement checking for updates/deletions
             check_for_updates = crawler_settings.get('check_for_updates', False)
             
-            self.logger.info(f"Starting document discovery for source {self.source_instance.id}")
-            discovered_items = []
+            self.logger.debug(f"Starting document discovery for source {self.source_instance.id}")
+            discovered_items: List[SourceItemMetadata] = []
             
             # Discover documents using using source crawl method
             async for item_metadata in self.source.crawl(
@@ -341,11 +352,11 @@ class CrawlerWorker:
                 
                 # Apply limits if configured
                 if len(discovered_items) >= max_documents:
-                    self.logger.info(f"Reached max documents limit: {max_documents}")
+                    self.logger.debug(f"Reached max documents limit: {max_documents}")
                     break
             
             crawl_execution.total_files_found = len(discovered_items)
-            self.logger.info(f"Discovered {len(discovered_items)} documents")
+            self.logger.debug(f"Discovered {len(discovered_items)} documents")
             
             # Process documents in batches
             batch_items = []
@@ -353,17 +364,13 @@ class CrawlerWorker:
                 try:
                     
                     # Add to batch
-                    batch_items.append({
-                        'item_metadata': item_metadata
-                    })
-                    
+                    batch_items.append(item_metadata)
+
                     crawl_execution.files_processed += 1
                     
                     # Process batch when full or at end
                     if len(batch_items) >= processing_batch_size or i == len(discovered_items) - 1:
-                        uploaded, queued = await self._upload_document_batch(
-                            batch_items, crawl_execution.vault_id, crawl_execution
-                        )
+                        uploaded, queued = await self._upload_document_batch(batch_items)
                         
                         crawl_execution.files_queued += queued
                         crawl_execution.files_uploaded += uploaded
@@ -382,31 +389,32 @@ class CrawlerWorker:
             self.logger.error(f"Error during crawling: {e}")
             raise
 
-    async def _upload_document_batch(self, batch_documents: List[Dict]) -> tuple[int,int]:
+    async def _upload_document_batch(self, batch_documents: List[SourceItemMetadata]) -> tuple[int,int]:
         """Upload a batch of documents to the vault"""
         # This would integrate with the vault/document storage system
         uploaded_docs = []
         queued_docs = []
         
         try:
-            uploaded_docs = self._write_document_batch_to_vault(batch_documents)
+            uploaded_docs = await self._write_document_batch_to_vault(batch_documents)
             
-            queued_docs = self._queue_documents_for_processing(uploaded_docs)
+            queued_docs = await self._queue_documents_for_processing(uploaded_docs)
 
         except Exception as e:
             self.logger.warning(f"Failed to upload batch: {e}")
+            self.logger.exception(e)
             raise
             
         return (len(uploaded_docs), len(queued_docs))
 
-    async def _write_document_batch_to_vault(self, batch_documents: List[Dict]) -> int:
+    async def _write_document_batch_to_vault(self, batch_documents: List[SourceItemMetadata]) -> int:
         """Write a batch of documents to the vault"""
       
         docs_written = []
         
         for doc_data in batch_documents:
             try:
-                content_identifier: ContentIdentifier = doc_data['item_metadata'].content_identifier
+                content_identifier: ContentIdentifier = doc_data.content_identifier
                 if not content_identifier:
                     raise ValueError("Document Item Metadata missing content identifier")
 
@@ -420,7 +428,14 @@ class CrawlerWorker:
                     "submit_date": datetime.now(timezone.utc).isoformat(),
                     "source" : "crawler",
                     "status": "pending",
-                    "metadata": doc_data['item_metadata'].metadata or {}
+                    "metadata": {
+                        "name": doc_data.name,
+                        "size": doc_data.size,
+                        "modified_date": doc_data.modified_date.isoformat() if doc_data.modified_date else None,
+                        "created_date": doc_data.created_date.isoformat() if doc_data.created_date else None,
+                        "content_type": doc_data.content_type,
+                        "etag": doc_data.etag
+                    }
                 }
 
                 self.cosmos_proxy.upsert(container=app_settings.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS, item=document)
@@ -428,7 +443,7 @@ class CrawlerWorker:
                 docs_written.append(document)
 
             except Exception as e:
-                self.logger.warning(f"Failed to upload document {doc_data['item_metadata'].name}: {e}")
+                self.logger.warning(f"Failed to upload document {doc_data.content_identifier}: {e}")
                 continue
 
         return docs_written
@@ -451,7 +466,7 @@ class CrawlerWorker:
             # Create documents info list
             _documents = [{"id": doc.get('content_id')} for doc in documents if doc.get('content_id')]
 
-            self.logger.info(f"Queueing {len(_documents)} documents in vault '{self.vault.get('name')}' for processing in pipeline '{self.vault.get('pipeline_name')}'")
+            self.logger.debug(f"Queueing {len(_documents)} documents in vault '{self.vault.get('name')}' for processing in pipeline '{self.vault.get('pipeline_name')}'")
 
             # create message content
             message = {
@@ -498,7 +513,7 @@ class CrawlerWorker:
         except Exception as e:
             self.logger.error(f"Error saving crawl execution {crawl_execution.id}: {e}")
 
-    async def _get_associated_vault(self) -> dict:
+    def _get_associated_vault(self) -> dict:
         """Get the vault associated with this source instance"""
         try:
             query = "SELECT * FROM c WHERE c.source_instance_name = @source_instance_name"

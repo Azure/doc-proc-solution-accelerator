@@ -40,7 +40,6 @@ class StorageQueue():
             
             # Verify connection by fetching queue properties
             await self._queue_client.get_queue_properties()
-            logger.info(f"Connected to Azure Storage Queue: {self.queue_name}")
 
         except Exception as e:
             logger.error(f"Failed to connect to Azure Storage Queue: {e}. Ensure network connectivity and rbac permissions are set for the storage account.")
@@ -51,7 +50,6 @@ class StorageQueue():
         if self._queue_client:
             await self._queue_client.close()
             self._queue_client = None
-            logger.info("Disconnected from Azure Storage Queue")
 
     async def send_message(self, message: Dict[str, Any], 
                             visibility_timeout: Optional[int] = None,
@@ -79,7 +77,6 @@ class StorageQueue():
                 time_to_live=time_to_live or 604800  # 7 days default
             )
             
-            logger.debug(f"Sent message to queue: {response.id}")
             return response.id
             
         except Exception as e:

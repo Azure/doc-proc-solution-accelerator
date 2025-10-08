@@ -31,7 +31,7 @@ param additionalEnvironmentVariables array = []
 @description('Tags for resources')
 param tags object = {}
 
-var appName = '${namePrefix}-worker-${environment}'
+var appName = '${namePrefix}-crawler-${environment}'
 
 // Prepare environment variables
 var environmentVariables = concat([
@@ -61,9 +61,9 @@ resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@202
   scope: resourceGroup()
 }
 
-// Use Azure Verified Module for Container App (Worker)
-module workerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
-  name: 'workerAppDeployment'
+// Use Azure Verified Module for Container App (Crawler)
+module crawlerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+  name: 'crawlerAppDeployment'
   params: {
     name: appName
     location: resourceGroup().location
@@ -97,5 +97,5 @@ module workerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' =
   }
 }
 
-output containerAppName string = workerApp.outputs.name
-output containerAppId string = workerApp.outputs.resourceId
+output containerAppName string = crawlerApp.outputs.name
+output containerAppId string = crawlerApp.outputs.resourceId
