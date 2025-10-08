@@ -846,6 +846,8 @@ The following table provides links to detailed documentation for each individual
 
 The document processing pipeline uses a standardized data model for passing information between steps. Understanding this model is crucial for developing effective steps.
 
+> **📖 Comprehensive Models Documentation**: For detailed information about the `Document`, `ContentIdentifier`, and `PipelineInput` models, including usage patterns and examples, see the [Models Documentation](../models/README.md).
+
 ### StepInputOutput Structure
 
 Each step receives and returns a `StepInputOutput` object with the following structure:
