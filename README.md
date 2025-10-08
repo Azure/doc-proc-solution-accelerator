@@ -440,7 +440,8 @@ doc-proc-solution-accelerator/
 
 Some of the great features planned for the next release:
 - Deployment in as per Zero Trust Architecture best practices with integration with VNETs.
-- Pipelines for management of deletions of documents. 
+- Pipelines for management of deletions of documents.
+- More Sources, Steps and Services for various use cases.
 
 
 ## 🤝 Contributing

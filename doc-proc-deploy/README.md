@@ -151,6 +151,146 @@ cp doc-proc-web\.env.example doc-proc-web\.env
 -Help          # Show detailed help
 ```
 
+
+## Infrastructure Deployment
+
+### Azure Bicep Infrastructure as Code
+
+The document processing solution uses Azure Bicep for Infrastructure as Code (IaC) deployment. The main deployment template is located at `/doc-proc-deploy/infra/bicep/main.bicep` and orchestrates the provisioning of all required Azure resources for the complete solution.
+
+#### Main Bicep Template Overview
+
+The `main.bicep` template deploys a comprehensive, enterprise-ready document processing infrastructure with the following Azure services:
+
+**Core Infrastructure Components:**
+- **User Assigned Managed Identity** - Provides secure, passwordless authentication between services
+- **Log Analytics Workspace** - Centralized logging and monitoring for all components
+- **Application Insights** - Application performance monitoring and telemetry
+- **Container Apps Environment** - Serverless container hosting platform for scalable workloads
+
+**Data & Storage Services:**
+- **Azure Cosmos DB** - NoSQL database with multiple containers for pipelines, catalogs, executions, and document metadata
+- **Azure Storage Account** - Blob storage for documents and queues for asynchronous processing
+- **Azure Container Registry** - Private container image registry for application deployments
+
+**AI & Configuration Services:**
+- **Azure AI Foundry** - AI/ML services integration for document processing capabilities
+- **App Configuration Store** - Centralized configuration management with environment-specific settings
+
+#### Deployment Parameters
+
+The template accepts the following key parameters for customization:
+
+**Environment Configuration:**
+```bicep
+@description('Name prefix for all resources')
+param namePrefix string = 'docproc'
+
+@description('Environment name (dev, staging, prod)')
+param environment string = 'dev'
+
+@description('Location for all resources')
+param location string = resourceGroup().location
+```
+
+**Document Processing Configuration:**
+```bicep
+@description('Cosmos DB database name')
+param cosmosDbName string = 'docproc'
+
+@description('Name of the blob storage container for vault documents')
+param vaultsContainerName string = 'vaults'
+
+@description('Name of the storage queue for document processing requests')
+param docprocExecutionsQueueName string = 'docproc-execution-requests'
+```
+
+**AI Services Configuration:**
+```bicep
+@description('Location for AI Foundry resources')
+param aiFoundryLocation string = resourceGroup().location
+```
+
+#### Cosmos DB Container Structure
+
+The template automatically provisions the following Cosmos DB containers with optimized partition keys:
+
+- `pipelines` - Document processing pipeline definitions
+- `service_catalog` - Available processing services registry
+- `service_instances` - Active service instance configurations  
+- `step_catalog` - Pipeline step definitions and metadata
+- `step_instances` - Runtime step instance configurations
+- `source_catalog` - Document source type definitions
+- `source_instances` - Active document source configurations
+- `vaults` - Document vault metadata and settings
+- `vault_documents` - Individual document records and metadata
+- `batch_executions` - Batch processing execution tracking
+- `pipeline_executions` - Individual pipeline execution records
+- `crawl_leases` - Distributed crawler coordination locks
+- `crawl_executions` - Crawler execution history and metrics
+
+#### Application Configuration
+
+The deployment automatically configures environment-specific settings through Azure App Configuration:
+
+**API Service Configuration:**
+- Debug mode settings
+- Blob storage integration parameters
+- Container and account configurations
+
+**Worker Service Configuration:**
+- Worker pool size and scaling settings
+- Shutdown timeout and restart policies
+- Health check intervals and thresholds
+
+**Crawler Service Configuration:**
+- Maximum concurrent worker limits
+- Discovery polling intervals
+- Lease duration and renewal settings
+
+**Shared Configuration:**
+- Cosmos DB connection endpoints
+- Storage queue URLs and connection strings
+- Application Insights instrumentation keys
+
+#### Deployment Outputs
+
+The template provides essential outputs for integration with application deployments:
+
+```bicep
+// Identity and Security
+output userAssignedIdentityName string
+output userAssignedIdentityPrincipalId string
+output userAssignedIdentityClientId string
+
+// Container Infrastructure  
+output containerRegistryName string
+output containerRegistryLoginServer string
+output containerAppsEnvironmentId string
+
+// Data Services
+output storageAccountName string
+output cosmosAccountName string
+
+// Configuration
+output appConfigStoreName string
+output appConfigStoreEndpoint string
+
+// AI Services
+output aiProjectName string
+output aiServicesName string
+```
+
+#### Environment-Specific Features
+
+The template includes environment-aware configurations:
+
+- **Production Environment**: Enables zone redundancy for Cosmos DB for high availability
+- **Development/Staging**: Uses cost-optimized configurations with single-region deployment
+- **Resource Naming**: Generates unique resource names using resource group ID hashing
+- **Tagging Strategy**: Consistent tagging for environment identification and cost tracking
+
+
 ## 📚 Additional Resources
 
 - [Project README](../README.md)

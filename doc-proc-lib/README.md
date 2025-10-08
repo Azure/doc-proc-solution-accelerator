@@ -6,192 +6,164 @@
 
 # Doc-Proc-Lib: Document Processing Pipeline Library
 
-A flexible, modular document processing pipeline library built with Python that enables the creation of complex document processing workflows through configurable pipelines, steps, and services.
+A flexible, modular document processing pipeline library built with Python that serves as the core processing engine for the Document Processing Solution Accelerator. This library enables the creation of complex document processing workflows through configurable pipelines, steps, and services, and integrates seamlessly with the complete solution ecosystem including web UI, REST API, background workers, and distributed crawlers.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
+- [Getting Started](#getting-started)
 - [Configuration](#configuration)
   - [Service Catalog](#service-catalog)
   - [Step Catalog](#step-catalog)
+  - [Source Catalog](#source-catalog)
   - [Pipeline Configuration](#pipeline-configuration)
 - [Core Components](#core-components)
-- [Usage Examples](#usage-examples)
-- [Built-in Services](#built-in-services)
-- [Built-in Steps](#built-in-steps)
 - [Creating Custom Components](#creating-custom-components)
   - [Custom Service](#custom-service)
   - [Custom Step](#custom-step)
-- [Environment Variables](#environment-variables)
+  - [Custom Source](#custom-source)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-Doc-Proc-Lib is designed to handle complex document processing workflows by breaking them down into modular, reusable components:
+Doc-Proc-Lib is the foundational processing engine that powers the entire Document Processing Solution Accelerator. It's designed to handle complex document processing workflows by breaking them down into modular, reusable components that can be orchestrated through a comprehensive ecosystem:
 
-- **Services**: External integrations (Azure Blob Storage, AI services, databases)
-- **Steps**: Processing units that transform data
-- **Pipelines**: Orchestrated sequences of steps
+### Components
+- **Services**: External integrations (Azure Blob Storage, AI Inference, Document Intelligence, AI Search, Cosmos DB)
+- **Steps**: Processing units that transform data (PDF extraction, content retrieval, entity extraction, index writing)
+- **Sources**: Data source connectors for distributed crawling and content ingestion (Azure Blob Storage, SharePoint Online, File Systems)
+- **Pipelines**: Orchestrated sequences of steps with dependency management
+
+### Solution Ecosystem Integration
+- **🎨 Web UI (`doc-proc-web`)**: React-based management interface for configuring pipelines and monitoring executions
+- **🚀 REST API (`doc-proc-api`)**: FastAPI backend that exposes the library functionality as web services
+- **⚡ Background Workers (`doc-proc-worker`)**: Scalable queue-based processing using Azure Storage Queues
+- **🔍 Distributed Crawler (`doc-proc-crawler`)**: Intelligent source discovery and content ingestion system
+- **🏗️ Infrastructure (`doc-proc-deploy`)**: Complete Azure deployment automation with Bicep templates
 
 The library supports:
-- ✅ Asynchronous processing
+- ✅ Asynchronous processing with high-performance execution
 - ✅ Modular architecture with catalog-based configuration
-- ✅ Azure cloud services integration
-- ✅ AI-powered document processing
-- ✅ Flexible pipeline orchestration
-- ✅ Environment-based configuration
-- ✅ Comprehensive logging and error handling
+- ✅ Complete Azure ecosystem integration
+- ✅ AI-powered document processing (GPT-4, Document Intelligence, Computer Vision)
+- ✅ Flexible pipeline orchestration with conditional execution
+- ✅ Environment-based configuration with Azure Key Vault integration
+- ✅ Comprehensive logging, monitoring, and error handling
+- ✅ Distributed processing with lease-based coordination
+- ✅ RESTful API exposure for web and mobile applications
+- ✅ Real-time queue processing for scalable document ingestion
 
 ## Architecture
 
+The Document Processing Solution follows a comprehensive microservices architecture with the `doc-proc-lib` serving as the core processing engine:
+
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌────────────────────────┐
-│ Service Catalog │    │  Step Catalog   │    │   Pipeline Config      │
-│                 │    │                 │    │                        │
-│ - Azure Blob    │    │ - DOC to MD     │    │ - Service Instances    │
-│ - Azure AI      │    │ - MD to Index   │    │ - Step Instances       │
-│ - AI SEARCH     │    │ - Custom Steps  │    │ - Pipeline Definitions │
-│ - COSMOS        │    │                 │    │                        │
-└─────────────────┘    └─────────────────┘    └────────────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                        ┌─────────────────┐
-                        │    Pipeline     │
-                        │   Orchestrator  │
-                        │                 │
-                        │ ┌─────────────┐ │
-                        │ │   Step 1    │ │
-                        │ └─────────────┘ │
-                        │        │        │
-                        │ ┌─────────────┐ │
-                        │ │   Step 2    │ │
-                        │ └─────────────┘ │
-                        │        │        │
-                        │ ┌─────────────┐ │
-                        │ │   Step N    │ │
-                        │ └─────────────┘ │
-                        └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                        Complete Document Processing Solution Architecture             │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                │
+│  │  doc-proc-web   │    │  doc-proc-api   │    │ doc-proc-crawler│                │
+│  │  Management UI  │◄──►│  REST API       │◄──►│ Distributed     │                │
+│  │  (React/TS)     │    │  (FastAPI)      │    │ Source Crawler  │                │
+│  │  Port: 8080     │    │  Port: 8090     │    │ (Multi-node)    │                │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘                │
+│           │                       │                       │                        │
+│           │                       ▼                       ▼                        │
+│           │              ┌─────────────────┐    ┌─────────────────┐                │
+│           │              │ Azure Cosmos DB │    │ Azure Storage   │                │
+│           │              │ Metadata Store  │    │ Queues & Blobs  │                │
+│           │              │ • Pipelines     │    │ • Processing    │                │
+│           │              │ • Executions    │    │ • File Storage  │                │
+│           │              │ • Configurations│    │ • Source Data   │                │
+│           │              └─────────────────┘    └─────────────────┘                │
+│           │                       │                       │                        │
+│           │                       ▼                       ▼                        │
+│           │              ┌─────────────────┐    ┌─────────────────┐                │
+│           └─────────────►│ doc-proc-worker │◄───│  doc-proc-lib   │                │
+│                          │ Queue Processor │    │ Pipeline Engine │                │
+│                          │ (Scalable)      │    │ Processing Core │                │
+│                          │ Background Jobs │    │                 │                │
+│                          └─────────────────┘    └─────────────────┘                │
+│                                   │                       │                        │
+│                                   ▼                       ▼                        │
+│                          ┌─────────────────────────────────────────┐                │
+│                          │              Azure AI Services          │                │
+│                          │  • Document Intelligence               │                │
+│                          │  • OpenAI GPT-4 Inference             │                │
+│                          │  • Computer Vision                     │                │
+│                          │  • AI Search (Vector + Semantic)      │                │
+│                          └─────────────────────────────────────────┘                │
+│                                                                                     │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                              doc-proc-lib Core Architecture                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌────────────────────────┐        │
+│  │ Service Catalog │    │  Step Catalog   │    │   Pipeline Config      │        │
+│  │                 │    │                 │    │                        │        │
+│  │ • Azure Blob    │    │ • PDF Extract   │    │ • Service Instances    │        │
+│  │ • AI Inference  │    │ • Content Get   │    │ • Step Instances       │        │
+│  │ • Doc Intel     │    │ • Entity Extract│    │ • Pipeline Definitions │        │
+│  │ • AI Search     │    │ • Index Writer  │    │ • Source Configs       │        │
+│  │ • Cosmos DB     │    │ • Custom Steps  │    │                        │        │
+│  └─────────────────┘    └─────────────────┘    └────────────────────────┘        │
+│           │                       │                       │                      │
+│           └───────────────────────┼───────────────────────┘                      │
+│                                   │                                              │
+│                          ┌─────────────────┐                                     │
+│                          │    Pipeline     │                                     │
+│                          │   Orchestrator  │                                     │
+│                          │                 │                                     │
+│                          │ ┌─────────────┐ │                                     │
+│                          │ │Content Get  │ │                                     │
+│                          │ └─────────────┘ │                                     │
+│                          │        │        │                                     │
+│                          │ ┌─────────────┐ │                                     │
+│                          │ │Doc Type ID  │ │                                     │
+│                          │ └─────────────┘ │                                     │
+│                          │        │        │                                     │
+│                          │ ┌─────────────┐ │                                     │
+│                          │ │ AI Extract  │ │                                     │
+│                          │ └─────────────┘ │                                     │
+│                          │        │        │                                     │
+│                          │ ┌─────────────┐ │                                     │
+│                          │ │Index Writer │ │                                     │
+│                          │ └─────────────┘ │                                     │
+│                          └─────────────────┘                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd doc-proc-solution-accelerator/doc-proc-lib
-   ```
+## Getting Started
 
-2. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+Getting started with Doc-Proc-Lib involves three main steps:
 
-3. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+1. **Configure Services**: Define your external service connections (storage, AI services, databases) in `service_catalog.yaml`
+2. **Configure Steps**: Define your processing steps (extractors, transformers, writers) in `step_catalog.yaml` 
+3. **Configure Sources**: Define your data sources for crawling in `source_catalog.yaml`
+4. **Create Pipeline**: Orchestrate services, sources and steps into a processing workflow in `pipeline_config.yaml`
 
-## Quick Start
-
-Here's a simple example to get you started:
-
-```python
-import asyncio
-from doc.proc.pipeline.pipeline_base import Pipeline
-from doc.proc.pipeline.pipeline_config import PipelineConfig
-from doc.proc.step.step_base import StepInputOutput
-from doc.proc.step.step_config import StepConfig
-from doc.proc.service.service_config import ServiceConfig
-
-async def main():
-    # Load configurations
-    service_catalog = ServiceConfig.from_file('service_catalog.yaml')
-    step_catalog = StepConfig.from_file('step_catalog.yaml')
-    pipeline_config = PipelineConfig.from_file('pipeline_config.yaml')
-    
-    # Create pipeline from the first pipeline defined in the config
-    pipeline = await Pipeline.create(
-        pipeline_config=pipeline_config[0],
-        step_catalog_config=step_catalog,
-        service_catalog_config=service_catalog
-    )
-    
-    # Run pipeline
-    input_data = StepInputOutput(
-        summary_data={},
-        data={ "documents": [{"file_path": "/path/to/file.pdf"}] }
-    )
-    
-    result = await pipeline.run(input_data=input_data)
-    print(f"Pipeline completed: {result}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
+The library loads these configurations at runtime and creates executable pipeline instances. Each pipeline can process documents through a sequence of configurable steps, with automatic error handling, retries, and monitoring.
 
 ## Configuration
 
-The library uses three main configuration files that work together to define processing workflows:
+The library uses four main configuration files that work together to define processing workflows:
 
 ### Service Catalog
 
 The `service_catalog.yaml` defines reusable service templates that can be instantiated with different configurations. Services represent external integrations like cloud storage, AI services, or databases.
 
-**Structure:**
-```yaml
-# Sample service configuration
-## 
-services_catalog:
-  - id: azure_storage_01                             # Unique service identifier
-    name: "Azure Blob Storage - Primary"             # Human-readable name
-    description: "Primary storage account"           # Service description
-    type: azure_blob                                 # Service type
-    module_name: blob_service                        # Python module name
-    module_path: ./doc/proc/service/blob_service.py  # Module file path
-    class_name: BlobService                          # Service class name
-    test_connection: true                            # Test connection on startup
-    category: "Storage"                              # Logical grouping
-    version: "1.0"                                   # Service version
-    tags: [azure, storage, blob]                     # Search/filter tags
-    
-    # Configuration schema for validation and UI generation
-    settings_schema:  
-      account_name:
-        type: string
-        title: "Storage Account Name"
-        description: "Name of the Azure Blob Storage account"
-        required: true
-        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_NAME"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_NAME}
-      credential_type:
-        type: string
-        title: "Credential Type"
-        description: "Type of credential used for authentication"
-        default: "azure_key_credential"
-        enum: ["azure_key_credential", "default_azure_credential"]
-        env_var: "AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE"
-        default: ${AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE}
-      credential_key:
-        type: string
-        title: "Account Key"
-        description: "Account key for Azure Blob Storage authentication"
-        required: false
-        sensitive: true
-        env_var: "AZURE_STORAGE_SERVICE_ACCOUNT_KEY"
-        default: ${AZURE_STORAGE_SERVICE_ACCOUNT_KEY}
-    
-    # UI metadata for frontend display
-    ui_metadata:
-      icon: "container"    # Icon to represent the service in UI
-      color: "#0078D4"     # Color for the service in UI
-      description_short: "Azure Blob Storage for documents"
-      description_long: "Azure Blob Storage service for storing and retrieving documents, images, and other unstructured data."
-```
+Each service definition includes:
+- **Identification**: Unique ID, name, and description
+- **Implementation**: Module path, class name, and version information  
+- **Configuration Schema**: Required and optional settings with validation rules
+- **UI Metadata**: Display information for dynamic form generation
+- **Environment Integration**: Automatic environment variable substitution
+- **Security Features**: Sensitive data marking and credential management
+
+Services are organized by categories (Storage, AI Services, Search, Database) and support multiple authentication methods including Azure Default Credential and API key-based authentication.
 
 **Key Features:**
 - **Reusability**: Define once, use in multiple pipelines
@@ -204,142 +176,81 @@ services_catalog:
 
 The `step_catalog.yaml` defines reusable processing step templates. Steps are the building blocks that perform actual data processing tasks.
 
-**Structure:**
-```yaml
-step_catalog:
-  - id: sample_01                                    # Unique step identifier
-    name: "Sample Step"                              # Human-readable name
-    description: "Sample Step Configuration"
-    type: script                                     # Step type
-    module_name: sample                              # Python module name
-    module_path: ./doc/proc/step/sample.py
-    class_name: SampleStep                           # Step class name
-    tags: [sample]                                   # Search/filter tags
-    category: "Sample".                              # Logical grouping
-    version: "1.0"                                   # Version
-    
-    # Configuration schema
-    settings_schema:
-      setting_1:
-        type: string
-        title: "Sample setting 01"
-        description: "Sample setting 01"
-        default: "sample value"
-        required: true
-        pattern: "^\\.\\/.*"               
-      
-      setting_2:
-        type: integer
-        title: "Sample integer setting"
-        description: "Sample integer setting"
-        default: 10
-        min: 0
-        max: 1000
-    
-    # UI metadata
-    ui_metadata:
-      icon: "image"
-      color: "#10B981"
-      description_short: "Sample Step"
-      description_long: "Sample Step"
-```
+Each step definition includes:
+- **Identification**: Unique ID, name, description, and categorization
+- **Implementation**: Module path, class name, and version information
+- **Configuration Schema**: Settings with validation rules, data types, and constraints
+- **UI Metadata**: Icons, colors, and descriptions for dynamic UI generation
+- **Categorization**: Organized by function (Input, Extractor, Processor, AI, Output)
+
+Built-in step categories include:
+- **Input Steps**: Content retrieval, file downloading, source ingestion
+- **Extractor Steps**: Text extraction from PDFs, Word docs, PowerPoint, Excel
+- **Processor Steps**: Document type identification, content transformation
+- **AI Steps**: Custom prompts, entity extraction, content analysis
+- **Output Steps**: Search index writing, blob storage output, data export
+
+Each step supports conditional execution, error handling, retry logic, and timeout configuration.
 
 **Key Features:**
 - **Modularity**: Reusable processing units
 - **Validation**: Input/output schema validation
 - **UI Metadata**: For dynamic UI generation of step configuration
 
+### Source Catalog
+
+The `source_catalog.yaml` defines reusable data source connectors for distributed crawling and content ingestion. Sources represent various data repositories that can be crawled to discover and retrieve documents for processing.
+
+Each source definition includes:
+- **Identification**: Unique ID, name, description, and source type
+- **Implementation**: Module path, class name, and version information
+- **Configuration Schema**: Connection settings, authentication, and crawling parameters
+- **UI Metadata**: Display information for source configuration interfaces
+- **Authentication Support**: Multiple credential types and security configurations
+
+Built-in source types include:
+- **Azure Blob Storage**: Crawl documents from Azure Storage containers with support for various authentication methods
+- **Azure Files**: Access documents from Azure File Shares with hierarchical directory support  
+- **SharePoint Online**: Connect to SharePoint document libraries using Microsoft Graph API
+- **File System Sources**: Local and network file system crawling capabilities
+
+Sources support:
+- **Flexible Authentication**: Azure Default Credential, API keys, and service principal authentication
+- **Content Filtering**: File type filtering, path-based inclusion/exclusion rules
+- **Metadata Extraction**: Automatic extraction of file properties, timestamps, and source information
+- **Incremental Crawling**: Support for change detection and incremental updates
+- **Error Handling**: Robust error handling with retry logic and connection testing
+
+**Key Features:**
+- **Extensibility**: Easy addition of new source types through modular architecture
+- **Configuration Validation**: Schema-based validation of source settings
+- **Environment Integration**: Support for environment variable substitution
+- **UI Generation**: Metadata for dynamic source configuration forms
+
 ### Pipeline Configuration
 
-The `pipeline_config.yaml` brings together services and steps to create executable workflows. It defines service instances and pipeline execution sequences.
+The `pipeline_config.yaml` brings together services, sources, and steps to create executable workflows. It defines service instances, source instances, and pipeline execution sequences.
 
-**Structure:**
-```yaml
-# Service instances - configured services for this pipeline
-service_instances:
-  - name: primary_blob_storage              # Instance name
-    service_catalog_id: azure_storage_01    # Reference to catalog
-    settings:                              # Instance-specific settings
-      account_name: ${AZURE_STORAGE_ACCOUNT_NAME}
-      credential_key: ${AZURE_STORAGE_ACCOUNT_KEY}
-  
-  - name: ai_inference_service
-    service_catalog_id: azure_ai_inference_service_01
-    settings:
-      endpoint: ${AZURE_AI_ENDPOINT}
-      api_key: ${AZURE_AI_API_KEY}
-      model_name: "gpt-4o"
-      max_tokens: 4000
-  
-  - name: ai_search_service
-    service_catalog_id: azure_ai_search_service_01
-    settings:
-      account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
-      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
-      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
-      api_version: "2024-07-01"
-      index_name: "documents_index"
+The configuration consists of three main sections:
 
-# Pipeline definitions
-pipelines:
-  - name: document_processing_pipeline
-    description: "Extract and process PDF documents"
-    version: "1.0"
-    
-    # Pipeline steps
-    steps:
-      - name: extract_and_process_pdf        # Step instance name
-        step_catalog_id: pdf_text_extractor  # Reference to catalog
-        enabled: true                        # Enable/disable step
-        fail_pipeline_on_error: false
-        retry_on_failure: false
-        retries: 3
-        timeout: 600
-        services: [ai_inference_service]  # Required services
-        fail_step_on_document_error: false # Fail the step if document processing fails, this is useful for debugging, if set to false, the pipeline will continue even if this step fails
-        debug_mode: false # Enable debug mode for this step
-        settings:                           # Step-specific settings
-          png_output_folder: "./output/png"
-          num_pages: 10
-          dpi: 300
-          prompts:
-            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-            user: "Extract the text from the following image into markdown and provide descriptions of images..."
-          max_completion_tokens: 4000
-          temperature: 1.0
-      
-      - name: write_to_search_index
-        step_catalog_id: ai_search_index_writer
-        enabled: true
-        fail_pipeline_on_error: false
-        retry_on_failure: false
-        retries: 3
-        timeout: 600
-        services: [ai_search_service]
-        fail_step_on_document_error: false # Fail the step if document processing fails
-        debug_mode: false
-        settings:
-          index_name: "documents_index"
-          chunks_iterator_field: "data.chunks_data"
-          index_field_mappings: |
-            {
-              "page_id": "id",
-              "input_file_path": "file_name",
-              "page_num": "page_num",
-              "markdown": "markdown",
-              "summary": "summary"
-            }
-    
-    # Execution order
-    execution_sequence: [extract_and_process_pdf, write_to_search_index]
-    
-    # Pipeline settings
-    settings:
-      enabled: true
-      retry_delay: 5
-      timeout: 300
-      max_concurrent_runs: 5
-```
+**Service Instances**: References to service catalog entries with instance-specific configurations including connection strings, API keys, and custom settings. Each service instance provides a named service that can be referenced by pipeline steps.
+
+**Source Instances**: References to source catalog entries with specific connection and crawling configurations. Source instances define where documents will be discovered and retrieved from during pipeline execution.
+
+**Pipeline Definitions**: Complete workflow specifications that include:
+- **Step Instances**: References to step catalog entries with custom settings and service dependencies
+- **Execution Sequence**: Ordered list of steps to execute in the pipeline
+- **Conditional Logic**: Step-level conditions that control when steps should run
+- **Error Handling**: Configuration for retries, timeouts, and failure behavior
+- **Service Bindings**: Assignment of service instances to specific steps
+- **Global Settings**: Pipeline-level configuration for timeouts, concurrency, and execution control
+
+Each step instance can be configured with:
+- **Execution Control**: Enable/disable flags, timeout settings, retry configuration
+- **Service Dependencies**: List of required service instances
+- **Conditional Execution**: Expressions that determine when the step should run
+- **Custom Settings**: Step-specific configuration parameters
+- **Debug Mode**: Enhanced logging and debugging capabilities
 
 **Key Features:**
 - **Service Orchestration**: Manage multiple service instances
@@ -349,216 +260,44 @@ pipelines:
 
 ### How They Work Together
 
-1. **Service Catalog** → **Service Instances**: Templates are instantiated with specific configurations
+1. **Service Catalog** → **Service Instances**: Service templates are instantiated with specific configurations
 2. **Step Catalog** → **Pipeline Steps**: Step templates are configured for specific use cases
-3. **Pipeline Configuration**: Orchestrates service instances and steps into executable workflows
+3. **Source Catalog** → **Source Instances**: Source templates are configured for specific data repositories
+4. **Pipeline Configuration**: Orchestrates all instances into executable workflows
 
-```
-Service Catalog (Template)     →     Service Instance (Configured)
-     ↓                                        ↓
-"azure_storage_01"             →     "primary_blob_storage"
-                                              ↓
-Step Catalog (Template)        →     Pipeline Step (Configured)
-     ↓                                        ↓
-"pdf_text_extractor"           →     "extract_and_process_pdf"
-                                              ↓
-                                      Pipeline Execution
-```
+The configuration flow follows this pattern:
+
+**Service Catalog Templates** → **Configured Service Instances** → **Available to Pipeline Steps**
+
+**Step Catalog Templates** → **Configured Step Instances** → **Executed in Pipeline Sequence**  
+
+**Source Catalog Templates** → **Configured Source Instances** → **Used by Crawler and Content Retrieval**
+
+**Pipeline Configuration** → **Complete Workflow** → **Executable Pipeline with Dependencies**
 
 ## Core Components
 
 ### StepBase
 
-All processing steps inherit from `StepBase`:
+All processing steps inherit from the `StepBase` abstract class, which provides the foundation for implementing custom document processing logic. Steps receive input data, have access to configured services through the pipeline execution context, and return transformed output data. The base class handles error management, logging, timeout enforcement, and retry logic automatically.
 
-```python
-from doc.proc.step.step_base import StepBase, StepInputOutput
-from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
+View the [Step documentation](./doc/proc/step/README.md) for available steps and detailed implementation guidance.
 
-class CustomStep(StepBase):
-    async def run(self, input_data: StepInputOutput, 
-                  context: PipelineExecutionContext, 
-                  **kwargs) -> StepInputOutput:
-        # Process data
-        processed_data = self.process(input_data.data)
-        
-        # Return results
-        return StepInputOutput(
-            summary_data={**input_data.summary_data, "step_completed": True},
-            data={**input_data.data, **processed_data}
-        )
-```
+### ServiceBase  
 
-### ServiceBase
+All external service integrations inherit from the `ServiceBase` abstract class, which standardizes service connectivity, credential management, and connection testing. Services provide reusable functionality that can be shared across multiple pipeline steps, such as cloud storage access, AI model inference, database operations, and search indexing.
 
-All services inherit from `ServiceBase`:
+View the [Service documentation](./doc/proc/service/README.md) for available services and detailed implementation guidance.
 
-```python
-from doc.proc.service.service_base import ServiceBase
+### SourceBase
 
-class CustomService(ServiceBase):
-    async def test_connection(self) -> bool:
-        # Test service connectivity
-        return True
-    
-    async def service_function(self, param1):
-        # Service-specific processing
-        pass
-```
+All data source connectors inherit from the `SourceBase` abstract class, which provides the framework for crawling and retrieving documents from various repositories. Sources handle authentication, content discovery, metadata extraction, and incremental crawling capabilities with built-in error handling and retry logic.
+
+View the [Source documentation](./doc/proc/source/README.md) for available sources and detailed implementation guidance.
 
 ### Pipeline Execution Context
 
-Provides access to services and execution state:
-
-```python
-# In a step's run method
-async def run(self, input_data: StepInputOutput, 
-              context: PipelineExecutionContext, **kwargs):
-    # Access services
-    storage_service = context.get_service("primary_blob_storage")
-    ai_service = context.get_service("ai_inference_service")
-    
-    # Use services
-    document = await storage_service.download_file("document.pdf")
-    result = await ai_service.process(document)
-    
-    return StepInputOutput(data={"result": result})
-```
-
-## Usage Examples
-
-### Example 1: Basic Document Processing
-
-```python
-# main.py
-import asyncio
-from doc.proc.pipeline.pipeline_base import Pipeline
-from doc.proc.step.step_base import StepInputOutput
-
-async def process_document():
-    # Load configurations (as shown in quick start)
-    pipeline = await create_pipeline()
-    
-    # Process a single document
-    input_data = StepInputOutput(
-        summary_data={},
-        data={ "documents": [{"file_path": "/path/to/file.pdf"}] }
-    )
-    
-    result = await pipeline.run(input_data=input_data)
-    
-    print(f"Processing complete. Result: {result}")
-    return result
-
-asyncio.run(process_document())
-```
-
-### Example 2: Batch Processing
-
-```python
-async def batch_process_documents(file_list):
-    pipeline = await create_pipeline()
-    result = None
-    
-    documents = []
-    # prepare input data
-    for pdf_file in file_list:
-      documents.append({
-        "file_path": pdf_file
-      })
-
-
-    input_data = StepInputOutput(
-        summary_data={"batch_id": "batch_001"},
-        data={"documents": documents}
-    )
-        
-    result = await pipeline.run(input_data=input_data)
-    
-    return result
-```
-
-### Example 3: Custom Step with Service Integration
-
-```python
-from doc.proc.step.step_base import StepBase, StepInputOutput
-
-class CustomAnalysisStep(StepBase):
-    async def run(self, input_data: StepInputOutput, 
-                  context, **kwargs) -> StepInputOutput:
-        
-        # Get required services
-        storage = context.get_service("primary_blob_storage")
-        ai_service = context.get_service("ai_inference_service")
-        
-        # Process input
-        document_path = input_data.data.get("document_path")
-        
-        # Download document from storage
-        document_content = await storage.download_file(document_path)
-        
-        # Analyze with AI service
-        analysis_prompt = "Analyze this document for key insights..."
-        analysis_result = await ai_service.complete(
-            messages=[
-                {"role": "system", "content": analysis_prompt},
-                {"role": "user", "content": document_content}
-            ]
-        )
-        
-        # Update summary and data
-        updated_summary = {
-            **input_data.summary_data,
-            "analysis_completed": True,
-            "analysis_timestamp": datetime.now().isoformat()
-        }
-        
-        updated_data = {
-            **input_data.data,
-            "analysis_result": analysis_result,
-            "key_insights": self.extract_insights(analysis_result)
-        }
-        
-        return StepInputOutput(
-            summary_data=updated_summary,
-            data=updated_data
-        )
-    
-    def extract_insights(self, analysis_text):
-        # Custom insight extraction logic
-        return ["insight1", "insight2", "insight3"]
-```
-
-## Built-in Services
-
-### Azure Blob Storage Service
-- **Purpose**: Document storage and retrieval
-- **Configuration**: Account name, access key, containers
-- **Usage**: Upload, download, list files
-
-### Azure AI Inference Service  
-- **Purpose**: AI-powered document processing
-- **Models**: GPT-4, GPT-3.5, custom models
-- **Usage**: Text extraction, analysis, summarization
-
-### Azure Cosmos DB Service
-- **Purpose**: Metadata and results storage
-- **Configuration**: Endpoint, key, database/container
-- **Usage**: Store processing results, metadata
-
-### Azure AI Search Service
-- **Purpose**: Document indexing and search
-- **Configuration**: Service name, API key, index name, API version
-- **Usage**: Full-text search, semantic search, vector search, document indexing
-
-## Built-in Steps
-
-| Step Name                  | Description                        | Documentation Link                                                        |
-|----------------------------|------------------------------------|---------------------------------------------------------------------------|
-| PDF Text Extractor Step    | Extracts text from PDF documents   | [PDF Text Extractor Step Documentation](./doc/proc/step/pdf_text_extractor.md) |
-| Custom AI Prompt Step      | Runs custom AI prompt processing   | [Custom AI Prompt Step Documentation](./doc/proc/step/custom_ai_prompt.md)     |
-| Document Type Identifier Step      | Automatically identifies document types   | [Document Type Identifier Step Documentation](./doc/proc/step/document_type_identifier.md)     |
-| AI Search Index Writer Step| Writes data to AI search index     | [AI Search Index Writer Step Documentation](./doc/proc/step/ai_search_index_writer.md) |
+The Pipeline Execution Context provides steps with access to configured services, execution state, logging infrastructure, and pipeline metadata. It serves as the communication bridge between pipeline orchestration and individual step implementations, ensuring proper resource management and execution coordination.
 
 
 
@@ -566,223 +305,100 @@ class CustomAnalysisStep(StepBase):
 
 ### Custom Service
 
-1. **Create service class:**
-```python
-# doc/proc/service/my_custom_service.py
-from doc.proc.service.service_base import ServiceBase
+Creating custom services involves implementing the `ServiceBase` abstract class and adding the service definition to the service catalog:
 
-class MyCustomService(ServiceBase):
-    def __init__(self, name: str, type: str, settings: dict, **kwargs):
-        super().__init__(name, type, settings, **kwargs)
-        self.api_key = settings.get("api_key")
-        self.endpoint = settings.get("endpoint")
-    
-    async def test_connection(self) -> bool:
-        # Implement connection test
-        return True
-    
-    async def my_custom_function(self, data):
-        # Implement custom function
-        return processed_data
-```
+**Implementation Steps:**
+1. **Create Service Class**: Inherit from `ServiceBase` and implement required methods including connection testing and service-specific functionality
+2. **Configuration Schema**: Define settings schema with validation rules, data types, and UI metadata
+3. **Catalog Registration**: Add the service definition to `service_catalog.yaml` with module path and configuration details
+4. **Instance Creation**: Configure service instances in `pipeline_config.yaml` with specific settings
 
-2. **Add to service catalog:**
-```yaml
-services_catalog:
-  - id: my_custom_service_01
-    name: "My Custom Service"
-    type: custom_service
-    module_name: my_custom_service
-    module_path: ./doc/proc/service/my_custom_service.py
-    class_name: MyCustomService
-    settings_schema:
-      api_key:
-        type: string
-        required: true
-        sensitive: true
-      endpoint:
-        type: string
-        required: true
-```
+Custom services can integrate with any external API, database, or cloud service while maintaining consistent authentication, configuration, and error handling patterns.
 
-View the [Service documentation](./doc/proc/service/SERVICE_README.md) for more details on how to create and use services.
+View the [Service documentation](./doc/proc/service/SERVICE_README.md) for detailed implementation guidance.
 
 ### Custom Step
 
-1. **Create step class:**
-```python
-# doc/proc/step/my_custom_step.py
+Creating custom processing steps involves implementing the `StepBase` abstract class and registering in the step catalog:
 
-from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
-from doc.proc.step.step_base import StepBase, StepExecutionError, StepInputOutput, StepInstanceConfig
+**Implementation Steps:**
+1. **Create Step Class**: Inherit from `StepBase` and implement the `run` method with custom processing logic
+2. **Service Integration**: Access configured services through the pipeline execution context
+3. **Data Processing**: Transform input data and return structured output with summary metadata  
+4. **Error Handling**: Implement proper exception handling and logging within the step
+5. **Catalog Registration**: Add step definition to `step_catalog.yaml` with settings schema and UI metadata
+6. **Pipeline Integration**: Configure step instances in pipelines with service dependencies and custom settings
 
-class MyCustomStep(StepBase):
-    def __init__(self, instance_config: StepInstanceConfig, **kwargs):
-        super().__init__(instance_config=instance_config, **kwargs)
+Custom steps can implement any processing logic including external API calls, complex data transformations, machine learning inference, or custom business rules.
 
-        # Get step settings
-        setting1 = self.settings.get("setting1", "default_value")
+View the [Step documentation](./doc/proc/step/STEP_README.md) for comprehensive development guidance.
 
-    async def run(self, input_data: StepInputOutput, 
-                  context, **kwargs) -> StepInputOutput:
-        
-        # Get services if needed
-        service = context.get_service("my_service_instance")
-        
-        # Process data
-        result = await self.process_logic(input_data.data, setting1)
-        
-        # Return updated data
-        return StepInputOutput(
-            summary_data={
-                **input_data.summary_data,
-                "custom_step_completed": True
-            },
-            data={
-                **input_data.data,
-                "custom_result": result
-            }
-        )
-    
-    async def process_logic(self, data, setting):
-        # Implement custom processing logic
-        return {"processed": True, "setting_used": setting}
-```
+### Custom Source
 
-2. **Add to step catalog:**
-```yaml
-step_catalog:
-  - id: my_custom_step
-    name: "My Custom Step"
-    type: script
-    module_name: my_custom_step
-    module_path: ./doc/proc/step/my_custom_step.py
-    class_name: MyCustomStep
-    tags: [sample, development]
-    category: "Development"
-    version: "1.0"
+Creating custom data source connectors involves implementing the `SourceBase` abstract class and registering in the source catalog:
 
-    settings_schema:
-      setting1:
-        type: string
-        title: "Custom Setting"
-        default: "default_value"
-```
+**Implementation Steps:**
+1. **Create Source Class**: Inherit from `SourceBase` and implement required methods including `test_connection`, `crawl`, and authentication handling
+2. **Authentication Setup**: Implement proper credential handling for your data source including API keys, OAuth tokens, or connection strings
+3. **Crawling Logic**: Develop efficient crawling algorithms with support for incremental updates, content filtering, and metadata extraction
+4. **Error Handling**: Implement robust error handling for network issues, authentication failures, and data access problems
+5. **Catalog Registration**: Add source definition to `source_catalog.yaml` with configuration schema and connection parameters
+6. **Instance Configuration**: Configure source instances in `pipeline_config.yaml` with specific connection details and crawling settings
 
-3. **Use in pipeline:**
-```yaml
-steps:
-  - name: my_custom_processing
-    step_catalog_id: my_custom_step
-    enabled: true
-    services: [my_service_instance]
-    condition: ""
-    fail_pipeline_on_error: false
-    retry_on_failure: false
-    fail_step_on_document_error: false
-    debug_mode: false
+Custom sources can connect to any data repository including cloud storage, file systems, databases, web APIs, document management systems, or proprietary data sources while maintaining consistent authentication, configuration, and crawling patterns.
 
-    settings:
-      setting1: "custom_value"
-```
-
-#### View the [Step documentation](./doc/proc/step/STEP_README.md) for more details on how to create steps and use them in pipelines.
+View the [Source documentation](./doc/proc/source/README.md) for detailed implementation guidance and examples.
 
 
-## Environment Variables
-
-Create a `.env` file with your configuration:
-
-```bash
-# Azure Storage
-AZURE_STORAGE_SERVICE_ACCOUNT_NAME=your_storage_account
-AZURE_STORAGE_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_STORAGE_SERVICE_ACCOUNT_KEY=your_storage_key
-
-# Azure AI Services
-AZURE_AI_INFERENCE_SERVICE_ENDPOINT=https://your-ai-service.openai.azure.com/
-AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_AI_INFERENCE_SERVICE_API_KEY=your_api_key
-
-# Azure AI Search
-AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME=your_search_service_account_name
-AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE=azure_key_credential
-AZURE_AI_SEARCH_SERVICE_API_KEY=your_search_api_key
-
-# Azure Cosmos DB
-AZURE_COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/
-AZURE_COSMOS_DB_KEY=your_cosmos_key
-
-# Logging
-LOG_LEVEL=DEBUG
-```
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues & Solutions
 
-1. **Configuration Loading Errors**
-   ```
-   Error: Service configuration validation failed
-   ```
-   - Check YAML syntax and indentation
-   - Verify all required fields are present
-   - Ensure environment variables are set
+#### Configuration Loading Errors
+**Issues**: Service configuration validation failures, YAML parsing errors, environment variable resolution problems.
 
-2. **Service Connection Failures**
-   ```
-   Error: Failed to connect to Azure service
-   ```
-   - Verify credentials and endpoints
-   - Check network connectivity
-   - Validate service permissions
+**Solutions**: Check YAML syntax and indentation consistency, verify all required fields are present, ensure environment variables are accessible, validate schema compliance, and check for circular dependencies in service references.
 
-3. **Step Execution Errors**
-   ```
-   Error: Step failed with timeout
-   ```
-   - Increase timeout values in step configuration
-   - Check input data format and availability
-   - Review step-specific logs
+#### Azure Service Connection Failures  
+**Issues**: Authentication failures, service endpoint connectivity problems, credential validation errors.
 
-4. **Module Import Errors**
-   ```
-   Error: Cannot import module 'custom_step'
-   ```
-   - Verify module paths in catalog configuration - paths should be relative to the location the executable code is running from
-   - Check Python path and module structure
-   - Ensure all dependencies are installed
+**Solutions**: Verify Azure service credentials and endpoints in environment variables, check network connectivity and firewall settings, validate Azure service permissions and RBAC assignments, ensure Azure services are operational, test credentials using Azure CLI, and verify managed identity role assignments.
 
-### Debugging Tips
+#### Pipeline Execution Errors
+**Issues**: Step timeouts, pipeline execution failures, memory limit exceeded errors, dependency resolution problems.
 
-1. **Enable Debug Logging:**
-   ```python
-   import logging
-   logging.getLogger("doc.proc").setLevel(logging.DEBUG)
-   ```
+**Solutions**: Increase timeout values in configurations, check input data format and document availability, review memory usage patterns, monitor Azure resource quotas, validate step dependencies, and enable debug logging for detailed error tracking.
 
-2. **Test Services Individually:**
-   ```python
-   service = await context.get_service("service_name")
-   connection_ok = await service.test_connection()
-   ```
 
-3. **Validate Configuration:**
-   ```python
-   # Test configuration loading
-   try:
-       config = ServiceConfig.from_file("service_catalog.yaml")
-       print("Configuration loaded successfully")
-   except Exception as e:
-       print(f"Configuration error: {e}")
-   ```
+
+### Debugging Techniques
+
+#### Comprehensive Logging Setup
+Configure detailed logging with appropriate levels, structured formats, and multiple output destinations. Enable specific logger debugging for doc-proc components while reducing noise from Azure SDK and HTTP libraries.
+
+#### Service Connection Testing
+Implement systematic testing of individual service connections using the service catalog configuration. Load service instances with default settings and validate connectivity before pipeline execution.
+
+#### Pipeline Validation & Testing
+Validate pipeline configurations before execution by loading and checking all references. Verify step catalog references, service dependencies, and configuration completeness to identify issues early.
+
+#### Real-time Monitoring & Alerts
+Monitor pipeline executions for health issues including failure rates, long-running executions, and system health status. Implement automated alerting for anomalous patterns and resource exhaustion.
 
 ### Performance Optimization
 
-1. **Async Processing**: Use `asyncio.gather()` for parallel step execution
-2. **Connection Pooling**: Reuse service connections across steps
-3. **Memory Management**: Process large documents in chunks
-4. **Caching**: Cache intermediate results for repeated processing
+#### Pipeline Optimization
+Configure optimal settings for step execution, appropriate timeouts, memory limits, temporary file cleanup, connection pooling, and batch processing to maximize throughput while maintaining resource efficiency.
+
+#### Resource Monitoring
+Monitor system resources during processing including CPU and memory usage, Azure resource consumption, and queue depth metrics to identify performance bottlenecks and capacity planning needs.
+
+### Getting Help
+
+**Diagnostic Steps**: Enable comprehensive logging, check service health endpoints, review Azure service quotas, test components in isolation, monitor resource usage, and check Azure service status pages.
+
+**Support Resources**: Azure Support Documentation, GitHub Issues, Azure AI Services Troubleshooting guides, FastAPI Documentation, and React Troubleshooting guides provide additional assistance for complex issues.
 
 ## Contributing
 
@@ -790,10 +406,4 @@ LOG_LEVEL=DEBUG
 2. Create a feature branch
 3. Implement your changes with tests
 4. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
 
