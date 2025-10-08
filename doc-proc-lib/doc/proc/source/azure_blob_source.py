@@ -141,7 +141,8 @@ class AzureBlobSource(SourceBase):
             source_name=self.name,
             source_type=self.type,
             container=self.container_name,
-            path=blob_name
+            path=blob_name,
+            metadata={},
         )
         
         # Validate that all required fields are populated

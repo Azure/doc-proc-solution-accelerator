@@ -35,9 +35,9 @@ class SourceInstance(BaseModel):
     test_connection: bool = True
     status: Optional[Dict[str, Any]] = None  # Connection status
     catalog_definition: Optional[Dict[str, Any]] = None
+    is_system: bool = False
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    
     # Runtime crawl state
     last_crawl_at: Optional[str] = None
     last_crawl_status: Optional[CrawlStatus] = None

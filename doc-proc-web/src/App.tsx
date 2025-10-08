@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AppLayout from "@/components/AppLayout";
-import Dashboard from "@/pages/Dashboard";
+// import Dashboard from "@/pages/Dashboard";
 import Vaults from "@/pages/Vaults";
 import Health from "@/pages/Health";
 import Pipeline from "@/pages/Pipeline";
@@ -29,8 +29,8 @@ const App = () => (
         <SidebarProvider>
           <Routes>
             <Route path="/" element={<AppLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="vaults" element={<Vaults />} />
+              {/* <Route index element={<Dashboard />} /> */}
+              <Route index element={<Vaults />} />
               <Route path="pipeline" element={<Pipeline />} />
               <Route path="steps" element={<Step />} />
               <Route path="step-instances" element={<StepInstances />} />

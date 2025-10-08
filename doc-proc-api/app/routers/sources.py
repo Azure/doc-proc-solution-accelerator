@@ -60,7 +60,7 @@ async def initialize_catalog_sources(service: SourceCatalogService = Depends(get
 @router.get("/instances", response_model=List[SourceInstance])
 async def list_source_instances(service: SourceInstanceService = Depends(get_source_instance_service)):
     """List all source instances"""
-    items = await service.list_all()
+    items = await service.get_all_non_system()
     return [SourceInstance(**item) for item in items]
 
 

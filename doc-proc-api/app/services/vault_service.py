@@ -7,12 +7,14 @@ from fastapi import UploadFile
 
 from app.db.cosmos import CosmosDb
 from app.models.vault import (
-    AddDocumentRequest, Vault, VaultCreateRequest, VaultUpdateRequest,
+    Vault, VaultCreateRequest, VaultUpdateRequest,
     DocumentInfo, PaginatedResponse
 )
 from app.services.base import BaseService
 from app.services.vault_documents_service import VaultDocumentsService
 from app.services.execution_status_service import ExecutionStatusService
+from app.services.source_catalog_service import SourceCatalogService
+from app.services.source_instance_service import SourceInstanceService
 
 logger = logging.getLogger("doc-proc-ui.app.services.vault_service")
 
@@ -23,7 +25,9 @@ class VaultService(BaseService):
                        container_name: str = "vaults", 
                        vault_documents_service: VaultDocumentsService = None,
                        execution_status_service: ExecutionStatusService = None,
-                       default_blob_storage: Optional[Dict[str, Any]] = None):
+                       default_blob_storage: Optional[Dict[str, Any]] = None,
+                       source_catalog_service: SourceCatalogService = None,
+                       source_instance_service: SourceInstanceService = None):
         """
         Initialize VaultService with database connection and configuration.
         Args:
@@ -48,7 +52,8 @@ class VaultService(BaseService):
         self._vault_document_service = vault_documents_service
         self._execution_status_service = execution_status_service
         self._default_storage_account_details = default_blob_storage or {}
-        
+        self._source_catalog_service = source_catalog_service
+        self._source_instance_service = source_instance_service
         
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate vault item"""
@@ -83,6 +88,43 @@ class VaultService(BaseService):
         )
         
         saved_vault = await self.create(vault.model_dump())
+        
+        # create a new source instance for the vault where documents will be placed for crawling
+        # get the source definition with the id azure_blob_storage
+        if self._source_catalog_service and self._source_instance_service and vault.storage_config:
+            source_definition = await self._source_catalog_service.get_catalog_source_by_id("azure_blob_storage")
+            if source_definition:
+                source_instance_data = {
+                    "name": f"vault_{vault.id}_source",
+                    "description": f"Auto-generated source instance for vault {vault.name}",
+                    "source_catalog_id": source_definition.get("id"),
+                    "settings": {
+                        "account_name": vault.storage_config.account_name,
+                        "container_name": vault.storage_config.container_name,
+                        "credential_type": vault.storage_config.credential_type,
+                    },
+                    "crawler_settings": {
+                      "crawl_interval_minutes": 1, # crawl every minute, use default setting for the rest
+                    },
+                    "enabled": True,
+                    "test_connection": False,
+                    "is_system": True
+                }
+                try:
+                    created_source_instance = await self._source_instance_service.create_source_instance(source_instance_data)
+                    logger.info(f"Created source instance '{created_source_instance.get('name')}' for vault '{vault.name}'")
+                    
+                    saved_vault["default_source_instance_name"] = created_source_instance.get("name") if created_source_instance else None
+                    await self.update(saved_vault)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to create source instance for vault '{vault.name}': {e}")
+            else:
+                logger.warning("Azure Blob Storage source definition not found in catalog; skipping source instance creation for vault")
+        else:
+            logger.warning("Source catalog service or source instance service not configured; skipping source instance creation for vault")
+        
+        
         return Vault(**saved_vault)
 
 
@@ -130,18 +172,30 @@ class VaultService(BaseService):
         
         logger.debug(f"Deleting vault '{vault_id}' and all associated documents")
         
+        existing = await self.get_vault(vault_id)
+        if not existing:
+            raise ValueError(f"Vault {vault_id} not found")
+        
         # 1. Delete all documents in the vault using the vault document service
         if self._vault_document_service:
             await self._vault_document_service.delete_documents_in_vault(vault_id)
-        
+            logger.info(f"Deleted all documents in vault '{vault_id}'")
+            
         # 2. Delete all batch executions associated with the vault using the execution status service
         if self._execution_status_service:
             await self._execution_status_service.delete_batch_executions_for_vault(vault_id)
-        
+            logger.info(f"Deleted all batch executions associated with vault '{vault_id}'")
+            
         # 3. Delete all pipeline execution results associated with the vault using the execution status service
         if self._execution_status_service:
             await self._execution_status_service.delete_pipeline_executions_for_vault(vault_id)
-        
+            logger.info(f"Deleted all pipeline execution results associated with vault '{vault_id}'")
+            
+        # 4. Delete the source instance associated with the vault
+        if self._source_instance_service:
+            await self._source_instance_service.delete_source_instance_by_name(existing.default_source_instance_name)
+            logger.info(f"Deleted source instance '{existing.default_source_instance_name}' associated with vault '{vault_id}'")
+
         # 4. Delete the vault itself
         result = await self.delete(vault_id)
         
@@ -245,22 +299,6 @@ class VaultService(BaseService):
             return _documents_uploaded + _documents_failed
         
         
-    async def add_document(self, vault_id: str, document: AddDocumentRequest) -> DocumentInfo:
-        """Add a document to a vault (updates stats)"""
-        vault = await self.get_vault(vault_id)
-        if not vault:
-            raise ValueError(f"Vault {vault_id} not found")
-
-        if not document or not document.name or not document.blob_url:
-            raise ValueError("Document with valid name and blob_url must be provided")
-        
-        logger.debug(f"Adding document '{document.name}' to vault '{vault_id}' from blob URL '{document.blob_url}'")
-        
-        # Add the document using the vault document service
-        added_document = await self._vault_document_service.add_document(vault, document)
-                
-        return added_document
-
     async def remove_document(self, vault_id: str, document: DocumentInfo) -> bool:
         """Remove a document from a vault (updates stats)"""
         vault = await self.get_vault(vault_id)

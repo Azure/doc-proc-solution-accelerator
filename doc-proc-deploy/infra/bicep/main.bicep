@@ -16,15 +16,19 @@ param location string = resourceGroup().location
 param cosmosDbName string = 'docproc'
 
 param cosmosDBContainerNames array = [
-  'pipelines'
-  'service_catalog'
-  'service_instances'
-  'step_catalog'
-  'step_instances'
-  'vaults'
-  'vault_documents'
-  'batch_executions'
-  'pipeline_executions'
+  {name: 'pipelines', partitionKey: '/id'}
+  {name: 'service_catalog', partitionKey: '/id'}
+  {name: 'service_instances', partitionKey: '/id'}
+  {name: 'step_catalog', partitionKey: '/id'}
+  {name: 'step_instances', partitionKey: '/id'}
+  {name: 'source_catalog', partitionKey: '/id'}
+  {name: 'source_instances', partitionKey: '/id'}
+  {name: 'vaults', partitionKey: '/id'}
+  {name: 'vault_documents', partitionKey: '/id'}
+  {name: 'batch_executions', partitionKey: '/id'}
+  {name: 'pipeline_executions', partitionKey: '/id'}
+  {name: 'crawl_leases', partitionKey: '/source_instance_id'}
+  {name: 'crawl_executions', partitionKey: '/id'}
 ]
 
 @description('Name of the blob storage container for vault documents')
@@ -158,6 +162,32 @@ module appConfigStore 'modules/app-config-store.bicep' = {
         name: 'doc-proc.worker.WORKER_HEALTH_CHECK_INTERVAL'
         value: '10'
       }
+      // Crawler Worker specific key values, uses the prefix: 'doc-proc.crawler.<key>'
+      {
+        contentType: 'text/plain'
+        name: 'doc-proc.crawler.DEBUG'
+        value: 'true'
+      }
+      {
+        contentType: 'text/plain'
+        name: 'doc-proc.crawler.CRAWLER_MAX_WORKERS'
+        value: '3'
+      }
+      {
+        contentType: 'text/plain'
+        name: 'doc-proc.crawler.CRAWLER_DISCOVERY_POLL_INTERVAL'
+        value: '60' // in seconds
+      }
+      {
+        contentType: 'text/plain'
+        name: 'doc-proc.crawler.CRAWLER_LEASE_DURATION_MINUTES'
+        value: '30' // in minutes
+      }
+      {
+        contentType: 'text/plain'
+        name: 'doc-proc.crawler.CRAWLER_LEASE_RENEWAL_INTERVAL_MINUTES'
+        value: '15' // in minutes
+      }
       // shared key values, uses the prefix: 'doc-proc.<key>'
       {
         contentType: 'text/plain'
@@ -187,7 +217,7 @@ module appConfigStore 'modules/app-config-store.bicep' = {
       {
         contentType: 'text/plain'
         name: 'sentinel'
-        value: 1
+        value: '1'
       }
       
     ]

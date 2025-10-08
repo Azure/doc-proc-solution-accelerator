@@ -32,6 +32,7 @@ class SourceManager:
                         
             # Create source instance using doc-proc-lib
             source = create_source_instance(
+                instance_name=source_instance.get('name', 'default_instance'),
                 source_config=source_config,
                 instance_settings=source_instance.get('settings', {})
             )

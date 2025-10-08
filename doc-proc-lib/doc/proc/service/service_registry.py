@@ -63,24 +63,7 @@ class ServiceRegistry:
         if not service_config:
             raise ValueError(f"Service configuration not found: {service_id}")
 
-        # Create a copy of the config with the instance name
-        instance_config = ServiceConfig(
-            id=service_config.id,
-            name=instance_name,
-            description=service_config.description,
-            type=service_config.type,
-            module_name=service_config.module_name,
-            module_path=service_config.module_path,
-            class_name=service_config.class_name,
-            test_connection=service_config.test_connection,
-            category=service_config.category,
-            version=service_config.version,
-            tags=service_config.tags,
-            settings_schema=service_config.settings_schema,
-            ui_metadata=service_config.ui_metadata
-        )
-
-        instance = create_service_instance(instance_config, instance_settings)
+        instance = create_service_instance(instance_name, service_config, instance_settings)
         
         # Cache the instance
         cache_key = f"{service_id}_{instance_name}"

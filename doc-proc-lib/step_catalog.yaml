@@ -2,38 +2,76 @@
 
 step_catalog:
 
+  # ########################################################
+  # # Sample step for development and testing purposes
+  # - id: sample_step
+  #   name: "Sample Development Step"
+  #   description: "Sample step for development and testing"
+  #   module_name: sample
+  #   module_path: ./doc/proc/step/sample.py
+  #   class_name: SampleStep
+  #   tags: [sample, development]
+  #   category: "Development"
+  #   version: "1.0"
+
+  #   # Settings schema for UI generation and validation
+  #   settings_schema:
+  #     key1:
+  #       type: string
+  #       title: "Custom Key 1"
+  #       description: "First custom configuration key"
+  #       default: "value1"
+  #       ui_component: "input"
+  #     key2:
+  #       type: string
+  #       title: "Custom Key 2"
+  #       description: "Second custom configuration key"
+  #       default: "value2"
+  #       ui_component: "input"
+
+  #   # UI metadata for dynamic form generation
+  #   ui_metadata:
+  #     icon: "gear"
+  #     description_short: "A sample step used for development and testing purposes."
+  #     description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
+
   ########################################################
-  # Sample step for development and testing purposes
-  - id: sample_step
-    name: "Sample Development Step"
-    description: "Sample step for development and testing"
-    module_name: sample
-    module_path: ./doc/proc/step/sample.py
-    class_name: SampleStep
-    tags: [sample, development]
-    category: "Development"
+  # Content Retriever Step
+  - id: content_retriever
+    name: "Content Retriever"
+    description: "Retreives content from various sources"
+    module_name: content_retriever
+    module_path: ./doc/proc/step/content_retriever.py
+    class_name: ContentRetrieverStep
+    tags: [download, azure, blob, storage, source]
+    category: "Input"
     version: "1.0"
 
     # Settings schema for UI generation and validation
     settings_schema:
-      key1:
+      temp_folder:
         type: string
-        title: "Custom Key 1"
-        description: "First custom configuration key"
-        default: "value1"
+        title: "Temporary Folder"
+        description: "Path to temporary folder for downloaded content. Uses system temp if not specified."
+        default: "./tmp/docproc_downloads"
         ui_component: "input"
-      key2:
-        type: string
-        title: "Custom Key 2"
-        description: "Second custom configuration key"
-        default: "value2"
-        ui_component: "input"
-
+      include_content_bytes_as_field:
+        type: boolean
+        title: "Include Content Bytes as Field"
+        description: "Whether to include the retrieved content as bytes in the document data. If false, content will only be saved to a temporary file if use_temp_file_for_content is true."
+        default: false
+        ui_component: "checkbox"
+      use_temp_file_for_content:
+        type: boolean
+        title: "Use Temporary File for Content"
+        description: "Whether to save retrieved content to a temporary file and provide the file path in document data."
+        default: true
+        ui_component: "checkbox"
     # UI metadata for dynamic form generation
     ui_metadata:
-      icon: "gear"
-      description_short: "A sample step used for development and testing purposes."
-      description_long: "A sample step used for development and testing purposes. Can be customized with various key-value pairs."
+      icon: "download"
+      description_short: "Retreives content from various sources."
+      description_long: "Retreives content from various sources. Essential first step for processing content from sources."
 
   ########################################################
   # File Downloader Step
@@ -889,6 +927,13 @@ step_catalog:
         description: "Whether to overwrite existing blobs with the same name"
         required: false
         default: false
+        ui_component: "checkbox"
+      delete_temp_file:
+        type: boolean
+        title: "Delete Temp File"
+        description: "Whether to delete the local temporary file after upload"
+        required: false
+        default: true
         ui_component: "checkbox"
     # UI metadata for dynamic form generation
     ui_metadata:

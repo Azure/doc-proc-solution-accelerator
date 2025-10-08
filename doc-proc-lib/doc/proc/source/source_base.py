@@ -27,6 +27,19 @@ class SourceItemMetadata:
         self.content_type = content_type
         self.etag = etag
         self.additional_metadata = kwargs
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metadata to a dictionary."""
+        return {
+            "content_identifier": self.content_identifier,
+            "name": self.name,
+            "size": self.size,
+            "modified_date": self.modified_date,
+            "created_date": self.created_date,
+            "content_type": self.content_type,
+            "etag": self.etag,
+            **self.additional_metadata
+        }
     
 
 class SourceItem:

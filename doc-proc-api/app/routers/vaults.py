@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import fastapi
 
 from app.models.vault import (
-    AddDocumentRequest, UploadDocumentResponse, Vault, VaultCreateRequest, VaultUpdateRequest,
+    UploadDocumentResponse, Vault, VaultCreateRequest, VaultUpdateRequest,
     VaultStatus, DocumentInfo, PaginatedResponse
 )
 from app.services.vault_service import VaultService
@@ -227,28 +227,6 @@ async def process_documents(
         raise ApiException(status_code=400, message="Invalid request", details=str(e))
     except Exception as e:
         raise ApiException(status_code=500, message="Failed to start vault processing", details=str(e))
-
-
-@router.post("/{vault_id}/add", response_model=List[DocumentInfo])
-async def add_documents(
-    vault_id: str,
-    documents: List[AddDocumentRequest],
-    service: VaultService = Depends(get_vault_service)
-):
-    """Add documents to a vault"""
-    try:
-        results = []
-        
-        for doc in documents:
-            if not doc.name or not doc.blob_url:
-                raise ApiException(status_code=400, message="Invalid document request data", details="Each document must have name and blob_url")
-            result = await service.add_document(vault_id, doc)
-            results.append(result)
-
-        return results
-    
-    except Exception as e:
-        raise ApiException(status_code=500, message="Failed to add documents", details=str(e))
 
 
 @router.delete("/{vault_id}/documents/{document_id}")

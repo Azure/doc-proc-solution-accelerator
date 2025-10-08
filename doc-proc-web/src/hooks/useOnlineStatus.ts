@@ -22,7 +22,7 @@ interface UseOnlineStatusOptions {
 }
 
 export const useOnlineStatus = (options: UseOnlineStatusOptions = {}) => {
-  const { checkInterval = 60000, enabled = true } = options; // Default: check every 60 seconds
+  const { checkInterval = 5*60*1000, enabled = true } = options; // Default: check every 5 minutes
   
   const [status, setStatus] = useState<OnlineStatus>({
     isOnline: false,

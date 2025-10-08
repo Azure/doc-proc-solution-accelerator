@@ -2,70 +2,70 @@
 
 services_catalog:
 
-  # Sample service configuration
-  - id: sample_service_01                                                       # Unique identifier for the service
-    name: "Sample Service"                                                      # Human-readable name for the service
-    description: "A sample service configuration demonstrating all properties"  # Description of the service
-    type: sample_type                                                           # The type/category of the service
-    module_name: sample_service                                                 # Python module name implementing the service
-    module_path: ./doc/proc/service/sample_service.py                           # Path to the module file
-    class_name: SampleService                                                   # Class name to instantiate for this service
-    test_connection: false                                                      # Whether to test connection on startup
-    category: "Sample Category"                                                 # Logical grouping/category for the service
-    version: "1.0"                                                              # Version of the service definition
-    tags: [sample, demo, test]                                                  # List of tags for search/filtering
-    # Schema for required and optional settings
-    settings_schema:
-      sample_setting:
-        type: string
-        title: "Sample Setting"
-        description: "A sample setting required by the service"
-        required: true
-        env_var: "SAMPLE_SERVICE_SETTING"
-        default: 
-      sample_optional:
-        type: integer
-        title: "Optional Setting"
-        description: "An optional integer setting"
-        required: false
-        default: 10
-        min: 0  # Minimum value for the integer
-        max: 100  # Maximum value for the integer
-      sample_with_pattern:
-        type: string
-        title: "Pattern Setting"
-        description: "A setting that must match a specific pattern"
-        required: true
-        pattern: "^[a-zA-Z0-9_]+$"  # Must be alphanumeric or underscore
-        env_var: "SAMPLE_SERVICE_PATTERN_SETTING"
-        default: ""
-      sample_enum:
-        type: string
-        title: "Enum Setting"
-        description: "A setting that must be one of the predefined values"
-        required: false
-        enum: ["option1", "option2", "option3"] # Must be one of these options
-        default: "option1"
-      sample_sensitive:
-        type: string      # Sensitive information, e.g., API keys
-        required: true
-        sensitive: true  # Marked as sensitive to hide in UI
-        title: "Sensitive Setting"
-        description: "A sensitive setting that should not be displayed in plain text"
-        env_var: "SAMPLE_SERVICE_SENSITIVE_SETTING"  # Environment variable for sensitive data
-        default: ""  # Use environment variable for sensitive data
-      sample_boolean:
-        type: boolean
-        title: "Boolean Setting"
-        description: "A boolean setting to enable or disable a feature"
-        required: false
-        default: false  # Default value for the boolean setting
-    # UI metadata for display purposes
-    ui_metadata:
-      icon: "flask-round"    # Icon to represent the service in UI
-      color: "#CCCCCC"       # Color for the service in UI
-      description_short: "A sample service" # Short description for quick reference
-      description_long: "This is a sample service configuration used for demonstration and documentation purposes."  # Long description for detailed view
+  # # Sample service configuration
+  # - id: sample_service_01                                                       # Unique identifier for the service
+  #   name: "Sample Service"                                                      # Human-readable name for the service
+  #   description: "A sample service configuration demonstrating all properties"  # Description of the service
+  #   type: sample_type                                                           # The type/category of the service
+  #   module_name: sample_service                                                 # Python module name implementing the service
+  #   module_path: ./doc/proc/service/sample_service.py                           # Path to the module file
+  #   class_name: SampleService                                                   # Class name to instantiate for this service
+  #   test_connection: false                                                      # Whether to test connection on startup
+  #   category: "Sample Category"                                                 # Logical grouping/category for the service
+  #   version: "1.0"                                                              # Version of the service definition
+  #   tags: [sample, demo, test]                                                  # List of tags for search/filtering
+  #   # Schema for required and optional settings
+  #   settings_schema:
+  #     sample_setting:
+  #       type: string
+  #       title: "Sample Setting"
+  #       description: "A sample setting required by the service"
+  #       required: true
+  #       env_var: "SAMPLE_SERVICE_SETTING"
+  #       default: 
+  #     sample_optional:
+  #       type: integer
+  #       title: "Optional Setting"
+  #       description: "An optional integer setting"
+  #       required: false
+  #       default: 10
+  #       min: 0  # Minimum value for the integer
+  #       max: 100  # Maximum value for the integer
+  #     sample_with_pattern:
+  #       type: string
+  #       title: "Pattern Setting"
+  #       description: "A setting that must match a specific pattern"
+  #       required: true
+  #       pattern: "^[a-zA-Z0-9_]+$"  # Must be alphanumeric or underscore
+  #       env_var: "SAMPLE_SERVICE_PATTERN_SETTING"
+  #       default: ""
+  #     sample_enum:
+  #       type: string
+  #       title: "Enum Setting"
+  #       description: "A setting that must be one of the predefined values"
+  #       required: false
+  #       enum: ["option1", "option2", "option3"] # Must be one of these options
+  #       default: "option1"
+  #     sample_sensitive:
+  #       type: string      # Sensitive information, e.g., API keys
+  #       required: true
+  #       sensitive: true  # Marked as sensitive to hide in UI
+  #       title: "Sensitive Setting"
+  #       description: "A sensitive setting that should not be displayed in plain text"
+  #       env_var: "SAMPLE_SERVICE_SENSITIVE_SETTING"  # Environment variable for sensitive data
+  #       default: ""  # Use environment variable for sensitive data
+  #     sample_boolean:
+  #       type: boolean
+  #       title: "Boolean Setting"
+  #       description: "A boolean setting to enable or disable a feature"
+  #       required: false
+  #       default: false  # Default value for the boolean setting
+  #   # UI metadata for display purposes
+  #   ui_metadata:
+  #     icon: "flask-round"    # Icon to represent the service in UI
+  #     color: "#CCCCCC"       # Color for the service in UI
+  #     description_short: "A sample service" # Short description for quick reference
+  #     description_long: "This is a sample service configuration used for demonstration and documentation purposes."  # Long description for detailed view
   
 
   # Azure Blob Storage service for document storage and retrieval

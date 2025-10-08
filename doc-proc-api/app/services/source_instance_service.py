@@ -5,8 +5,8 @@ import time
 
 from app.services.base import BaseService
 from app.services.source_catalog_service import SourceCatalogService
-from app.services.vault_service import VaultService
 from app.db.cosmos import CosmosDb
+from app.models.source import SourceInstanceCrawlerSettings
 
 logger = logging.getLogger("doc-proc-ui.app.services.source_instance")
 
@@ -15,17 +15,21 @@ class SourceInstanceService(BaseService):
 
     def __init__(self, db: CosmosDb, 
                        container_name: str = "source_instances",
-                       catalog_service: SourceCatalogService = None,
-                       vault_service: VaultService = None):
+                       catalog_service: SourceCatalogService = None):
         
         super().__init__(db, container_name)
         self.catalog_service = catalog_service
-        self.vault_service = vault_service
 
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate source instance item"""
         required_fields = ["id", "name", "source_catalog_id"]
         return all(field in item for field in required_fields)
+
+    async def get_all_non_system(self) -> List[Dict[str, Any]]:
+        """Get all non-system source instances"""
+        query = "SELECT * FROM c WHERE c.is_system = false"
+        items = await self.list_all(query)
+        return items
 
     async def get_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a source instance by name"""
@@ -56,7 +60,11 @@ class SourceInstanceService(BaseService):
 
         instance_id = source_data.get("id") or f"{source_data.get('name').strip()}_{int(time.time())}"
         instance_id = instance_id.replace(" ", "_").lower()
-               
+        
+        crawler_settings = SourceInstanceCrawlerSettings().model_dump()
+        if "crawler_settings" in source_data:
+            crawler_settings.update(source_data["crawler_settings"])
+        
         # Merge catalog definition with instance settings
         instance = {
             "id": instance_id,
@@ -64,11 +72,12 @@ class SourceInstanceService(BaseService):
             "description": source_data.get("description") or catalog_source.get("description"),
             "source_catalog_id": source_catalog_id,
             "settings": source_data.get("settings", {}),
-            "crawler_settings": source_data.get("crawler_settings", None),
+            "crawler_settings": crawler_settings,
             "enabled": source_data.get("enabled", True),
             "test_connection": source_data.get("test_connection", True),
             "status": None,
             "catalog_definition": catalog_source,
+            "is_system": source_data.get("is_system", False),
             "created_at": source_data.get("created_at") or datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
@@ -107,6 +116,7 @@ class SourceInstanceService(BaseService):
     async def delete_source_instance_by_id(self, instance_id: str) -> bool:
         """Delete a source instance by ID"""
         logger.info(f"Deleting source instance: {instance_id}")
+        from app.dependencies import get_vault_service
         
         try:
             existing = await self.get_by_id(instance_id)
@@ -116,8 +126,11 @@ class SourceInstanceService(BaseService):
             
             # get if any vault is associated with this source instance
             associated_vaults = []
-            if self.vault_service:
-                associated_vaults = await self.vault_service.get_vaults_by_source_instance_name(existing.get("name"))
+
+            vault_service = get_vault_service()
+
+            if vault_service:
+                associated_vaults = await vault_service.get_vaults_by_source_instance_name(existing.get("name"))
                 if associated_vaults:
                     raise ValueError(f"Cannot delete source instance '{instance_id}' as it is associated with existing vault(s). Please reassign or delete the vault(s) first.")
             else:
@@ -132,6 +145,40 @@ class SourceInstanceService(BaseService):
             return result
         except Exception as e:
             logger.error(f"Failed to delete source instance '{instance_id}': {e}")
+            raise
+        
+    async def delete_source_instance_by_name(self, instance_name: str) -> bool:
+        """Delete a source instance by ID"""
+        logger.info(f"Deleting source instance: {instance_name}")
+        from app.dependencies import get_vault_service
+        
+        try:
+            existing = await self.get_by_name(instance_name)
+            if not existing:
+                logger.warning(f"Source instance '{instance_name}' not found for deletion")
+                return False
+            
+            # get if any vault is associated with this source instance
+            associated_vaults = []
+
+            vault_service = get_vault_service()
+
+            if vault_service:
+                associated_vaults = await vault_service.get_vaults_by_source_instance_name(existing.get("name"))
+                if associated_vaults:
+                    raise ValueError(f"Cannot delete source instance '{instance_name}' as it is associated with existing vault(s). Please reassign or delete the vault(s) first.")
+            else:
+                logger.warning("VaultService not provided, cannot proceed with deletion of source instance.")
+                raise ValueError("VaultService not available to check for associated vaults.")
+            
+            result = await self.delete(existing.get("id"))
+            if result:
+                logger.info(f"Successfully deleted source instance: {instance_name}")
+            else:
+                logger.warning(f"Source instance '{instance_name}' not found for deletion")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to delete source instance '{instance_name}': {e}")
             raise
 
     async def test_source_instance_connection(self, instance_id: str) -> Dict[str, Any]:

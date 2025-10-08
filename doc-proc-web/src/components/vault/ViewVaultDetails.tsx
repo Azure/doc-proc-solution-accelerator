@@ -118,9 +118,11 @@ const ViewVaultDetails = ({
   };
 
   // Handler functions
-  const handleUploadComplete = async (files: File[]) => {
+  const handleUploadComplete = async (files: File[], has_errors: boolean) => {
     // request parent to refresh vault details
-    onRefreshVault();
+    if (!has_errors) {
+      onRefreshVault();
+    }
   };
 
   const handleProcessDocument = (documentId: string) => {

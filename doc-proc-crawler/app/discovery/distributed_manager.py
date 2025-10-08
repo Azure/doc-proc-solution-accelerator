@@ -175,6 +175,16 @@ class DistributedWorkerManager:
 
         logger.info(f"New source instance detected: {source_id}")
 
+        # Check if source instance is disabled
+        if not source_instance.enabled:
+            logger.info(f"Source instance {source_id} is disabled, skipping worker creation")
+            return
+
+        # Check if source instance is a system instance
+        if source_instance.is_system:
+            logger.info(f"Source instance {source_id} is a system instance, skipping worker creation")
+            return
+
         # Check if we're already managing this source
         if source_id in self._managed_workers:
             logger.debug(f"Already managing worker for source: {source_id}")
@@ -204,6 +214,36 @@ class DistributedWorkerManager:
         if source_instance_id in self._managed_workers:
             await self._stop_worker(source_instance_id)
             
+    def _has_significant_changes(self, old_instance: SourceInstance, new_instance: SourceInstance) -> bool:
+        """
+        Check if the source instance has significant changes that require worker restart.
+        
+        Significant changes include:
+        - Connection settings changes
+        - Crawler configuration changes  
+        - Source catalog changes
+        - Enabled/disabled status changes
+        - Test connection behavior changes
+        """
+            
+        # Check if enabled status changed
+        if old_instance.enabled != new_instance.enabled:
+            logger.info(f"Enabled status changed: {old_instance.enabled} -> {new_instance.enabled}")
+            return True
+            
+        # Check if connection settings changed
+        if old_instance.settings != new_instance.settings:
+            logger.info(f"Instance settings changed for source: {new_instance.id}")
+            return True
+            
+        # Check if crawler settings changed
+        if old_instance.crawler_settings != new_instance.crawler_settings:
+            logger.info(f"Crawler settings changed for source: {new_instance.id}")
+            return True
+            
+        # No significant changes detected
+        return False
+
     async def _handle_source_updated(self, source_instance: SourceInstance):
         """Handle when a source instance is updated"""
         source_id = source_instance.id
@@ -211,14 +251,41 @@ class DistributedWorkerManager:
         
         if source_id in self._managed_workers:
             managed_worker = self._managed_workers[source_id]
+            old_instance = managed_worker.source_instance
             
-            # Update the source instance in the managed worker
-            managed_worker.source_instance = source_instance
-            # TODO: Implement logic to detect significant changes
-            # Check if the worker needs to be restarted due to significant changes
-            # For now, we'll just log the update. In the future, we could implement
-            # logic to restart workers if certain critical settings changed.
-            logger.debug(f"Updated source instance data for worker: {source_id}")
+            # Special case: if source becomes disabled, stop the worker
+            if not source_instance.enabled:
+                logger.info(f"Source instance {source_id} has been disabled, stopping worker...")
+                await self._stop_worker(source_id)
+                return
+            
+            # Check for significant changes that require worker restart
+            if self._has_significant_changes(old_instance, source_instance):
+                logger.info(f"Significant changes detected for source {source_id}, restarting worker...")
+                
+                # Stop the current worker
+                await self._stop_worker(source_id)
+                
+                # Start a new worker with updated configuration
+                # Try to acquire lease again (should succeed since we just released it)
+                try:
+                    lease = await self.lease_manager.try_acquire_lease(source_id)
+                    if lease:
+                        await self._start_worker(source_instance, lease)
+                    else:
+                        logger.warning(f"Could not reacquire lease for source {source_id} after restart")
+                except Exception as e:
+                    logger.error(f"Error restarting worker for source {source_id}: {e}")
+            else:
+                # No significant changes, just update the source instance data
+                managed_worker.source_instance = source_instance
+                logger.debug(f"Updated source instance data for worker: {source_id}")
+        else:
+            # Source instance was updated but we're not managing a worker for it
+            # This could happen if the source was previously disabled and is now enabled
+            if source_instance.enabled:
+                logger.info(f"Previously unmanaged source {source_id} is now enabled, attempting to start worker...")
+                await self._handle_source_added(source_instance)
 
     async def _start_worker(self, source_instance: SourceInstance, lease: WorkerLease):
         """Start a crawler worker for a source instance"""

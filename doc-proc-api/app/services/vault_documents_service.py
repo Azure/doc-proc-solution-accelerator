@@ -13,7 +13,7 @@ from doc.proc.providers.credential_provider import get_azure_credential
 from app.db.cosmos import CosmosDb
 from app.services.base import BaseService
 from app.services.document_queue_submitter import DocumentQueueSubmitter
-from app.models.vault import AddDocumentRequest, ContentIdentifierInfo, Vault, DocumentInfo, PaginatedResponse
+from app.models.vault import ContentIdentifierInfo, Vault, DocumentInfo, PaginatedResponse
 
 logger = logging.getLogger("doc-proc-ui.app.services.vault_documents_service")
 
@@ -25,6 +25,7 @@ class VaultDocumentsService(BaseService):
 
         super().__init__(db, container_name)
         self.document_queue_submitter = document_queue_submitter
+        self._operations_lock = asyncio.Lock()
 
     async def validate_item(self, item: Dict[str, Any]) -> bool:
         """Validate vault document item"""
@@ -68,11 +69,13 @@ class VaultDocumentsService(BaseService):
             vault_id=vault.id,
             name=file_name,
             content_id=ContentIdentifierInfo(
-                canonical_id=f'{vault.storage_config.account_name}::{vault.storage_config.container_name}::{file_name_to_upload}',
+                canonical_id=f'azure_blob://{vault.storage_config.account_name}/{vault.storage_config.container_name}/{file_name_to_upload}',
                 unique_id=unique_id,
-                multipart_id=[],
                 source_id=vault.id, #TODO: make this come from default vault source
-                source_name=vault.name, #TODO: make this come from default vault source
+                source_name=vault.default_source_instance_name,
+                source_type="azure_blob",
+                container=vault.storage_config.container_name,
+                path=file_name_to_upload,
                 metadata={}
             ),
             submit_date=datetime.now(timezone.utc).isoformat(),
@@ -85,42 +88,6 @@ class VaultDocumentsService(BaseService):
 
         return document
     
-    async def add_document(self, vault: Vault, document: AddDocumentRequest) -> DocumentInfo:
-        """Add a document to a vault"""
-
-        if not vault:
-            raise ValueError("Vault is required")
-
-        if not document or not document.name or not document.blob_url:
-            raise ValueError("Document with valid name and blob_url must be provided")
-
-        logger.debug(f"Adding document '{document.name}' to vault '{vault.id}' from blob URL '{document.blob_url}'")
-
-        # add an entry to the documents collection in cosmos db
-        added_document = DocumentInfo(
-            id="doc_" + uuid.uuid4().hex[:8],
-            vault_id=vault.id,
-            name=document.name,
-            blob_url=document.blob_url,
-            blob_details={
-                "storage_account": vault.storage_config.account_name,
-                "container": vault.storage_config.container_name,
-                "blob": document.name
-            },
-            size_bytes=0,
-            content_type="unknown",
-            source=document.source,
-            metadata=document.metadata or {},
-            upload_date=datetime.now(timezone.utc).isoformat()
-        )
-        
-        logger.debug(f"Adding document record to database: {added_document}")
-
-        await self.create(added_document.model_dump())
-
-        return added_document
-
-
     async def queue_documents_for_processing(self, vault: Vault, documents: List[DocumentInfo]) -> List[DocumentInfo]:
         """Queue documents for processing by updating their status to 'queued'"""
         if not vault or not documents or len(documents) == 0:
@@ -135,10 +102,11 @@ class VaultDocumentsService(BaseService):
             batch = documents[i:i + batch_size]
 
             try:
-                async with self.document_queue_submitter:
-                    _queue_result = await self.document_queue_submitter.queue_documents_for_processing(vault=vault,
-                                                                                                       pipeline_to_process_documents=vault.pipeline_name,
-                                                                                                       documents=batch)
+                async with self._operations_lock:
+                    async with self.document_queue_submitter:
+                        _queue_result = await self.document_queue_submitter.queue_documents_for_processing(vault=vault,
+                                                                                                        pipeline_to_process_documents=vault.pipeline_name,
+                                                                                                        documents=batch)
 
                 logger.info(f"Queued {len(batch)} documents for processing in vault '{vault.name}' with message ID: {_queue_result['message_id']}")
 
@@ -148,6 +116,10 @@ class VaultDocumentsService(BaseService):
                     document.metadata["queue_message_id"] = _queue_result["message_id"]
                     document.metadata["correlation_id"] = _queue_result["correlation_id"]
                     document.metadata["batch_id"] = _queue_result["batch_id"]
+                    document.metadata["processing_attempts"] = (document.metadata.get("processing_attempts", 0) + 1)
+                    document.metadata["error"] = None
+                    document.metadata["error_details"] = None
+                    document.metadata["last_processing_attempt"] = datetime.now(timezone.utc).isoformat()
                 
             except Exception as e:
                 logger.error(f"Failed to queue documents for processing in vault '{vault.name}': {str(e)}")
@@ -250,8 +222,8 @@ class VaultDocumentsService(BaseService):
             cutoff_time = now - time_deltas[time_filter]
             cutoff_timestamp = cutoff_time.isoformat()
             
-            base_query += " AND c.upload_date >= @cutoff_time"
-            count_query += " AND c.upload_date >= @cutoff_time"
+            base_query += " AND c.submit_date >= @cutoff_time"
+            count_query += " AND c.submit_date >= @cutoff_time"
             parameters.append({"name": "@cutoff_time", "value": cutoff_timestamp})
 
         # Add search filter
@@ -266,13 +238,13 @@ class VaultDocumentsService(BaseService):
 
         # Add sorting to base query
         if sort_by:
-            valid_sort_fields = ["name", "upload_date", "size_bytes", "status", "content_type"]
+            valid_sort_fields = ["name", "submit_date", "source", "status", "content_type"]
             if sort_by in valid_sort_fields:
                 base_query += f" ORDER BY c.{sort_by} {sort_direction or 'ASC'}"
             else:
-                base_query += " ORDER BY c.upload_date DESC"  # Default sort
+                base_query += " ORDER BY c.submit_date DESC"  # Default sort
         else:
-            base_query += " ORDER BY c.upload_date DESC"  # Default sort
+            base_query += " ORDER BY c.submit_date DESC"  # Default sort
 
         # Add pagination
         offset = (page - 1) * page_size

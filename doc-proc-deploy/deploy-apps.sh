@@ -19,6 +19,7 @@ ENVIRONMENT="dev"
 TAG="latest"
 DEPLOY_APP="false"
 DEPLOY_WORKER="false"
+DEPLOY_CRAWLER="false"
 DEPLOY_ALL="true"
 DEBUG="false"
 
@@ -35,13 +36,16 @@ usage() {
     echo "  -t, --tag              Image tag (default: latest)"
     echo "  --app                  Deploy API and WEB apps. If specified, only API and WEB apps will be deployed."
     echo "  --worker               Deploy worker app. If specified, only worker app will be deployed."
+    echo "  --crawler              Deploy crawler app. If specified, only crawler app will be deployed."
     echo "  -d, --debug            Enable debug logging"
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 -g my-rg"
-    echo "  $0 -g my-rg -e prod -l swedencentral -t v1.0.0"
-    echo "  $0 -g my-rg -e prod -l swedencentral -t v1.0.0 --api --web"
+    echo "  $0 -g my-rg -e prod -t v1.0.0"
+    echo "  $0 -g my-rg -e prod -t v1.0.0 --api --web"
+    echo "  $0 -g my-rg -e prod -t v1.0.0 --worker"
+    echo "  $0 -g my-rg -e prod -t v1.0.0 --crawler"
     exit 1
 }
 
@@ -71,6 +75,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         --worker)
              DEPLOY_WORKER="true"
+             DEPLOY_ALL="false"
+            shift 1
+            ;;
+        --crawler)
+             DEPLOY_CRAWLER="true"
              DEPLOY_ALL="false"
             shift 1
             ;;
@@ -121,6 +130,7 @@ else
     [ "$DEPLOY_APP" = "true" ] && echo -e "${BLUE}✔️ API${NC}"
     [ "$DEPLOY_APP" = "true" ] && echo -e "${BLUE}✔️ Web${NC}"
     [ "$DEPLOY_WORKER" = "true" ] && echo -e "${BLUE}✔️ Worker${NC}"
+    [ "$DEPLOY_CRAWLER" = "true" ] && echo -e "${BLUE}✔️ Crawler${NC}"
     echo ""
 fi
 
@@ -477,6 +487,81 @@ else
 fi
 
 
+######################################################################
+######################################################################
+## CRAWLER APP DEPLOYMENT
+
+if [ "$DEPLOY_ALL" == "true" ] || [ "$DEPLOY_CRAWLER" == "true" ]; then
+    # Deploy Crawler
+    echo -e "${BLUE}👷 Deploying Crawler App...${NC}"
+    CRAWLER_DEPLOYMENT_NAME="doc-proc-apps-crawler-$(date +%s)"
+
+    echo -e "${BLUE}Deploying Crawler App with Bicep template...${NC}"
+
+    # Retry logic for API deployment
+    CRAWLER_RETRY_COUNT=0
+    CRAWLER_MAX_RETRIES=3
+    CRAWLER_SUCCESS=false
+
+    while [ $CRAWLER_RETRY_COUNT -lt $CRAWLER_MAX_RETRIES ] && [ "$CRAWLER_SUCCESS" = false ]; do
+        CRAWLER_RETRY_COUNT=$((CRAWLER_RETRY_COUNT + 1))
+        echo -e "${BLUE}Attempt $CRAWLER_RETRY_COUNT/$CRAWLER_MAX_RETRIES: Deploying Crawler App...${NC}"
+
+        if az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file "doc-proc-crawler/infra/bicep/main.bicep" \
+            --parameters \
+                environment="$ENVIRONMENT" \
+                namePrefix="$NAME_PREFIX" \
+                containerImage="$REGISTRY/doc-proc-crawler:$TAG" \
+                containerAppsEnvironment="$CONTAINER_APPS_ENV_NAME" \
+                containerRegistryServer="$REGISTRY" \
+                appConfigStoreEndpoint="$APP_CONFIG_STORE_ENDPOINT" \
+                userAssignedIdentityName="$USER_ASSIGNED_IDENTITY_NAME" \
+            --name "$CRAWLER_DEPLOYMENT_NAME" \
+            --output table ${optional_args[@]}; then
+
+            echo -e "${GREEN}✅ Crawler App deployed successfully${NC}"
+
+            CRAWLER_APP_NAME=$(az deployment group show \
+                --resource-group "$RESOURCE_GROUP" \
+                --name "$CRAWLER_DEPLOYMENT_NAME" \
+                --query "properties.outputs.containerAppName.value" \
+                --output tsv)
+
+            # Force a new app revision to ensure the latest image is pulled
+            echo -e "${BLUE}Forcing a new revision to pull the latest image...${NC}"
+            az containerapp update \
+                --name "${CRAWLER_APP_NAME}" \
+                --resource-group "$RESOURCE_GROUP" \
+                --image "${REGISTRY}/doc-proc-crawler:${TAG}" \
+                --revision-suffix "$(date +%s)" \
+                --output none \
+                --no-wait
+            echo -e "${GREEN}✅ Restarted Container App to pull latest image${NC}"
+
+            CRAWLER_SUCCESS=true
+            echo -e "${GREEN}✅ Crawler App deployed successfully${NC}"
+
+        else
+            echo -e "${RED}❌ Crawler deployment failed (attempt $CRAWLER_RETRY_COUNT/$CRAWLER_MAX_RETRIES)${NC}"
+            if [ $CRAWLER_RETRY_COUNT -lt $CRAWLER_MAX_RETRIES ]; then
+                echo -e "${YELLOW}⚠️ Retrying Crawler deployment in 5 seconds...${NC}"
+                sleep 5
+            fi
+        fi
+    done
+
+    if [ "$CRAWLER_SUCCESS" = false ]; then
+        echo -e "${RED}❌ Crawler deployment failed after $CRAWLER_MAX_RETRIES attempts${NC}"
+    fi
+    echo ""
+else
+    echo -e "${YELLOW}⚠️ Skipping Crawler deployment${NC}"
+    echo ""
+fi
+
+
 echo ""
 echo -e "${GREEN}🎉 Application deployment completed!${NC}"
 echo ""
@@ -492,6 +577,10 @@ fi
 if [ "$WORKER_SUCCESS" = true ]; then
 echo -e "${GREEN}✅ Worker: Container App deployed${NC}"
 fi
+if [ "$CRAWLER_SUCCESS" = true ]; then
+echo -e "${GREEN}✅ Crawler: Container App deployed${NC}"
+fi
+
 echo ""
 echo ""
 echo -e "${BLUE}🔧 Next Steps (if needed):${NC}"

@@ -32,7 +32,7 @@ import {
 
 interface UploadVaultDocumentsProps {
   vault: Vault;
-  onUploadComplete: (files: File[]) => Promise<void>;
+  onUploadComplete: (files: File[], has_errors: boolean) => Promise<void>;
 }
 
 interface SelectedFile {
@@ -121,7 +121,6 @@ const UploadVaultDocuments = ({ vault, onUploadComplete }: UploadVaultDocumentsP
       });
 
       const successfulFiles: string[] = [];
-
       results.forEach(res => {
         const ids = nameToIds[res.filename] || [];
         if (res.document) {
@@ -148,18 +147,26 @@ const UploadVaultDocuments = ({ vault, onUploadComplete }: UploadVaultDocumentsP
       }
 
       setSelectedFiles(prev => prev.filter(sf => !successfulFiles.includes(sf.file.name)));
-      
-      await onUploadComplete(filesToUpload.filter(sf => successfulFiles.includes(sf.file.name)).map(sf => sf.file));
+
+      await onUploadComplete(filesToUpload.filter(sf => successfulFiles.includes(sf.file.name)).map(sf => sf.file), failCount > 0);
 
       // Hide the dialog after upload if no files remain
       if (selectedFiles.length - successfulFiles.length === 0) {
         handleDialogClose(false);
       }
 
-      toast({
-        title: "Upload completed",
-        description: "Documents have been uploaded successfully",
-      });
+      if (failCount === 0) {
+        toast({
+          title: "Upload completed",
+          description: `${successCount} file(s) have been uploaded successfully"`,
+        });
+      } else {
+        toast({
+          title: "Upload completed with errors",
+          description: `${failCount} files failed to upload. Please check the file list for details.`,
+          variant: "destructive",
+        });
+      }
 
     } catch (error) {
       console.error('Error uploading files:', error);

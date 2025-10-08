@@ -28,7 +28,6 @@ class AppSettings(BaseModel):
     COSMOS_DB_CONTAINER_SOURCE_INSTANCES: str = "source_instances"
     COSMOS_DB_CONTAINER_VAULTS: str = "vaults"
     COSMOS_DB_CONTAINER_VAULT_DOCUMENTS: str = "vault_documents"
-    COSMOS_DB_CONTAINER_CRAWL_DOCUMENTS: str = "crawl_documents"
     COSMOS_DB_CONTAINER_CRAWL_EXECUTIONS: str = "crawl_executions"
     COSMOS_DB_CONTAINER_WORKER_LEASES: str = "crawl_leases"
     
@@ -39,8 +38,8 @@ class AppSettings(BaseModel):
     # Distributed worker management settings
     CRAWLER_MAX_WORKERS: int = 3  # Maximum number of workers per machine
     CRAWLER_DISCOVERY_POLL_INTERVAL: int = 60  # How often to discover source instances (seconds)
-    CRAWLER_LEASE_DURATION_MINUTES: int = 5  # Worker lease duration
-    CRAWLER_LEASE_RENEWAL_INTERVAL_MINUTES: int = 3  # How often to renew leases
+    CRAWLER_LEASE_DURATION_MINUTES: int = 30  # Worker lease duration
+    CRAWLER_LEASE_RENEWAL_INTERVAL_MINUTES: int = 15  # How often to renew leases
 
     def __init__(self, **kwargs):
         """Initialize AppSettings and load configuration from Azure App Configuration"""
@@ -112,7 +111,6 @@ class AppSettings(BaseModel):
             self.COSMOS_DB_CONTAINER_SOURCE_INSTANCES,
             self.COSMOS_DB_CONTAINER_VAULTS,
             self.COSMOS_DB_CONTAINER_VAULT_DOCUMENTS,
-            self.COSMOS_DB_CONTAINER_CRAWL_DOCUMENTS,
             self.COSMOS_DB_CONTAINER_CRAWL_EXECUTIONS,
             self.COSMOS_DB_CONTAINER_WORKER_LEASES
         ]

@@ -138,8 +138,6 @@ class AzureFilesSource(SourceBase):
             source_id=f"{self.type}_{self.name}",
             source_name=self.name,
             source_type=self.type,
-            container=self.share_name,
-            path=file_path
         )
         
         # Validate that all required fields are populated

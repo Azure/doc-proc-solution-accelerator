@@ -118,7 +118,10 @@ def get_vault_service() -> VaultService:
                         container_name=app_settings.COSMOS_DB_CONTAINER_VAULTS,
                         vault_documents_service=get_vault_documents_service(),
                         execution_status_service=get_execution_status_service(),
-                        default_blob_storage=app_settings.get_blob_storage_account_details())
+                        default_blob_storage=app_settings.get_blob_storage_account_details(),
+                        source_catalog_service=get_source_catalog_service(),
+                        source_instance_service=get_source_instance_service()
+                        )
 
 @ttl_cache(maxsize=1, ttl=__cache_ttl)  # Cache for 10 minutes
 def get_dashboard_service() -> DashboardService:
@@ -140,8 +143,7 @@ def get_source_instance_service() -> SourceInstanceService:
     app_settings = get_settings()
     return SourceInstanceService(db=get_cosmos_db(), 
                                  container_name=app_settings.COSMOS_DB_CONTAINER_SOURCE_INSTANCES,
-                                 catalog_service=get_source_catalog_service(),
-                                 vault_service=get_vault_service())
+                                 catalog_service=get_source_catalog_service())
 
 @ttl_cache(maxsize=1, ttl=__cache_ttl)  # Cache for 10 minutes
 def get_health_service() -> HealthService:

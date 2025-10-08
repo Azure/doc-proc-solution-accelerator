@@ -35,6 +35,7 @@ class BlobStoreOutputStep(StepBase):
         self.blob_container = self.settings.get("blob_container", "output")
         self.blob_path = self.settings.get("blob_path", "{pipeline_name}/{file_name}")
         self.overwrite = self.settings.get("overwrite", False)
+        self.delete_temp_file = self.settings.get("delete_temp_file", True)
         
         if not self.blob_container or not isinstance(self.blob_container, str):
             logger.error("Invalid or missing 'blob_container' in settings.")
@@ -60,23 +61,29 @@ class BlobStoreOutputStep(StepBase):
 
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
 
-        # get document from input data
-        doc_data = document.data
-        if not doc_data or not isinstance(doc_data, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        # # get document from input data
+        # doc_data = document.data
+        # if not doc_data or not isinstance(doc_data, dict):
+        #     logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        #     raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
 
-        doc_id = doc_data.get("id", "unknown")
+        doc_id = document.id
         
         try:
-            logger.debug(f"Processing document: {doc_id}")
+            
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_id}")
 
             processed_doc = await self._process_document(document, context)
-
-            logger.debug(f"BlobStoreOutputStep completed processing. Document: {doc_id}")
+            
+            if self.delete_temp_file:
+                self._cleanup_temp_file(document)
+                
+            if self.debug_mode:
+                logger.debug(f"BlobStoreOutputStep completed processing. Document: {doc_id}")
 
             # Return the processed document, as this will be an instance of Document
             return processed_doc
@@ -94,7 +101,11 @@ class BlobStoreOutputStep(StepBase):
             logger.error("Azure Blob Storage Service not found in context.")
             raise StepExecutionError("Azure Blob Storage Service not found in context.")
 
-        file_name = f"{doc.data.get('id', 'unknown_id')}.json"
+        file_name = doc.id.unique_id if doc.id and doc.id.unique_id else None
+        if not file_name:
+            raise ValueError("Document is missing a unique_id in its ContentIdentifier for naming the output file.")
+        
+        file_name = f"{file_name}.json"
 
         pipeline_name = context.pipeline.name if context and context.pipeline and context.pipeline.name else "unknown_pipeline"
 
@@ -126,6 +137,18 @@ class BlobStoreOutputStep(StepBase):
         doc.summary_data['result_blob_url'] = upload_result
         
         return doc
+
+    def _cleanup_temp_file(self, doc: Document):
+        """Delete the temporary file if it exists."""
+        temp_file_path = doc.data.get('temp_file_path')
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                logger.debug(f"Deleted temporary file: {temp_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete temporary file {temp_file_path}: {e}")
+        else:
+            logger.debug(f"No temporary file to delete for document: {doc.id}")
 
     def _get_blob_service(self, context: "PipelineExecutionContext"):
         """

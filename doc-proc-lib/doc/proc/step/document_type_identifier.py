@@ -69,99 +69,90 @@ class DocumentTypeIdentifierStep(StepBase):
 
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
 
         # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        doc_data_dict = document.data
+        if not doc_data_dict or not isinstance(doc_data_dict, dict):
+            logger.error(f"No data found in input data. Expected a dictionary of fields in document.data.")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields in document.data.")
 
         try:
 
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
+                logger.debug(f"Processing document: {document.id}")
 
-            document_dict = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in document_dict:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
-            
+            # Validate required fields - now only temp_file_path is required
+            if "temp_file_path" not in doc_data_dict and "content" not in doc_data_dict:
+                raise StepExecutionError(f"Invalid document format. Document data is missing the required 'temp_file_path' or 'content' field. Id: {document.id}")
 
             # Process the file based on identification methods
-            identification_result = await self._process_document(
-                                                document_dict, self.identification_methods, context
-                                            )
+            identification_result = await self._process_document(document=doc_data_dict,
+                                                                 document_path=document.id.path if document.id.path else "unknown",
+                                                                 identification_methods=self.identification_methods
+                                                                )
 
-            result_document = {
-                **document_dict,
-                "document_type": identification_result,
-            }
+            doc_data_dict['document_type'] = identification_result
 
-            logger.debug(f"Successfully processed document: {document.id}")
+            if self.debug_mode:
+                logger.debug(f"Successfully processed document: {document.id}")
 
             # Return the updated Document
-            return Document(summary_data = {**document.summary_data}, 
-                            data = result_document)
+            
+            return document
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
-            raise e
+            raise
 
 
     async def _process_document(self, document: dict, 
-                                     identification_methods: List[IdentificationMethod],
-                                     context: PipelineExecutionContext) -> dict:
+                                      document_path: str,
+                                      identification_methods: List[IdentificationMethod]) -> dict:
         """Process a document for type identification"""
-        if not document or not isinstance(document, dict):
-            raise ValueError("Invalid document format. Expected a dictionary with file metadata.")
-
-        # Validate that we have a file_path
-        if "file_path" not in document:
-            raise ValueError("Document is missing the required 'file_path' field.")
         
-        file_path = document["file_path"]
-        if not file_path or not os.path.exists(file_path):
-            raise ValueError(f"Invalid or non-existent file path: {file_path}")
+        file_path = None
+        file_content = None
+                
+        # Use temp_file_path if available
+        if "temp_file_path" in document:
+            # Validate file path
+            file_path = document["temp_file_path"]
+            if not file_path or not os.path.exists(file_path):
+                raise ValueError(f"Invalid or non-existent file path: {file_path}")
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+        elif "content" in document:
+            file_content = document["content"]
+            file_path = document_path  # Use provided document path as reference
+        else:
+            raise ValueError("Document must contain either 'temp_file_path' or 'content' for type identification.")
 
         try:
             # Perform document type identification
-            identification_result = await self._identify_document_type(
-                document, identification_methods
+            identification_results = {}
+            
+            # Method 1: Magic bytes detection
+            if IdentificationMethod.MAGIC_BYTES in identification_methods:
+                magic_result = await self._identify_by_magic_bytes(file_content)
+                identification_results["magic_bytes"] = magic_result
+            
+            # Method 2: File extension analysis
+            if IdentificationMethod.FILE_EXTENSION in identification_methods:
+                extension_result = await self._identify_by_file_extension(file_path=file_path)
+                identification_results["file_extension"] = extension_result
+            
+            # Combine and rank results
+            final_identification = await self._combine_identification_results(
+                identification_results
             )
-
-            return identification_result
                 
         except Exception as e:
             logger.error(f"Document type identification failed for {file_path}: {str(e)}")
-            raise ValueError(f"Document type identification failed: {str(e)}")
+            raise
 
-
-    async def _identify_document_type(self, document: dict, 
-                                           identification_methods: List[IdentificationMethod]) -> dict:
-        """Perform comprehensive document type identification"""
-        identification_results = {}
-        
-        # Method 1: Magic bytes detection
-        if IdentificationMethod.MAGIC_BYTES in identification_methods:
-            magic_result = await self._identify_by_magic_bytes(document)
-            identification_results["magic_bytes"] = magic_result
-        
-        # Method 2: File extension analysis
-        if IdentificationMethod.FILE_EXTENSION in identification_methods:
-            extension_result = await self._identify_by_file_extension(document)
-            identification_results["file_extension"] = extension_result
-        
-        # Combine and rank results
-        final_identification = await self._combine_identification_results(
-            identification_results
-        )
-        
-        return final_identification
-    
-
-    async def _identify_by_magic_bytes(self, document: dict) -> dict:
+    async def _identify_by_magic_bytes(self, file_content: bytes) -> dict:
         """Identify document type using magic bytes/file signatures"""
         
         try:
@@ -171,18 +162,6 @@ class DocumentTypeIdentifierStep(StepBase):
             raise StepExecutionError("python-magic module is required for magic bytes detection. Please install it using 'pip install python-magic'.")
         
         try:
-            logger.debug(f"Identifying document by magic bytes: {document.get('file_path', 'unknown')}")
-
-            file_path = document.get("file_path", "")
-            if not file_path:
-                return {"error": "No file path available", "confidence": 0.0, "method": "magic_bytes"}
-            # Read the file content
-            if not Path(file_path).is_file():
-                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "magic_bytes"}
-
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-
             if isinstance(file_content, str):
                 file_content = file_content.encode()
             
@@ -244,20 +223,10 @@ class DocumentTypeIdentifierStep(StepBase):
         else:
             return DocumentType.UNKNOWN.value
 
-    async def _identify_by_file_extension(self, document: dict) -> dict:
+    async def _identify_by_file_extension(self, file_path: str) -> dict:
         """Identify document type using file extension"""
         
         try:
-            logger.debug(f"Identifying document by file extension: {document.get('file_path', 'unknown')}")
-
-            file_path = document.get("file_path", "")
-            if not file_path:
-                return {"error": "No file path available", "confidence": 0.0, "method": "file_extension"}
-
-            # Check if file exists
-            if not Path(file_path).is_file():
-                return {"error": f"File not found: {file_path}", "confidence": 0.0, "method": "file_extension"}
-
             # Extract extension
             file_path = Path(file_path)
             extension = file_path.suffix.lower()

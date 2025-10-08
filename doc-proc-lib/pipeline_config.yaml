@@ -36,6 +36,19 @@ service_instances:
       api_version: "2025-05-01-preview" # Updated to the latest version
       index_name: "documents_index" # Name of the search index to use
 
+########################################################
+# SOURCE INSTANCES
+# Source instances - references to source catalog with custom settings
+source_instances:
+
+  - name: blob_storage_source_01
+    source_catalog_id: azure_blob_storage # Reference to source in catalog
+    settings:
+      account_name: ${AZURE_STORAGE_SOURCE_ACCOUNT_NAME}
+      container_name: ${AZURE_STORAGE_SOURCE_CONTAINER_NAME}
+      credential_type: ${AZURE_STORAGE_SOURCE_CREDENTIAL_TYPE} # Valid values are azure_key_credential or default_azure_credential
+      credential_key: ${AZURE_STORAGE_SOURCE_ACCOUNT_KEY}
+
 
 ########################################################
 # PIPELINES
