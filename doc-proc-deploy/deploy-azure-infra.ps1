@@ -29,7 +29,7 @@
     .\deploy-azure-infra.ps1 -ResourceGroup "my-resource-group"
 
 .EXAMPLE
-    .\deploy-azure-infra.ps1 -ResourceGroup "my-rg" -Location "westus2" -NamePrefix "myapp" -Environment "prod"
+    .\deploy-azure-infra.ps1 -ResourceGroup "my-rg" -Location "westus" -NamePrefix "myapp" -Environment "prod"
 #>
 
 param(
@@ -37,9 +37,13 @@ param(
     [Alias("g")]
     [string]$ResourceGroup,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Azure location (default: westus2)")]
+    [Parameter(Mandatory = $false, HelpMessage = "Azure location (default: westus)")]
     [Alias("l")]
-    [string]$Location = "westus2",
+    [string]$Location = "westus",
+
+    [Parameter(Mandatory = $false, HelpMessage = "Azure AI Foundry Location (default: westus)")]
+    [Alias("a")]
+    [string]$AIFoundryLocation = "westus",
 
     [Parameter(Mandatory = $false, HelpMessage = "Resource name prefix (default: docproc)")]
     [Alias("p")]
@@ -73,21 +77,22 @@ function Write-BlueOutput { param([string]$Message) Write-ColoredOutput $Message
 
 # Function to show usage
 function Show-Usage {
-    Write-Host "Usage: .\deploy-azure-infra.ps1 -ResourceGroup <resource-group> [options]"
+    Write-Host "Usage: pwsh .\deploy-azure-infra.ps1 -ResourceGroup <resource-group> [options]"
     Write-Host ""
     Write-Host "Required:"
     Write-Host "  -ResourceGroup, -g     Azure Resource Group name"
     Write-Host ""
     Write-Host "Optional:"
-    Write-Host "  -Location, -l          Azure location (default: westus2)"
+    Write-Host "  -Location, -l          Azure location (default: westus)"
+    Write-Host "  -AIFoundryLocation, -a Azure AI Foundry location (default: westus)"
     Write-Host "  -NamePrefix, -p        Resource name prefix (default: docproc)"
     Write-Host "  -Environment, -e       Environment name (default: dev)"
     Write-Host "  -Debug, -d             Enable debug logging"
     Write-Host "  -Help, -h              Show this help message"
     Write-Host ""
     Write-Host "Examples:"
-    Write-Host "  .\deploy-azure-infra.ps1 -ResourceGroup 'my-resource-group'"
-    Write-Host "  .\deploy-azure-infra.ps1 -ResourceGroup 'my-rg' -Location 'westus2' -NamePrefix 'myapp' -Environment 'prod'"
+    Write-Host "  pwsh .\deploy-azure-infra.ps1 -ResourceGroup 'my-resource-group'"
+    Write-Host "  pwsh .\deploy-azure-infra.ps1 -ResourceGroup 'my-rg' -Location 'westus' -NamePrefix 'myapp' -Environment 'prod'"
     exit 1
 }
 
@@ -177,6 +182,7 @@ $deploymentArgs = @(
     "namePrefix=$NamePrefix",
     "environment=$Environment",
     "location=$Location",
+    "aiFoundryLocation=$AIFoundryLocation",
     "--name", $DeploymentName,
     "--output", "table"
 )
@@ -236,11 +242,11 @@ Write-Host ""
 Write-BlueOutput "Next Steps:"
 Write-Host "1. Build and push your Docker images to the Container Registry:"
 if ($AcrLoginServer) {
-    Write-Host "   .\doc-proc-deploy\build-and-push-images.sh -r $AcrLoginServer"
+    Write-Host "   .\doc-proc-deploy\build-and-push-images.ps1 -r $AcrLoginServer"
 } else {
-    Write-Host "   .\doc-proc-deploy\build-and-push-images.sh -r <ACR_LOGIN_SERVER>"
+    Write-Host "   .\doc-proc-deploy\build-and-push-images.ps1 -r <ACR_LOGIN_SERVER>"
 }
 Write-Host ""
 Write-Host "2. Deploy your applications using pushed images:"
-Write-Host "   .\doc-proc-deploy\deploy-apps.sh -g $ResourceGroup"
+Write-Host "   pwsh .\doc-proc-deploy\deploy-apps.ps1 -g $ResourceGroup"
 Write-Host ""

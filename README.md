@@ -15,6 +15,7 @@ This solution accelerator provides a production-ready foundation for building do
 - **Modular Processing Pipeline**: A flexible Python library (`doc-proc-lib`) for creating custom document processing workflows
 - **Web-based Management UI**: React + TypeScript frontend (`doc-proc-web`) for managing pipelines, services, and monitoring executions
 - **Scalable Worker Architecture**: High-performance background worker service (`doc-proc-worker`) with Azure Storage Queue integration
+- **Data Source Crawler**: Scalable background worker service for crawling and retrieving content from sources (`doc-proc-crawler`)
 - **RESTful API Backend**: FastAPI-based service (`doc-proc-api`) with Azure Cosmos DB for data persistence
 - **Infrastructure as Code**: Bicep templates for automated Azure deployment (`doc-proc-deploy`)
 
@@ -32,7 +33,36 @@ This solution accelerator provides a production-ready foundation for building do
 The solution follows a microservices architecture with clear separation of concerns:
 
 ```
-    TODO: diagram
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           Document Processing Solution Architecture                   │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                │
+│  │  doc-proc-web   │    │  doc-proc-api   │    │ doc-proc-crawler│                │
+│  │  Management UI  │◄──►│  REST API       │◄──►│ Document        │                │
+│  │  (React/TS)     │    │  (FastAPI)      │    │ Discovery       │                │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘                │
+│           │                       │                       │                        │
+│           │                       ▼                       ▼                        │
+│           │              ┌─────────────────┐    ┌─────────────────┐                │
+│           │              │ Azure Cosmos DB │    │ Azure Storage   │                │
+│           │              │ Configuration   │    │ Queues & Blobs  │                │
+│           │              └─────────────────┘    └─────────────────┘                │
+│           │                       │                       │                        │
+│           │                       ▼                       ▼                        │
+│           │              ┌─────────────────┐    ┌─────────────────┐                │
+│           └─────────────►│ doc-proc-worker │◄───│  doc-proc-lib   │                │
+│                          │ Queue Processor │    │ Pipeline Engine │                │
+│                          │ (Python)        │    │ (Python)        │                │
+│                          └─────────────────┘    └─────────────────┘                │
+│                                   │                       │                        │
+│                                   ▼                       ▼                        │
+│                          ┌─────────────────────────────────────────┐                │
+│                          │           Azure AI Services            │                │
+│                          │  Document Intelligence • OpenAI        │                │
+│                          │  Computer Vision • Custom Models       │                │
+│                          └─────────────────────────────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 📦 Core Components
@@ -93,6 +123,22 @@ The solution follows a microservices architecture with clear separation of conce
 
 📖 **[View detailed documentation →](./doc-proc-worker/README.md)**
 
+### 🔍 doc-proc-crawler
+**The Document Discovery Engine** - Intelligent distributed crawler service for automated document discovery and ingestion from various sources.
+
+- **Technology Stack**: Python with Azure Cosmos DB and distributed coordination
+- **Key Features**:
+  - Distributed coordination with lease-based conflict prevention
+  - Automatic source discovery from Cosmos DB configuration
+  - Multi-source support (file systems, cloud storage, databases, APIs)
+  - Intelligent load balancing across multiple deployment instances
+  - Self-healing operations with automatic restart and error recovery
+  - Configurable crawling schedules and polling intervals
+  - Metadata extraction and content indexing
+  - Integration with document processing pipelines
+
+📖 **[View detailed documentation →](./doc-proc-crawler/README.md)**
+
 ### 🏗️ doc-proc-deploy
 **Infrastructure as Code** - Automated deployment templates and scripts for Azure resources.
 
@@ -126,6 +172,23 @@ Accelerate loan application processing with document verification:
 - **Bank Statements**: Extract transaction history, balance verification, income calculation
 - **Tax Returns**: Parse tax forms, verify income sources, calculate debt-to-income ratios
 - **Employment Letters**: Extract salary information, employment status, tenure
+
+#### **Automated Document Ingestion**
+Enterprise-scale document discovery and ingestion with intelligent coordination:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   File Shares   │───▶│   Distributed   │───▶│   Document      │───▶│   Processing    │
+│   Cloud Storage │    │    Crawler      │    │   Queue         │    │   Pipeline      │
+│   API Endpoints │    │   Discovery     │    │   Management    │    │   Execution     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Key Benefits:**
+- **Multi-Source Support**: Automatically discover and ingest from file systems, SharePoint, cloud storage, databases, and REST APIs
+- **Distributed Coordination**: Multiple crawler instances work together with lease-based coordination to prevent duplicates
+- **Smart Scheduling**: Configurable polling intervals and change detection for efficient resource usage
+- **Self-Healing**: Automatic restart of failed processes and graceful handling of source availability
 
 ### 🏥 Healthcare
 
@@ -227,24 +290,24 @@ Choose the deployment method that best fits your needs:
 #### ☁️ **Azure Cloud Deployment**
 Production-ready deployment on Azure with full scalability:
 
-```bash
+```powershell
 # 0. Clone the repository
 git clone https://github.com/Azure/doc-proc-solution-accelerator.git
 cd doc-proc-solution-accelerator
 
 # 1. Deploy Azure infrastructure (AI Foundry, Container Apps, Cosmos DB, Storage Account, etc.)
-./doc-proc-deploy/deploy-azure-infra.sh -g myResourceGroup -l westus -p docproc
+pwsh .\doc-proc-deploy\DeployAzureInfra.ps1 -ResourceGroup myResourceGroup -Location westus -p docproc
 
 # 2. Build and push Docker images to Azure Container Registry
-./doc-proc-deploy/build-and-push-images.sh -r <registry-login-server>
+pwsh .\doc-proc-deploy\BuildAndPushImages.ps1 -Registry myregistry.azurecr.io -Tag latest
 
 # 3. Deploy applications to Azure Container Apps
-./doc-proc-deploy/deploy-apps.sh -g myResourceGroup -p docproc
+pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup myResourceGroup
 ```
 
 This creates:
 - **Azure Container Registry** for storing Docker images
-- **Azure Container Apps** for hosting API, Web and worker services
+- **Azure Container Apps** for hosting API, Web, worker, and crawler services
 - **Azure Cosmos DB** for configuration data persistence
 - **Azure Storage Account** for queue management and blob storage
 - **Azure App Configuration** for centralized configuration management
@@ -253,22 +316,24 @@ This creates:
 #### 🔧 **Local Development**
 Once the Azure resources are deployed, you can run the solution services locally for development:
 
-```bash
+```pwsh
 cd doc-proc-solution-accelerator
 
 # Configure environment variables for each service
 # Copy .env.example to .env and update with your Azure resource endpoints
-cp doc-proc-api/.env.example doc-proc-api/.env
-cp doc-proc-worker/.env.example doc-proc-worker/.env
-cp doc-proc-web/.env.example doc-proc-web/.env
+cp doc-proc-api\.env.example doc-proc-api\.env
+cp doc-proc-worker\.env.example doc-proc-worker\.env
+cp doc-proc-crawler\.env.example doc-proc-crawler\.env
+cp doc-proc-web\.env.example doc-proc-web\.env
 
 # Edit the .env files with your Azure resource information:
-# doc-proc-api/.env - Add Azure App Configuration endpoint
-# doc-proc-worker/.env - Add Azure App Configuration endpoint
-# doc-proc-web/.env - Update API base URL if different from http://localhost:8090
+# doc-proc-api\.env - Add Azure App Configuration endpoint
+# doc-proc-worker\.env - Add Azure App Configuration endpoint
+# doc-proc-crawler\.env - Add Azure App Configuration endpoint
+# doc-proc-web\.env - Update API base URL if different from http://localhost:8090
 
 # Start all services locally with auto-reload
-./doc-proc-deploy/start-services-locally.sh
+pwsh .\doc-proc-deploy\StartServicesLocally.ps1
 ```
 
 **Required Configuration Values:**
@@ -279,7 +344,7 @@ This will start:
 - **API Server**: http://localhost:8090 (FastAPI backend)
 - **Web Application**: http://localhost:8080 (React frontend)
 - **Worker Service**: Background processing service
-
+- **Crawler Service**: Document discovery and ingestion service
 
 
 💡 **For detailed instructions and additional options, see the [comprehensive deployment guide →](./doc-proc-deploy/README.md)**
@@ -305,7 +370,6 @@ All services include comprehensive health monitoring:
 ### 🔐 Security Features
 
 - **Managed Identity**: Services use managed identities for Azure resource access
-- **Key Vault integration**: Sensitive configuration stored in Azure Key Vault
 - **Network isolation**: Container Apps Environment with virtual network integration
 - **HTTPS enforcement**: All endpoints secured with SSL/TLS
 
@@ -345,6 +409,17 @@ doc-proc-solution-accelerator/
 │   ├── tmp/                 # Temporary processing files
 │   ├── Dockerfile           # Container configuration
 │   └── requirements.txt     # Python dependencies
+├── doc-proc-crawler/          # 🔍 Document discovery and crawling service
+│   ├── app/                  # Crawler application code
+│   │   ├── discovery/        # Distributed coordination and source discovery
+│   │   ├── sources/          # Source connectors (filesystem, cloud, API, etc.)
+│   │   ├── models/           # Data models for crawling and coordination
+│   │   └── proxy/            # Azure service integration proxies
+│   ├── infra/               # Infrastructure configuration for crawler
+│   ├── DISTRIBUTED_ARCHITECTURE.md  # Distributed coordination documentation
+│   ├── Dockerfile           # Container configuration
+│   ├── run_crawler.py       # Main crawler entry point
+│   └── requirements.txt     # Python dependencies
 ├── doc-proc-deploy/           # 🏗️ Infrastructure as Code and deployment
 │   ├── infra/
 │   │   └── bicep/           # Azure Bicep templates
@@ -360,6 +435,13 @@ doc-proc-solution-accelerator/
 ├── LICENSE                   # MIT license
 └── README.md                 # This documentation
 ```
+
+## 💡 Planned Features
+
+Some of the great features planned for the next release:
+- Deployment in as per Zero Trust Architecture best practices with integration with VNETs.
+- Pipelines for management of deletions of documents. 
+
 
 ## 🤝 Contributing
 
