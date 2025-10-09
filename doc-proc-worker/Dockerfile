@@ -12,9 +12,8 @@ WORKDIR /doc-proc-worker
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-
+    rm -rf /var/lib/apt/lists/* 
+    
 COPY doc-proc-worker/requirements.txt ./requirements.txt
 
 # Install deps

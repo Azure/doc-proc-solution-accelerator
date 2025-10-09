@@ -81,6 +81,7 @@ class DistributedWorkerManager:
         
         # Background tasks
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._lease_retry_task: Optional[asyncio.Task] = None
         
         # Register callbacks
         self.source_monitor.on_instance_added(self._handle_source_added)
@@ -111,6 +112,9 @@ class DistributedWorkerManager:
                     
                     # Start background cleanup task
                     self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+                    
+                    # Start background lease retry task (more frequent than cleanup)
+                    self._lease_retry_task = asyncio.create_task(self._lease_retry_loop())
                     
                     logger.info("Distributed worker manager started successfully")
                     
@@ -144,11 +148,18 @@ class DistributedWorkerManager:
             # Stop all workers
             await self._stop_all_workers()
             
-            # Stop cleanup task
+            # Stop background tasks
             if self._cleanup_task:
                 self._cleanup_task.cancel()
                 try:
                     await self._cleanup_task
+                except asyncio.CancelledError:
+                    pass
+                    
+            if self._lease_retry_task:
+                self._lease_retry_task.cancel()
+                try:
+                    await self._lease_retry_task
                 except asyncio.CancelledError:
                     pass
                     
@@ -417,6 +428,9 @@ class DistributedWorkerManager:
                 # Monitor worker health and restart failed workers
                 await self._monitor_worker_health()
                 
+                # Attempt to acquire leases for source instances without workers
+                await self._retry_lease_acquisition()
+                
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -444,6 +458,64 @@ class DistributedWorkerManager:
             current_instances = self.source_discovery.get_current_instances()
             if source_id in current_instances:
                 await self._handle_source_added(current_instances[source_id])
+                
+    async def _retry_lease_acquisition(self):
+        """Attempt to acquire leases for source instances without active workers"""
+        if len(self._managed_workers) >= self.max_workers:
+            return  # Already at capacity
+            
+        try:
+            current_instances = self.source_discovery.get_current_instances()
+            
+            # Find source instances that don't have active workers
+            unmanaged_instances = []
+            for source_id, source_instance in current_instances.items():
+                if (source_id not in self._managed_workers and 
+                    source_instance.enabled and 
+                    not source_instance.is_system):
+                    unmanaged_instances.append(source_instance)
+            
+            if not unmanaged_instances:
+                return
+                
+            logger.debug(f"Attempting to acquire leases for {len(unmanaged_instances)} unmanaged source instances")
+            
+            # Try to acquire leases for unmanaged instances
+            for source_instance in unmanaged_instances:
+                if len(self._managed_workers) >= self.max_workers:
+                    break  # Reached capacity
+                    
+                try:
+                    lease = await self.lease_manager.try_acquire_lease(source_instance.id)
+                    
+                    if lease:
+                        logger.info(f"Successfully acquired lease for previously unmanaged source: {source_instance.id}")
+                        await self._start_worker(source_instance, lease)
+                        
+                except Exception as e:
+                    logger.debug(f"Failed to acquire lease for {source_instance.id}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error in retry lease acquisition: {e}")
+            
+    async def _lease_retry_loop(self):
+        """More frequent lease retry loop (runs every 60 seconds)"""
+        while self._running:
+            try:
+                await asyncio.sleep(60)  # Check every minute for lease opportunities
+                
+                if not self._running:
+                    break
+                    
+                # Only retry if we have capacity for more workers
+                if len(self._managed_workers) < self.max_workers:
+                    await self._retry_lease_acquisition()
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in lease retry loop: {e}")
                 
     def get_worker_status(self) -> Dict[str, dict]:
         """Get status of all managed workers"""

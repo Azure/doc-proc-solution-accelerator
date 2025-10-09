@@ -122,6 +122,12 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+#Check if npm is installed
+if ! command -v npm &> /dev/null; then
+    echo -e "${RED}❌ npm is not installed. Please install Node.js and npm first.${NC}"
+    exit 1
+fi
+
 # Check if Azure CLI is installed
 if ! command -v az &> /dev/null; then
     echo -e "${RED}❌ Azure CLI is not installed. Please install it first.${NC}"

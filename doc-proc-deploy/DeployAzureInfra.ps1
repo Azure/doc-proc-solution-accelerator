@@ -242,11 +242,11 @@ Write-Host ""
 Write-BlueOutput "Next Steps:"
 Write-Host "1. Build and push your Docker images to the Container Registry:"
 if ($AcrLoginServer) {
-    Write-Host "   .\doc-proc-deploy\build-and-push-images.ps1 -r $AcrLoginServer"
+    Write-Host "   .\doc-proc-deploy\BuildAndPushImages.ps1 -r $AcrLoginServer"
 } else {
-    Write-Host "   .\doc-proc-deploy\build-and-push-images.ps1 -r <ACR_LOGIN_SERVER>"
+    Write-Host "   .\doc-proc-deploy\BuildAndPushImages.ps1 -r <ACR_LOGIN_SERVER>"
 }
 Write-Host ""
 Write-Host "2. Deploy your applications using pushed images:"
-Write-Host "   pwsh .\doc-proc-deploy\deploy-apps.ps1 -g $ResourceGroup"
+Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -g $ResourceGroup"
 Write-Host ""
