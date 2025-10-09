@@ -1,8 +1,8 @@
-# Azure Document Intelligence Extractor Step Documentation
+# Azure Document Intelligence Extractor Step
 
 ## Overview
 
-The Azure Document Intelligence Extractor step is a powerful document processing component that leverages Azure's Document Intelligence service (formerly Form Recognizer) to extract structured content from various document formats. This step provides advanced capabilities for extracting text, tables, key-value pairs, and structured layouts from documents with high accuracy and confidence scores.
+The Azure Document Intelligence Extractor Step (`AzureDocumentIntelligenceExtractorStep`) is a powerful document processing component that leverages Azure's Document Intelligence service (formerly Form Recognizer) to extract structured content from various document formats. This step provides advanced capabilities for extracting text, tables, key-value pairs, and structured layouts from documents with high accuracy and confidence scores.
 
 ## Description
 
@@ -52,20 +52,16 @@ The Azure Document Intelligence Extractor step processes documents using Azure's
 
 ### Input Data Requirements
 
-The step expects input data in the following structure:
+The step expects a `Document` instance with the following data structure:
 
 ```python
 {
-  "documents": [
-    {
-      "file_path": "/path/to/document.pdf",
-      "document_type": {
-        "primary_type": "pdf" # Optional, for conditional processing
-      }
-    }
-  ]
+    "temp_file_path": "/path/to/document.pdf"
 }
 ```
+
+**Required Fields:**
+- `temp_file_path`: Path to the document file to be processed
 
 ### Supported File Formats
 
@@ -77,12 +73,12 @@ The step expects input data in the following structure:
 
 ### Required Settings
 
-#### Azure Document Intelligence Service
-- **Parameter**: `azure_document_intelligence_service`
+#### Output Field Name
+- **Parameter**: `output_field_name`
 - **Type**: String
-- **Description**: Reference to the Azure Document Intelligence service instance
-- **Required**: Yes
-- **UI Component**: Service Selector (azure_document_intelligence)
+- **Description**: Field name in document data dict to store the extracted content
+- **Required**: No
+- **Default**: `doc_intell_chunks`
 
 #### Model Selection
 - **Parameter**: `model_id`
@@ -90,15 +86,6 @@ The step expects input data in the following structure:
 - **Description**: Model ID to use for document analysis
 - **Required**: No
 - **Default**: `prebuilt-layout`
-- **Options**:
-  - `prebuilt-layout`: General layout analysis
-  - `prebuilt-read`: OCR text extraction
-  - `prebuilt-businessCard`: Business card processing
-  - `prebuilt-idDocument`: ID document processing
-  - `prebuilt-invoice`: Invoice processing
-  - `prebuilt-receipt`: Receipt processing
-  - `prebuilt-tax.us.w2`: US W-2 tax form processing
-  - `prebuilt-healthInsuranceCard.us`: US health insurance card processing
 
 ### Optional Settings
 
@@ -135,42 +122,42 @@ The step expects input data in the following structure:
 
 ## Processing Flow
 
-1. **Input Validation**: Validates input data structure and document format
+1. **Input Validation**: Validates Document instance and ensures it contains the required `temp_file_path` field
 2. **Service Initialization**: Retrieves Azure Document Intelligence service from context
-3. **Document Iteration**: Processes each document with condition evaluation support
-4. **File Validation**: Checks file existence and supported format
-5. **File Reading**: Reads document files as binary data
-6. **Document Analysis**: Sends documents to Azure Document Intelligence service with specified model
-7. **Content Processing**: Processes analysis results into structured chunks
-8. **Chunk Creation**: Creates chunks based on configuration (pages, tables, key-value pairs, or document-level)
-9. **Format Application**: Applies selected output format (structured, markdown, or text)
-10. **Metadata Addition**: Adds confidence scores, chunk metadata, and structural information
-11. **Results Integration**: Updates document objects with extracted content chunks
-12. **Statistics Compilation**: Compiles processing statistics for monitoring
+3. **File Validation**: Checks file existence and supported format
+4. **File Reading**: Reads document file as binary data
+5. **Document Analysis**: Sends document to Azure Document Intelligence service with specified model
+6. **Content Processing**: Processes analysis results into structured chunks
+7. **Chunk Creation**: Creates chunks based on configuration (pages, tables, key-value pairs, or document-level)
+8. **Format Application**: Applies selected output format (structured, markdown, or text)
+9. **Metadata Addition**: Adds confidence scores, chunk metadata, and structural information
+10. **Output Update**: Adds processed chunks to document data using specified output field name
 
 ## Output Data Structure
 
 ### Chunk Structure
 
-Each processed document will have a `chunks` array with the following structure:
+Each processed document will have the specified output field (default: `doc_intell_chunks`) with the following structure:
 
 ```python
 {
-  "chunks": [
+  "doc_intell_chunks": [
     {
       "input_file_path": "/path/to/document.pdf",
       "chunk_id": "sha1_hash_of_content",
       "chunk_type": "page|table|key_value_pairs|document",
       "chunk_num": 1,
       "page_num": 1, # For page chunks
-      "text": "Extracted text content",
+      "markdown_text": "Extracted text in markdown format",
+      "json": "Extracted text in JSON format", 
       "raw_text": "Raw extracted text",
       "structured_content": {
         "page_number": 1,
         "word_count": 150,
         "line_count": 12,
         "words": [...],
-        "lines": [...]
+        "lines": [...],
+        "paragraphs": [...]
       }, # Only for structured output format
       "confidence": 0.98,
       "table_data": {...}, # For table chunks
@@ -178,25 +165,50 @@ Each processed document will have a `chunks` array with the following structure:
       "column_count": 3, # For table chunks
       "key_value_data": [...], # For key-value chunks
       "total_pairs": 10, # For key-value chunks
-      "total_pages": 5 # For document-level chunks
+      "total_pages": 5, # For document-level chunks
+      "text": "Combined key-value text" # For key-value chunks
     }
   ]
 }
 ```
 
-### Statistics
 
-The step provides detailed processing statistics:
+## Usage Example
 
 ```python
-{
-  "azure_document_intelligence_extractor_stats": {
-    "total_documents": 10,
-    "successful_documents": 9,
-    "skipped_documents": 0,
-    "failed_documents": 1
-  }
-}
+from doc.proc.step.azure_document_intelligence_extractor import AzureDocumentIntelligenceExtractorStep
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import Document
+
+# Configure the step
+instance_config = StepInstanceConfig(
+    name="document_intelligence_extractor",
+    step_catalog_id="azure_document_intelligence_extractor",
+    enabled=True,
+    services=["primary_document_intelligence_service"],
+    settings={
+        "output_field_name": "doc_intell_chunks",
+        "model_id": "prebuilt-layout",
+        "extract_tables": True,
+        "extract_key_value_pairs": True,
+        "extract_paragraphs": True,
+        "chunk_by_pages": True,
+        "output_format": "markdown"
+    },
+    debug_mode=False
+)
+
+# Create step instance  
+extractor = AzureDocumentIntelligenceExtractorStep(instance_config=instance_config)
+
+# Prepare input document
+document = Document(
+    id="doc_1",
+    data={"temp_file_path": "/path/to/document.pdf"}
+)
+
+# Process document (requires pipeline context)
+# result = await extractor.run(document, context)
 ```
 
 ## Azure Document Intelligence Service Configuration
@@ -214,13 +226,6 @@ services:
       credential_type: "azure_key_credential"
       api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
 ```
-
-### Environment Variables
-
-Required environment variables:
-- `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`: The endpoint URL for your Document Intelligence service
-- `AZURE_DOCUMENT_INTELLIGENCE_API_KEY`: The API key for authentication (when using azure_key_credential)
-- `AZURE_DOCUMENT_INTELLIGENCE_CREDENTIAL_TYPE`: The credential type (azure_key_credential or default_azure_credential)
 
 ## Model Selection Guide
 
@@ -345,34 +350,6 @@ pipeline:
         extract_key_value_pairs: true
 ```
 
-### Conditional Processing Pipeline
-
-```yaml
-pipeline:
-  name: "Conditional Document Processing"
-  description: "Process different document types with conditions"
-  
-  services:
-    - name: general_intelligence
-      service_catalog_id: azure_document_intelligence_service_01
-      settings:
-        endpoint: "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}"
-        credential_type: "azure_key_credential"
-        api_key: "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}"
-  
-  steps:
-    - name: process_invoices_only
-      step_catalog_id: azure_document_intelligence_extractor
-      services: [general_intelligence]
-      settings:
-        model_id: "prebuilt-invoice"
-        output_format: "structured"
-      condition:
-        field: "document_type.primary_type"
-        operator: "equals"
-        value: "invoice"
-```
-
 ## Best Practices
 
 ### Document Preparation
@@ -433,7 +410,7 @@ pipeline:
 
 ### Debugging Tips
 
-- Enable debug mode for detailed logging (analysis results saved to `f_analysis_result.json`)
+- Enable debug mode for detailed logging
 - Check service connection and authentication
 - Validate document formats before processing
 - Review extraction results and confidence scores
@@ -447,21 +424,6 @@ pipeline:
   - Service type: `azure_document_intelligence`
   - Used for: Document analysis and content extraction
 
-### Python Dependencies
-- `azure-ai-documentintelligence`: Azure Document Intelligence SDK
-- `azure-core`: Azure core functionality
-- `azure-identity`: Azure authentication
-- `hashlib`: Hash generation for chunk IDs
-- `json`: JSON processing
-- `os`: File system operations
-- `logging`: Logging functionality
-- `typing`: Type hints
-
-### System Requirements
-- Python 3.8 or higher
-- Network access to Azure Document Intelligence service
-- Sufficient memory for document processing
-- File system access for document reading
 
 ## Version History
 
@@ -521,14 +483,6 @@ The implementation includes robust error handling:
   - Table and key-value pair processing
   - Configurable output formats
 
-## Future Enhancements
-
-- **Custom Model Support**: Support for custom-trained models
-- **Batch API Integration**: Use batch processing APIs for better throughput
-- **Enhanced Error Recovery**: More sophisticated error handling and recovery
-- **Performance Optimizations**: Improved caching and parallel processing
-- **Additional Output Formats**: Support for more output formats
-- **Advanced Filtering**: Content-based filtering and validation
 
 ## Support and Resources
 
@@ -537,7 +491,3 @@ The implementation includes robust error handling:
 
 ### Best Practices
 - [Model Selection Guide](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept/choose-model-feature?view=doc-intel-4.0.0)
-
-### Community Resources
-- Azure Cognitive Services Community Forum
-- GitHub Issues and Discussions

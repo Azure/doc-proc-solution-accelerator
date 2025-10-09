@@ -52,7 +52,6 @@ class ExecutionManager():
             
             # Create batch execution
             batch = await self._create_batch_execution(batch_id, batch_execution_request)
-        
 
             logger.debug(f"Batch {batch.id} created with status {batch.status}.")
 
@@ -71,7 +70,6 @@ class ExecutionManager():
             _stored_pipeline_execution = await self._store_pipeline_execution_result(batch_id=batch.id, 
                                                                                      vault_id=batch.vault_id,
                                                                                      pipeline_execution_result=pipeline_execution_result)
-
 
             # Complete the batch
             final_status = BatchStatus.COMPLETED
@@ -133,7 +131,7 @@ class ExecutionManager():
     
     async def _create_batch_execution(self, batch_id: str, request: BatchExecutionRequest) -> BatchExecution:
         """Create a new batch execution"""
-                
+        
         # Create batch execution
         batch = BatchExecution(
             id=batch_id,

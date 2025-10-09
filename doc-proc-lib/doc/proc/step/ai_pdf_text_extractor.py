@@ -33,9 +33,15 @@ class AIPDFTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/pdf_output_pngs")
+        self.output_field_name = self.settings.get("output_field_name", "chunks")
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/docproc/pdf_output/png")
         self.pages_to_convert = self.settings.get("num_pages", -1)  # -1 means all pages
 
+        if not self.output_field_name or not isinstance(self.output_field_name, str) or self.output_field_name.strip() == "":
+            logger.error("Invalid or missing 'output_field_name' in settings.")
+            raise ValueError("Invalid or missing 'output_field_name' in settings.")
+        self.output_field_name = self.output_field_name.strip()
+        
         # get prompts from settings
         self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
@@ -74,8 +80,10 @@ class AIPDFTextExtractorStep(StepBase):
 
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected Document instance.")
+
+        doc_id = document.id
 
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self._get_ai_inference_service(context)
@@ -84,33 +92,30 @@ class AIPDFTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        data_to_process = document.data
+        if not data_to_process or not isinstance(data_to_process, dict):
+            logger.error(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
             
         try:
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
-                
-            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in doc_to_process:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
-                
+                logger.debug(f"Processing document: {doc_id}")
+
+            # Validate required fields - now only temp_file_path is required
+            if "temp_file_path" not in data_to_process:
+                raise StepExecutionError(f"Invalid document format. Document is missing the required 'temp_file_path' field. Reference document id: {doc_id}")
+
             # Process the document
             # This will extend the document with extracted text and images for each page/chunk
-            result_data = await self._process_document(document=doc_to_process, 
-                                                       context=context, 
-                                                       ai_model_inference_service=ai_model_inference_service)
+            await self._process_document(data=data_to_process, 
+                                         context=context, 
+                                         ai_model_inference_service=ai_model_inference_service)
 
                 
-            logger.debug(f"Successfully processed document: {document.id}")
-            
+            logger.debug(f"Successfully processed document: {doc_id}")
                 
-            # Return the updated StepInputOutput
-            return Document(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+            # Return the updated document
+            return document
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
@@ -136,24 +141,20 @@ class AIPDFTextExtractorStep(StepBase):
         return None
 
 
-    async def _process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_document(self, data: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single document to extract text and images.
         
-        :param document: Document dictionary containing file path and other metadata.
+        :param data: Document data dictionary containing file path and other metadata.
         :param context: PipelineExecutionContext instance.
         :param ai_model_inference_service: AI Model Inference Service instance for processing images.
         :raises StepExecutionError: If the document processing fails.
         :raises ValueError: If the document does not contain a valid file path.
         :raises FileNotFoundError: If the PDF file does not exist at the specified path.
-        :return: None.
+        :return: processed data.
         """
 
-        pdf_file_path = document.get("file_path")
-        if not pdf_file_path:
-            # do nothing
-            logger.error("No input PDF file path found in input data.")
-            raise ValueError("No input PDF file path found in input data. Please check the input data and try again.")
+        pdf_file_path = data.get("temp_file_path")
 
         # Check if the PDF file exists
         if not os.path.exists(pdf_file_path):
@@ -161,11 +162,14 @@ class AIPDFTextExtractorStep(StepBase):
             logger.error(f"PDF file not found: {pdf_file_path}.")
             raise FileNotFoundError(f"PDF file not found: {pdf_file_path}. Please check the file path and try again.")
 
-        document_id = document.get("id", os.path.basename(pdf_file_path))
-        
+        # Check if the file is a PDF document
+        if not pdf_file_path.lower().endswith('.pdf'):
+            logger.error(f"Invalid file format: {pdf_file_path}. Expected a PDF document (.pdf).")
+            raise ValueError(f"Invalid file format: {pdf_file_path}. Expected a PDF document (.pdf).")
+
         # STEP 1: Convert PDF to PNG
         logger.debug(f"Converting PDF file {pdf_file_path} to PNG images...")
-        chunks_data = self._convert_pdf_to_png(document_id, pdf_file_path)
+        chunks_data = self._convert_pdf_to_png(pdf_file_path)
 
         # Step 2: Convert PNG files to Markdown using AI Model Inference Service
         logger.debug(f"Converting {len(chunks_data)} PNG files to Markdown...")
@@ -181,12 +185,8 @@ class AIPDFTextExtractorStep(StepBase):
                 logger.warning(f"PNG file not found: {chunk['png']}. Skipping conversion.")
                 continue
 
-            try:    
-                # # Convert the PNG to base64
-                # png_base64 = self.convert_png_to_base64(chunk['png'])                
-                # chunk['page_image_base64'] = png_base64
+            try:
                 # Call the AI Model Inference Service chat completion method with the PNG file
-
                 markdown = self._convert_png_to_markdown(chunk['png'], ai_model_inference_service)
                 chunk['markdown'] = markdown
 
@@ -201,12 +201,11 @@ class AIPDFTextExtractorStep(StepBase):
                 continue
 
         # Update the document with the processed chunks data
-        document['chunks'] = chunks_data
-        
-        return document
+        data[self.output_field_name] = chunks_data
 
-    
-    def _convert_pdf_to_png(self, document_id: str, pdf_file_path: str) -> List[dict]:
+        return data
+
+    def _convert_pdf_to_png(self, pdf_file_path: str) -> List[dict]:
         """
         Convert PDF pages to PNG images.
         
@@ -218,6 +217,10 @@ class AIPDFTextExtractorStep(StepBase):
         # Create output folder if it doesn't exist
         os.makedirs(png_output_folder, exist_ok=True)
 
+        # get the file name from the path
+        pdf_file_name = os.path.basename(pdf_file_path)
+        pdf_file_name = pdf_file_name.replace(' ', '_').replace('.', '_')
+        
         doc = pymupdf.open(pdf_file_path)
 
         if self.pages_to_convert == -1 or self.pages_to_convert > len(doc):
@@ -230,17 +233,16 @@ class AIPDFTextExtractorStep(StepBase):
         for page_num in range(0, self.pages_to_convert):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
-            png_file_path = f'{png_output_folder}/{document_id}_page_{page_num+1}.png'
+            png_file_path = f'{png_output_folder}/{pdf_file_name}_page_{page_num+1}.png'
             pix.save(png_file_path)
 
             # generate a unique identifier for the page by hashing the file path and page number
-            page_id = self._generate_sha1_hash(f"{os.path.basename(pdf_file_path)}_page_{page_num+1}")
+            page_id = self._generate_sha1_hash(f"{pdf_file_name}_page_{page_num+1}")
 
             # Append the page number and PNG file path to the list
             chunks_data.append({'input_file_path': pdf_file_path, 'chunk_id': page_id, 'chunk_num': page_num+1, 'chunk_type': 'page', 'page_num': page_num+1, 'png': png_file_path})
 
         return chunks_data
-
 
     def _convert_png_to_base64(self, png_path: str) -> str:
         """
@@ -252,7 +254,6 @@ class AIPDFTextExtractorStep(StepBase):
         with open(png_path, "rb") as png_file:
             png_data = png_file.read()
             return base64.b64encode(png_data).decode('ascii')
-
 
     def _convert_png_to_markdown(self, png_file_path: str, ai_model_inference_service) -> str:
         """
@@ -286,7 +287,6 @@ class AIPDFTextExtractorStep(StepBase):
         
         return response.choices[0].message.content
 
-
     def _extract_text_section(self, markdown:str):
         """
         Extract text section from the markdown content.
@@ -307,7 +307,6 @@ class AIPDFTextExtractorStep(StepBase):
             return markdown
         
         return ""
-
 
     def _extract_image_sections(self, markdown: str) -> str:
         """

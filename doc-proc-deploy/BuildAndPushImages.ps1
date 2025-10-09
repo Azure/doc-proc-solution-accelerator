@@ -272,6 +272,21 @@ if ($BuildAll -or $Api) {
 
 # Build Web
 if ($BuildAll -or $Web) {
+    # build npm dependencies first
+    Write-BlueOutput "📦 Installing npm dependencies for web app..."
+    try {
+        Set-Location "$ProjectRoot/doc-proc-web"
+        npm ci
+        Write-GreenOutput "✅ Successfully installed npm dependencies"
+    }
+    catch {
+        Write-RedOutput "❌ Failed to install npm dependencies"
+        Write-Error $_.Exception.Message
+        $AllSuccessful = $false
+    }
+    finally {
+        Set-Location $ProjectRoot
+    }
     $result = Build-And-Push -Name "web" -Dockerfile "doc-proc-web/Dockerfile" -Context "."
     $BuildResults += @{ Name = "web"; Success = $result; Image = "$Registry/doc-proc-web:$Tag" }
     if (-not $result) { $AllSuccessful = $false }
@@ -312,10 +327,10 @@ Write-Host ""
 Write-Host ""
 if ($AllSuccessful -and $ResourceGroup) {
     Write-BlueOutput "➡️ Next step: Deploy the applications using the deployment script"
-    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup '$ResourceGroup'"
+    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -g '$ResourceGroup'"
 } elseif ($AllSuccessful) {
     Write-BlueOutput "➡️ Next step: Deploy the applications using the deployment script"
-    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup '<your-resource-group>'"
+    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -g '<your-resource-group>'"
 } else {
     Write-YellowOutput "Please fix the build errors and try again."
 }

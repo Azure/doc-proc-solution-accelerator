@@ -64,12 +64,6 @@ class BlobStoreOutputStep(StepBase):
             logger.error(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
             raise StepExecutionError(f"Invalid input document. Expected an instance of Document with a 'data' attribute.")
 
-        # # get document from input data
-        # doc_data = document.data
-        # if not doc_data or not isinstance(doc_data, dict):
-        #     logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-        #     raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-
         doc_id = document.id
         
         try:

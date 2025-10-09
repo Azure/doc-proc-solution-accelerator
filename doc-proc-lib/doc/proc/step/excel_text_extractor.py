@@ -1,7 +1,6 @@
 import os
 import logging
 from typing import List
-import hashlib
 
 from doc.proc.pipeline.pipeline_base import PipelineExecutionContext
 from doc.proc.step.step_base import StepBase
@@ -20,7 +19,13 @@ class ExcelTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/excel_output/pngs")
+        self.output_field_name = self.settings.get("output_field_name", "chunks")
+        if not self.output_field_name or not isinstance(self.output_field_name, str) or self.output_field_name.strip() == "":
+            logger.error("Invalid or missing 'output_field_name' in settings.")
+            raise ValueError("Invalid or missing 'output_field_name' in settings.")
+        self.output_field_name = self.output_field_name.strip()
+        
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/docproc/excel_output/png")
         self.extract_images = self.settings.get("extract_images", False)  # Default to False if not specified
         self.extract_charts = self.settings.get("extract_charts", False)  # Default to False if not specified
         self.max_rows_per_sheet = self.settings.get("max_rows_per_sheet", -1)  # -1 means all rows
@@ -29,10 +34,10 @@ class ExcelTextExtractorStep(StepBase):
 
         if self.debug_mode:
             logger.debug(f"Initialized ExcelTextExtractorStep with settings: {self.settings} " \
+                         f"Output field name: {self.output_field_name}, " \
                          f"PNG output folder: {self.png_output_folder}, Extract images: {self.extract_images}, Extract charts: {self.extract_charts} " \
                          f"Max rows per sheet: {self.max_rows_per_sheet}, Max columns per sheet: {self.max_columns_per_sheet} " \
                          f"Sheets to process: {self.sheets_to_process}.")
-
 
     async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
         """
@@ -48,46 +53,46 @@ class ExcelTextExtractorStep(StepBase):
 
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected Document instance.")
         
         # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        data_to_process = document.data
+        if not data_to_process or not isinstance(data_to_process, dict):
+            logger.error(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
 
+        doc_id = document.id
+        
         try:
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
+                logger.debug(f"Processing document: {doc_id}")
 
-                
-            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in doc_to_process:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
+            
+            # Validate required fields - now only temp_file_path is required
+            if "temp_file_path" not in data_to_process:
+                raise StepExecutionError(f"Invalid document format. Document is missing the required 'temp_file_path' field. Reference document id: {doc_id}")
 
             # Process the document
             # This will extend the document with extracted text and images for each sheet/chunk
-            result_data = await self._process_document(document=doc_to_process, 
+            await self._process_document(data=data_to_process, 
                                          context=context)
 
-            logger.debug(f"Successfully processed document: {document.id}")
+            logger.debug(f"Successfully processed document: {doc_id}")
                 
             # Return the updated Document
-            return Document(summary_data = {**document.summary_data}, 
-                            data = result_data)
+            return document
 
         except Exception as e:
-            logger.error(f"Error processing document {document}: {e}")
+            logger.error(f"Error processing document {doc_id}: {e}")
             raise e
 
 
-    async def _process_document(self, document: dict, context: "PipelineExecutionContext"):
+    async def _process_document(self, data: dict, context: "PipelineExecutionContext"):
         """
         Process a single Excel document to extract text and images.
         
-        :param document: Document dictionary containing file path and other metadata.
+        :param data: Document data dictionary containing file path and other metadata.
         :param context: PipelineExecutionContext instance.
         :param ai_model_inference_service: AI Model Inference Service instance for processing images.
         :raises StepExecutionError: If the document processing fails.
@@ -96,11 +101,8 @@ class ExcelTextExtractorStep(StepBase):
         :return: None.
         """
 
-        excel_file_path = document.get("file_path")
-        if not excel_file_path:
-            logger.error(f"No file path found in document: {document}")
-            raise ValueError(f"No file path found in document: {document}")
-
+        excel_file_path = data.get("temp_file_path")
+        
         # Check if the Excel file exists
         if not os.path.exists(excel_file_path):
             logger.error(f"Excel file not found: {excel_file_path}")
@@ -116,9 +118,9 @@ class ExcelTextExtractorStep(StepBase):
         chunks_data = self._extract_excel_content(excel_file_path)
 
         # Update the document with the processed chunks data
-        document['chunks'] = chunks_data
+        data[self.output_field_name] = chunks_data
         
-        return document
+        return data
 
     
     def _extract_excel_content(self, excel_file_path: str) -> List[dict]:

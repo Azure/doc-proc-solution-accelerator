@@ -31,12 +31,18 @@ class AIWordTextExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/word_output/pngs")
+        self.output_field_name = self.settings.get("output_field_name", "chunks")
+        if not self.output_field_name or not isinstance(self.output_field_name, str) or self.output_field_name.strip() == "":
+            logger.error("Invalid or missing 'output_field_name' in settings.")
+            raise ValueError("Invalid or missing 'output_field_name' in settings.")
+        self.output_field_name = self.output_field_name.strip()
+        
+        self.png_output_folder = self.settings.get("png_output_folder", "./tmp/docproc/word_output/png")
         self.extract_images = self.settings.get("extract_images", True)
         self.extract_image_descriptions = self.settings.get("extract_image_descriptions", True)
         self.extract_tables = self.settings.get("extract_tables", True)
         self.max_chunk_size = self.settings.get("max_chunk_size", 4000)
-
+        
         # get prompts from settings
         self.system_prompt = self.settings.get("system_prompt", "")
         if not self.system_prompt:
@@ -76,8 +82,10 @@ class AIWordTextExtractorStep(StepBase):
 
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected Document instance.")
+
+        doc_id = document.id
 
         # get Azure AI Model Inference Service from context
         ai_model_inference_service = self.get_ai_inference_service(context)
@@ -86,35 +94,33 @@ class AIWordTextExtractorStep(StepBase):
             raise StepExecutionError("Azure AI Model Inference Service not found in context.")
 
         # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        data_to_process = document.data
+        if not data_to_process or not isinstance(data_to_process, dict):
+            logger.error(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
         
         
         try:
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
+                logger.debug(f"Processing document: {doc_id}")
                 
-            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in doc_to_process:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
+            # Validate required fields - now only temp_file_path is required
+            if "temp_file_path" not in data_to_process:
+                raise StepExecutionError(f"Invalid document format. Document is missing the required 'temp_file_path' field. Reference document id: {doc_id}")
 
             # Process each document
             # This will extend the document with extracted text and images for each section/chunk
-            result_data = await self._process_document(document=doc_to_process, 
-                                                      context=context, 
-                                                      ai_model_inference_service=ai_model_inference_service)
+            # Process the document
+            # This will extend the document with extracted text and images for each page/chunk
+            await self._process_document(data=data_to_process, 
+                                         context=context, 
+                                         ai_model_inference_service=ai_model_inference_service)
 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {result_data}")
-            else:
-                logger.info(f"Successfully processed document: {result_data.get('file_path')}")
-
-            # Return the updated Document
-            return Document(summary_data = {**document.summary_data}, 
-                                   data = result_data)
+                
+            logger.debug(f"Successfully processed document: {doc_id}")
+                
+            # Return the updated document
+            return document
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
@@ -139,11 +145,11 @@ class AIWordTextExtractorStep(StepBase):
         return None
 
 
-    async def _process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service):
+    async def _process_document(self, data: dict, context: "PipelineExecutionContext", ai_model_inference_service):
         """
         Process a single Word document to extract text and images.
         
-        :param document: Document dictionary containing file path and other metadata.
+        :param data: Document data dictionary containing file path and other metadata.
         :param context: PipelineExecutionContext instance.
         :param ai_model_inference_service: AI Model Inference Service instance for processing images.
         :raises StepExecutionError: If the document processing fails.
@@ -152,12 +158,8 @@ class AIWordTextExtractorStep(StepBase):
         :return: None.
         """
 
-        word_file_path = document.get("file_path")
-        if not word_file_path:
-            # do nothing
-            logger.error("No input Word file path found in input data.")
-            raise ValueError("No input Word file path found in input data. Please check the input data and try again.")
-
+        word_file_path = data.get("temp_file_path")
+        
         # Check if the Word file exists
         if not os.path.exists(word_file_path):
             # do nothing
@@ -179,11 +181,10 @@ class AIWordTextExtractorStep(StepBase):
             await self._process_extracted_images(chunks_data, ai_model_inference_service)
 
         # Update the document with the processed chunks data
-        document['chunks'] = chunks_data
-        
-        return document
+        data[self.output_field_name] = chunks_data
 
-    
+        return data
+
     def _extract_word_content(self, word_file_path: str) -> List[dict]:
         """
         Extract text content from Word document.

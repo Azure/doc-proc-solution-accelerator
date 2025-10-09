@@ -79,27 +79,24 @@ Prepare documents for content analysis by identifying their format and processin
 
 ### Input Data Requirements
 
-The step expects input data in the following structure:
+The step expects a `Document` instance with the following data structure:
 
 ```json
 {
-  "documents": [
-    {
-      "file_path": "/path/to/document.pdf"
-    }
-  ]
+  "temp_file_path": "/path/to/document.pdf"
 }
 ```
 
-Alternative input format (string file paths):
+Alternative input format (for content-based analysis):
 ```json
 {
-  "documents": [
-    "/path/to/document.pdf",
-    "/path/to/spreadsheet.xlsx"
-  ]
+  "content": "binary_file_content"
 }
 ```
+
+**Required Fields:**
+- `temp_file_path`: Path to the file to be analyzed, OR
+- `content`: Binary content of the file to be analyzed
 
 ## Configuration
 
@@ -120,6 +117,38 @@ steps:
     step_catalog_id: document_type_identifier
     settings:
       identification_methods: "magic_bytes, file_extension"
+```
+
+## Usage Example
+
+```python
+from doc.proc.step.document_type_identifier import DocumentTypeIdentifierStep
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import Document
+
+# Configure the step
+instance_config = StepInstanceConfig(
+    name="identify_document_types",
+    step_catalog_id="document_type_identifier",
+    enabled=True,
+    settings={
+        "identification_methods": "magic_bytes, file_extension"
+    },
+    debug_mode=False
+)
+
+# Create step instance
+identifier = DocumentTypeIdentifierStep(instance_config=instance_config)
+
+# Prepare input document
+document = Document(
+    id="doc_1",
+    data={"temp_file_path": "/path/to/document.pdf"}
+)
+
+# Process document (requires pipeline context)
+# result = await identifier.run(document, context)
+# The result will have document.data['document_type'] populated with identification results
 ```
 
 ## Identification Methods
@@ -270,44 +299,32 @@ The step categorizes documents into logical groups:
 
 ## Output Data Structure
 
-The step produces enhanced document data with type identification:
+The step adds document type identification to the document data:
 
 ```json
 {
-  "summary_data": {
-    "document_type_identifier_stats": {
-      "total_documents": 3,
-      "successful_documents": 3,
-      "failed_documents": 0
-    }
-  },
-  "data": {
-    "documents": [
-      {
-        "file_path": "/path/to/document.pdf",
-        "document_type": {
-          "primary_type": "pdf",
-          "mime_type": "application/pdf",
-          "confidence": 0.9025,
-          "best_method": "magic_bytes",
-          "all_methods": {
-            "magic_bytes": {
-              "mime_type": "application/pdf",
-              "type": "pdf",
-              "confidence": 0.95,
-              "method": "magic_bytes"
-            },
-            "file_extension": {
-              "extension": ".pdf",
-              "type": "pdf",
-              "mime_type": "application/pdf",
-              "confidence": 0.9,
-              "method": "file_extension"
-            }
-          }
-        }
+  "temp_file_path": "/path/to/document.pdf",
+  "document_type": {
+    "primary_type": "pdf",
+    "mime_type": "application/pdf",
+    "confidence": 0.9025,
+    "best_method": "magic_bytes",
+    "subtype": "pdf",
+    "all_methods": {
+      "magic_bytes": {
+        "mime_type": "application/pdf",
+        "type": "pdf",
+        "confidence": 0.95,
+        "method": "magic_bytes"
+      },
+      "file_extension": {
+        "extension": ".pdf",
+        "type": "pdf",
+        "mime_type": "application/pdf",
+        "confidence": 0.9,
+        "method": "file_extension"
       }
-    ]
+    }
   }
 }
 ```
@@ -645,96 +662,11 @@ Debug mode provides:
 - Confidence calculation details
 - Error analysis and recovery information
 
-## Best Practices
-
-### 1. Method Selection
-
-- **Use Both Methods**: Combine magic bytes and extension analysis for best results
-- **Prioritize Accuracy**: Use magic bytes for security-critical applications
-- **Optimize for Speed**: Use extension-only for high-volume processing
-- **Consider Context**: Choose methods based on your specific requirements
-
-### 2. Error Handling Strategy
-
-- **Graceful Degradation**: Design workflows to handle identification failures
-- **Fallback Processing**: Have default processing for unknown types
-- **Comprehensive Logging**: Log all identification attempts and results
-- **Monitoring**: Track identification success rates and patterns
-
-### 3. Security Considerations
-
-- **Validate Results**: Don't rely solely on identification for security decisions
-- **Cross-Reference Methods**: Compare magic bytes and extension results
-- **Quarantine Unknowns**: Isolate files that can't be identified
-- **Regular Updates**: Keep identification mappings current
-
-### 4. Performance Optimization
-
-- **Cache Results**: Cache identification results for frequently processed files
-- **Batch Processing**: Process multiple files efficiently
-- **Resource Monitoring**: Monitor file I/O and processing times
-- **Method Tuning**: Adjust methods based on your file types
-
-### 5. Configuration Management
-
-- **Document Mappings**: Maintain clear documentation of supported types
-- **Version Control**: Track changes to identification logic
-- **Testing**: Test identification with representative file samples
-- **Updates**: Regularly update type mappings and detection logic
-
-## Security Considerations
-
-### File Type Validation
-
-- **Extension Spoofing**: Magic bytes detection prevents extension-based attacks
-- **Content Validation**: Verify file content matches declared type
-- **Malware Detection**: Identify potentially dangerous file types
-- **Quarantine Processing**: Isolate suspicious or unknown files
-
-### Access Controls
-
-- **File Permissions**: Ensure appropriate file access permissions
-- **Processing Isolation**: Process files in isolated environments
-- **Result Validation**: Validate identification results before further processing
-- **Audit Logging**: Log all file access and identification attempts
-
-### Data Privacy
-
-- **Minimal File Reading**: Only read necessary file portions
-- **Secure Storage**: Store identification results securely
-- **Access Logging**: Log access to identification data
-- **Data Retention**: Implement appropriate data retention policies
-
-## Monitoring and Maintenance
-
-### Key Metrics
-
-- **Identification Success Rate**: Percentage of successfully identified files
-- **Method Accuracy**: Accuracy of each identification method
-- **Confidence Distribution**: Distribution of confidence scores
-- **Processing Performance**: Time per file and throughput
-- **Error Rate**: Frequency of different error types
-
-### Maintenance Tasks
-
-- **Update Type Mappings**: Add support for new file types
-- **Review Confidence Weights**: Adjust method weights based on accuracy
-- **Performance Tuning**: Optimize processing for your file types
-- **Error Analysis**: Analyze and address common error patterns
-
-### Quality Assurance
-
-- **Validation Testing**: Regular testing with known file types
-- **Accuracy Monitoring**: Track identification accuracy over time
-- **False Positive Analysis**: Identify and address misidentifications
-- **Coverage Assessment**: Ensure coverage of your document types
-
 ## Version History
 
 - **Version 1.0**: Initial release with magic bytes and extension detection
 - **Future Versions**: Planned enhancements for:
   - AI-powered document classification
-  - Custom type definition support
   - Enhanced metadata extraction
   - Performance optimizations
 

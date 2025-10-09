@@ -20,7 +20,7 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         if not self.settings:
             self.settings = {}
 
-        self.output_field_name = self.settings.get("output_field_name", "doc_intell_extraction")
+        self.output_field_name = self.settings.get("output_field_name", "doc_intell_chunks")
         self.model_id = self.settings.get("model_id", "prebuilt-layout")
         self.extract_tables = self.settings.get("extract_tables", True)
         self.extract_key_value_pairs = self.settings.get("extract_key_value_pairs", True)
@@ -49,8 +49,8 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         
         # Check if document has the required data structure
         if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
-            logger.error(f"Invalid input document: {document}. Expected Document instance with 'data' attribute.")
-            raise StepExecutionError(f"Invalid input document: {document}. Expected Document instance.")
+            logger.error(f"Invalid input document. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected Document instance with 'data' attribute.")
 
         # get Azure Document Intelligence Service from context
         doc_intel_service = self._get_document_intelligence_service(context)
@@ -58,37 +58,32 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             logger.error("Azure Document Intelligence Service not found in context.")
             raise StepExecutionError("Azure Document Intelligence Service not found in context.")
 
+        doc_id = document.id
         
         # get document from input data
-        doc_to_process = document.data
-        if not doc_to_process or not isinstance(doc_to_process, dict):
-            logger.error(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
-            raise StepExecutionError(f"No document data found in input data: {document.data}. Expected a dictionary of fields.")
+        data_to_process = document.data
+        if not data_to_process or not isinstance(data_to_process, dict):
+            logger.error(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
 
         try:
             if self.debug_mode:
-                logger.debug(f"Processing document: {doc_to_process}")
+                logger.debug(f"Processing document: {doc_id}")
                 
-            doc_to_process = doc_to_process if isinstance(doc_to_process, dict) else {"file_path": doc_to_process}
-            # Validate required fields - now only file_path is required
-            if "file_path" not in doc_to_process:
-                raise StepExecutionError(f"Invalid document format: {doc_to_process}. Document is missing the required 'file_path' field.")
+            # Validate required fields - now only temp_file_path is required
+            if "temp_file_path" not in data_to_process:
+                raise StepExecutionError(f"Invalid document format. Document is missing the required 'temp_file_path' field. Reference document id: {doc_id}")
 
-            
             # Process the document
-            # This will extend the document with extracted content using Azure Document Intelligence
-            result_data = await self._process_document(document=doc_to_process,
-                                                       context=context,
-                                                       doc_intel_service=doc_intel_service)
+            # This will extend the document data with extracted content using Azure Document Intelligence
+            await self._process_document(data=data_to_process,
+                                         context=context,
+                                         doc_intel_service=doc_intel_service)
 
-            if self.debug_mode:
-                logger.debug(f"Successfully processed document: {result_data}")
-            else:
-                logger.info(f"Successfully processed document: {result_data.get('file_path')}")
-
+            logger.debug(f"Successfully processed document: {doc_id}")
+            
             # Return the updated Document
-            return Document(summary_data = {**document.summary_data}, 
-                            data = result_data)
+            return document
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
@@ -114,24 +109,21 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
         return None
 
 
-    async def _process_document(self, document: dict, context: "PipelineExecutionContext", doc_intel_service):
+    async def _process_document(self, data: dict, context: "PipelineExecutionContext", doc_intel_service):
         """
         Process a single document using Azure Document Intelligence service.
 
-        :param document: Document dictionary containing file path and other metadata.
+        :param data: Document data dictionary containing file path and other metadata.
         :param context: PipelineExecutionContext instance.
-        :param doc_intell_service: Azure Document Intelligence Service instance.
+        :param doc_intel_service: Azure Document Intelligence Service instance.
         :raises StepExecutionError: If the document processing fails.
         :raises ValueError: If the document does not contain a valid file path.
         :raises FileNotFoundError: If the file does not exist at the specified path.
         :return: None.
         """
 
-        file_path = document.get("file_path")
-        if not file_path:
-            logger.error("No input file path found in input data.")
-            raise ValueError("No input file path found in input data. Please check the input data and try again.")
-
+        file_path = data.get("temp_file_path")
+        
         # Check if the file exists
         if not os.path.exists(file_path):
             logger.error(f"File not found: {file_path}.")
@@ -161,12 +153,13 @@ class AzureDocumentIntelligenceExtractorStep(StepBase):
             chunks_data = self._process_analysis_results(analysis_result, file_path)
 
             # Update the document with the processed chunks data
-            document[self.output_field_name] = chunks_data
+            data[self.output_field_name] = chunks_data
 
             if self.debug_mode:
                 logger.debug(f"Extracted {len(chunks_data)} chunks from document: {file_path}")
 
-            return document
+            return data
+        
         except Exception as e:
             logger.error(f"Error analyzing document {file_path}: {e}")
             raise StepExecutionError(f"Error analyzing document {file_path}: {e}")

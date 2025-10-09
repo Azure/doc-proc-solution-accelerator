@@ -628,7 +628,7 @@ Access and use the service in your pipeline steps:
 
 ```python
 # In a step's run method
-async def run(self, input_data: StepInputOutput, context, **kwargs) -> StepInputOutput:
+async def run(self, document: Document, context, **kwargs) -> Document:
     # Get the custom service
     custom_service = context.get_service("my_custom_service_instance")
     
@@ -638,27 +638,17 @@ async def run(self, input_data: StepInputOutput, context, **kwargs) -> StepInput
     # Use the service
     try:
         # Process data using the service
-        processed_data = await custom_service.process_data(input_data.data)
+        processed_data = await custom_service.process_data(document.data)
         
         # Perform custom operations
         custom_result = await custom_service.custom_operation({
             "operation": "analyze",
-            "input": input_data.data
+            "input": document.data
         })
         
         # Update step output
-        return StepInputOutput(
-            summary_data={
-                **input_data.summary_data,
-                "custom_service_used": custom_service.name,
-                "processing_timestamp": datetime.now().isoformat()
-            },
-            data={
-                **input_data.data,
-                "processed_data": processed_data,
-                "custom_result": custom_result
-            }
-        )
+        return document
+        
         
     except ServiceExecutionError as e:
         logger.error(f"Service execution failed: {e}")
