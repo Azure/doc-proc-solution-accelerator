@@ -29,4 +29,4 @@ COPY doc-proc-crawler/run_crawler.py ./
 # EXPOSE 8000
 
 # Run the crawler
-CMD ["python", "run_crawler.py", "--pool"]
+CMD ["python", "run_crawler.py"]

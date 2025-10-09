@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
 import socket
 
+from azure.core import MatchConditions
 from azure.cosmos import exceptions
 from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
 
@@ -224,7 +225,7 @@ class LeaseManager:
         
     async def _acquire_expired_lease(self, source_instance_id: str, worker_id: str, 
                                    existing_lease: WorkerLease, container) -> Optional[WorkerLease]:
-        """Attempt to acquire an expired lease"""
+        """Attempt to acquire an expired lease using atomic operations"""
         now = datetime.now(timezone.utc)
         
         try:
@@ -240,29 +241,55 @@ class LeaseManager:
                 status='active'
             )
             
-            # Use optimistic concurrency to replace the expired lease
             item_id = f"{source_instance_id}_{existing_lease.worker_id}"
             
-            # First mark the old lease as expired
-            old_lease_dict = existing_lease.to_dict()
-            old_lease_dict['status'] = 'expired'
+            # Read the current lease document with etag for optimistic concurrency
+            try:
+                current_item = await container.read_item(
+                    item=item_id,
+                    partition_key=source_instance_id
+                )
+                
+                # Verify the lease is still expired (double-check race condition)
+                current_lease = WorkerLease.from_dict(current_item)
+                if current_lease.expires_at > now:
+                    logger.debug(f"Lease for {source_instance_id} was renewed by another process")
+                    return None
+                    
+                # Mark the old lease as expired using etag for concurrency control
+                current_item['status'] = 'expired'
+                await container.replace_item(
+                    item=item_id,
+                    body=current_item,
+                    etag=current_item['_etag'],
+                    match_condition=MatchConditions.IfNotModified
+                )
+                
+            except exceptions.CosmosResourceNotFoundError:
+                # Original lease was already deleted/expired by another process
+                logger.debug(f"Original lease for {source_instance_id} was already processed")
+            except exceptions.CosmosAccessConditionFailedError:
+                # Another process modified the lease concurrently
+                logger.debug(f"Lease for {source_instance_id} was modified by another process")
+                return None
             
-            await container.replace_item(
-                item=item_id,
-                body=old_lease_dict
-            )
-            
-            # Then create the new lease
-            await container.create_item(new_lease.to_dict())
-            
-            # Track the lease
-            self._active_leases[source_instance_id] = new_lease
-            
-            # Start renewal task
-            self._start_renewal_task(source_instance_id)
+            # Attempt to create the new lease (atomic operation)
+            try:
+                await container.create_item(new_lease.to_dict())
+                
+                # Successfully acquired lease
+                self._active_leases[source_instance_id] = new_lease
+                
+                # Start renewal task
+                self._start_renewal_task(source_instance_id)
 
-            logger.info(f"Acquired expired lease for source instance: {source_instance_id}")
-            return new_lease
+                logger.info(f"Acquired expired lease for source instance: {source_instance_id}")
+                return new_lease
+                
+            except exceptions.CosmosResourceExistsError:
+                # Another process created a lease for this source instance first
+                logger.debug(f"Another process acquired lease for {source_instance_id} first")
+                return None
             
         except Exception as e:
             logger.error(f"Error acquiring expired lease for {source_instance_id}: {e}")
@@ -278,6 +305,9 @@ class LeaseManager:
         
     async def _renewal_loop(self, source_instance_id: str):
         """Background loop to renew lease"""
+        consecutive_failures = 0
+        max_failures = 3  # Release lease after 3 consecutive renewal failures
+        
         while source_instance_id in self._active_leases:
             try:
                 await asyncio.sleep(self.renewal_interval.total_seconds())
@@ -285,19 +315,37 @@ class LeaseManager:
                 if source_instance_id not in self._active_leases:
                     break
                     
-                await self._renew_lease(source_instance_id)
+                success = await self._renew_lease(source_instance_id)
+                
+                if success:
+                    consecutive_failures = 0  # Reset failure counter on success
+                else:
+                    consecutive_failures += 1
+                    logger.warning(f"Lease renewal failed for {source_instance_id} ({consecutive_failures}/{max_failures})")
+                    
+                    if consecutive_failures >= max_failures:
+                        logger.error(f"Max renewal failures reached for {source_instance_id}, releasing lease")
+                        await self.release_lease(source_instance_id)
+                        break
                 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in lease renewal loop for {source_instance_id}: {e}")
-                # Continue trying to renew
+                consecutive_failures += 1
+                logger.error(f"Error in lease renewal loop for {source_instance_id}: {e} ({consecutive_failures}/{max_failures})")
+                
+                if consecutive_failures >= max_failures:
+                    logger.error(f"Max renewal failures reached for {source_instance_id}, releasing lease")
+                    await self.release_lease(source_instance_id)
+                    break
+                    
+                # Brief pause before retrying
                 await asyncio.sleep(5)
                 
-    async def _renew_lease(self, source_instance_id: str):
+    async def _renew_lease(self, source_instance_id: str) -> bool:
         """Renew a lease"""
         if source_instance_id not in self._active_leases:
-            return
+            return False
             
         lease = self._active_leases[source_instance_id]
         now = datetime.now(timezone.utc)
@@ -317,10 +365,12 @@ class LeaseManager:
             )
             
             logger.debug(f"Renewed lease for source instance: {source_instance_id}")
+            return True
             
         except Exception as e:
             logger.error(f"Failed to renew lease for {source_instance_id}: {e}")
             # If renewal fails, the lease will expire and another worker can take over
+            return False
             
     async def release_lease(self, source_instance_id: str):
         """Release a lease"""

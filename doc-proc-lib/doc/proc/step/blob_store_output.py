@@ -34,7 +34,7 @@ class BlobStoreOutputStep(StepBase):
         # Extract configuration settings
         self.blob_container = self.settings.get("blob_container", "output")
         self.blob_path = self.settings.get("blob_path", "{pipeline_name}/{file_name}")
-        self.overwrite = self.settings.get("overwrite", False)
+        self.overwrite = self.settings.get("overwrite_existing", False)
         self.delete_temp_file = self.settings.get("delete_temp_file", True)
         
         if not self.blob_container or not isinstance(self.blob_container, str):

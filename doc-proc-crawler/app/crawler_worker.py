@@ -3,10 +3,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-import traceback
-
-from matplotlib.pylab import size
-
 
 from app.dependencies import get_cosmos_proxy, get_storage_queue_proxy
 from app.proxy.cosmos import CosmosDb
@@ -396,9 +392,13 @@ class CrawlerWorker:
         queued_docs = []
         
         try:
-            uploaded_docs = await self._write_document_batch_to_vault(batch_documents)
+
+            batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}_{len(batch_documents)}_docs"
+            self.logger.debug(f"Uploading batch {batch_id} with {len(batch_documents)} documents to vault '{self.vault.get('name')}'")
             
-            queued_docs = await self._queue_documents_for_processing(uploaded_docs)
+            uploaded_docs = await self._write_document_batch_to_vault(batch_id, batch_documents)
+            
+            queued_docs = await self._queue_documents_for_processing(batch_id, uploaded_docs)
 
         except Exception as e:
             self.logger.warning(f"Failed to upload batch: {e}")
@@ -407,7 +407,7 @@ class CrawlerWorker:
             
         return (len(uploaded_docs), len(queued_docs))
 
-    async def _write_document_batch_to_vault(self, batch_documents: List[SourceItemMetadata]) -> int:
+    async def _write_document_batch_to_vault(self, batch_id: str, batch_documents: List[SourceItemMetadata]) -> int:
         """Write a batch of documents to the vault"""
       
         docs_written = []
@@ -427,14 +427,20 @@ class CrawlerWorker:
                     },
                     "submit_date": datetime.now(timezone.utc).isoformat(),
                     "source" : "crawler",
-                    "status": "pending",
+                    "status": "queued",
                     "metadata": {
                         "name": doc_data.name,
                         "size": doc_data.size,
                         "modified_date": doc_data.modified_date.isoformat() if doc_data.modified_date else None,
                         "created_date": doc_data.created_date.isoformat() if doc_data.created_date else None,
                         "content_type": doc_data.content_type,
-                        "etag": doc_data.etag
+                        "etag": doc_data.etag,
+                        "source_instance_id": self.source_instance.id,
+                        "source_instance_name": self.source_instance.name,
+                        "correlation_id": str(uuid.uuid4()),
+                        "batch_id": batch_id,
+                        "processing_attempts": 1,
+                        "last_processing_attempt_at": datetime.now(timezone.utc).isoformat()
                     }
                 }
 
@@ -448,7 +454,7 @@ class CrawlerWorker:
 
         return docs_written
 
-    async def _queue_documents_for_processing(self, documents: List[Dict]) -> List[Dict]:
+    async def _queue_documents_for_processing(self, batch_id: str, batch_documents: List[Dict]) -> List[Dict]:
         """Queue documents for further processing"""
         # This would integrate with the document processing queue system
         queued_docs = []
@@ -459,12 +465,12 @@ class CrawlerWorker:
             
             if not self.vault:
                 raise ValueError("Vault information not available for queuing documents")
-        
-            if not documents and len(documents) == 0:
+
+            if not batch_documents and len(batch_documents) == 0:
                 raise ValueError("Documents list cannot be empty")
                 
             # Create documents info list
-            _documents = [{"id": doc.get('content_id')} for doc in documents if doc.get('content_id')]
+            _documents = [{"id": doc.get('content_id')} for doc in batch_documents if doc.get('content_id')]
 
             self.logger.debug(f"Queueing {len(_documents)} documents in vault '{self.vault.get('name')}' for processing in pipeline '{self.vault.get('pipeline_name')}'")
 
@@ -474,7 +480,7 @@ class CrawlerWorker:
                 "pipeline_name": self.vault.get('pipeline_name'),
                 "vault_id": self.vault.get('id'),
                 "documents": _documents,
-                "batch_id": f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}_{len(_documents)}_docs",
+                "batch_id": batch_id,
                 "priority": 0,
                 "metadata": {
                     "document_count": len(_documents),

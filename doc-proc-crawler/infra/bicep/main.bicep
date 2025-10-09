@@ -94,6 +94,10 @@ module crawlerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' 
         identity: userAssignedIdentity.id
       }
     ]
+    scaleSettings: {
+      minReplicas: 1
+      maxReplicas: 2
+    }
   }
 }
 

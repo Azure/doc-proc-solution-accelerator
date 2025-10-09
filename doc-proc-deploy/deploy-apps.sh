@@ -110,6 +110,13 @@ echo -e "${BLUE}Environment: $ENVIRONMENT${NC}"
 echo -e "${BLUE}Image Tag: $TAG${NC}"
 echo ""
 
+# confirm to continue
+read -p "Proceed with deployment? (y/n): " confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}⚠️ Deployment cancelled by user.${NC}"
+    exit 0
+fi
+
 # Check if user is logged in to Azure
 if ! az account show &> /dev/null; then
     echo -e "${YELLOW}⚠️ You are not logged in to Azure. Please login first.${NC}"
@@ -579,6 +586,13 @@ echo -e "${GREEN}✅ Worker: Container App deployed${NC}"
 fi
 if [ "$CRAWLER_SUCCESS" = true ]; then
 echo -e "${GREEN}✅ Crawler: Container App deployed${NC}"
+fi
+
+if [ "$API_SUCCESS" != true ] && [ "$WEB_SUCCESS" != true ] && [ "$WORKER_SUCCESS" != true ] && [ "$CRAWLER_SUCCESS" != true ]; then
+    echo -e "${YELLOW}⚠️ No applications were deployed successfully.${NC}"
+    echo -e "${YELLOW} - Did you run build-and-push-images.sh first?${NC}"
+    echo -e "${YELLOW} - Are you missing the prefix or environment args?${NC}"
+    echo -e "${YELLOW}Please check the logs above for errors.${NC}"
 fi
 
 echo ""

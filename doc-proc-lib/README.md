@@ -35,13 +35,6 @@ Doc-Proc-Lib is the foundational processing engine that powers the entire Docume
 - **Sources**: Data source connectors for distributed crawling and content ingestion (Azure Blob Storage, SharePoint Online, File Systems)
 - **Pipelines**: Orchestrated sequences of steps with dependency management
 
-### Solution Ecosystem Integration
-- **🎨 Web UI (`doc-proc-web`)**: React-based management interface for configuring pipelines and monitoring executions
-- **🚀 REST API (`doc-proc-api`)**: FastAPI backend that exposes the library functionality as web services
-- **⚡ Background Workers (`doc-proc-worker`)**: Scalable queue-based processing using Azure Storage Queues
-- **🔍 Distributed Crawler (`doc-proc-crawler`)**: Intelligent source discovery and content ingestion system
-- **🏗️ Infrastructure (`doc-proc-deploy`)**: Complete Azure deployment automation with Bicep templates
-
 The library supports:
 - ✅ Asynchronous processing with high-performance execution
 - ✅ Modular architecture with catalog-based configuration
@@ -60,78 +53,78 @@ The Document Processing Solution follows a comprehensive microservices architect
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                        Complete Document Processing Solution Architecture             │
+│                        Complete Document Processing Solution Architecture           │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                     │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                │
-│  │  doc-proc-web   │    │  doc-proc-api   │    │ doc-proc-crawler│                │
-│  │  Management UI  │◄──►│  REST API       │◄──►│ Distributed     │                │
-│  │  (React/TS)     │    │  (FastAPI)      │    │ Source Crawler  │                │
-│  │  Port: 8080     │    │  Port: 8090     │    │ (Multi-node)    │                │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘                │
-│           │                       │                       │                        │
-│           │                       ▼                       ▼                        │
-│           │              ┌─────────────────┐    ┌─────────────────┐                │
-│           │              │ Azure Cosmos DB │    │ Azure Storage   │                │
-│           │              │ Metadata Store  │    │ Queues & Blobs  │                │
-│           │              │ • Pipelines     │    │ • Processing    │                │
-│           │              │ • Executions    │    │ • File Storage  │                │
-│           │              │ • Configurations│    │ • Source Data   │                │
-│           │              └─────────────────┘    └─────────────────┘                │
-│           │                       │                       │                        │
-│           │                       ▼                       ▼                        │
-│           │              ┌─────────────────┐    ┌─────────────────┐                │
-│           └─────────────►│ doc-proc-worker │◄───│  doc-proc-lib   │                │
-│                          │ Queue Processor │    │ Pipeline Engine │                │
-│                          │ (Scalable)      │    │ Processing Core │                │
-│                          │ Background Jobs │    │                 │                │
-│                          └─────────────────┘    └─────────────────┘                │
-│                                   │                       │                        │
-│                                   ▼                       ▼                        │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                  │
+│  │  doc-proc-web   │    │  doc-proc-api   │    │ doc-proc-crawler│                  │
+│  │  Management UI  │◄──►│  REST API       │◄──►│ Distributed     │                  │
+│  │  (React/TS)     │    │  (FastAPI)      │    │ Source Crawler  │                  │
+│  │  Port: 8080     │    │  Port: 8090     │    │ (Multi-node)    │                  │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘                  │
+│           │                       │                       │                         │
+│           │                       ▼                       ▼                         │
+│           │              ┌─────────────────┐    ┌─────────────────┐                 │
+│           │              │ Azure Cosmos DB │    │ Azure Storage   │                 │
+│           │              │ Metadata Store  │    │ Queues & Blobs  │                 │
+│           │              │ • Pipelines     │    │ • Processing    │                 │
+│           │              │ • Executions    │    │ • File Storage  │                 │
+│           │              │ • Configurations│    │ • Source Data   │                 │
+│           │              └─────────────────┘    └─────────────────┘                 │
+│           │                       │                       │                         │
+│           │                       ▼                       ▼                         │
+│           │              ┌─────────────────┐    ┌─────────────────┐                 │
+│           └─────────────►│ doc-proc-worker │◄───│  doc-proc-lib   │                 │
+│                          │ Queue Processor │    │ Pipeline Engine │                 │
+│                          │ (Scalable)      │    │ Processing Core │                 │
+│                          │ Background Jobs │    │                 │                 │
+│                          └─────────────────┘    └─────────────────┘                 │
+│                                   │                       │                         │
+│                                   ▼                       ▼                         │
 │                          ┌─────────────────────────────────────────┐                │
 │                          │              Azure AI Services          │                │
-│                          │  • Document Intelligence               │                │
-│                          │  • OpenAI GPT-4 Inference             │                │
-│                          │  • Computer Vision                     │                │
-│                          │  • AI Search (Vector + Semantic)      │                │
+│                          │  • Document Intelligence                │                │
+│                          │  • OpenAI GPT-4 Inference               │                │
+│                          │  • Computer Vision                      │                │
+│                          │  • AI Search (Vector + Semantic)        │                │
 │                          └─────────────────────────────────────────┘                │
 │                                                                                     │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                              doc-proc-lib Core Architecture                         │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                     │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌────────────────────────┐        │
-│  │ Service Catalog │    │  Step Catalog   │    │   Pipeline Config      │        │
-│  │                 │    │                 │    │                        │        │
-│  │ • Azure Blob    │    │ • PDF Extract   │    │ • Service Instances    │        │
-│  │ • AI Inference  │    │ • Content Get   │    │ • Step Instances       │        │
-│  │ • Doc Intel     │    │ • Entity Extract│    │ • Pipeline Definitions │        │
-│  │ • AI Search     │    │ • Index Writer  │    │ • Source Configs       │        │
-│  │ • Cosmos DB     │    │ • Custom Steps  │    │                        │        │
-│  └─────────────────┘    └─────────────────┘    └────────────────────────┘        │
-│           │                       │                       │                      │
-│           └───────────────────────┼───────────────────────┘                      │
-│                                   │                                              │
-│                          ┌─────────────────┐                                     │
-│                          │    Pipeline     │                                     │
-│                          │   Orchestrator  │                                     │
-│                          │                 │                                     │
-│                          │ ┌─────────────┐ │                                     │
-│                          │ │Content Get  │ │                                     │
-│                          │ └─────────────┘ │                                     │
-│                          │        │        │                                     │
-│                          │ ┌─────────────┐ │                                     │
-│                          │ │Doc Type ID  │ │                                     │
-│                          │ └─────────────┘ │                                     │
-│                          │        │        │                                     │
-│                          │ ┌─────────────┐ │                                     │
-│                          │ │ AI Extract  │ │                                     │
-│                          │ └─────────────┘ │                                     │
-│                          │        │        │                                     │
-│                          │ ┌─────────────┐ │                                     │
-│                          │ │Index Writer │ │                                     │
-│                          │ └─────────────┘ │                                     │
-│                          └─────────────────┘                                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌────────────────────────┐           │
+│  │ Service Catalog │    │  Step Catalog   │    │   Pipeline Config      │           │
+│  │                 │    │                 │    │                        │           │
+│  │ • Azure Blob    │    │ • PDF Extract   │    │ • Service Instances    │           │
+│  │ • AI Inference  │    │ • Content Get   │    │ • Step Instances       │           │
+│  │ • Doc Intel     │    │ • Entity Extract│    │ • Pipeline Definitions │           │
+│  │ • AI Search     │    │ • Index Writer  │    │ • Source Configs       │           │
+│  │ • Cosmos DB     │    │ • Custom Steps  │    │                        │           │
+│  └─────────────────┘    └─────────────────┘    └────────────────────────┘           │
+│           │                       │                       │                         │
+│           └───────────────────────┼───────────────────────┘                         │
+│                                   │                                                 │
+│                          ┌─────────────────┐                                        │
+│                          │    Pipeline     │                                        │
+│                          │   Orchestrator  │                                        │
+│                          │                 │                                        │
+│                          │ ┌─────────────┐ │                                        │
+│                          │ │Content Get  │ │                                        │
+│                          │ └─────────────┘ │                                        │
+│                          │        │        │                                        │
+│                          │ ┌─────────────┐ │                                        │
+│                          │ │Doc Type ID  │ │                                        │
+│                          │ └─────────────┘ │                                        │
+│                          │        │        │                                        │
+│                          │ ┌─────────────┐ │                                        │
+│                          │ │ AI Extract  │ │                                        │
+│                          │ └─────────────┘ │                                        │
+│                          │        │        │                                        │
+│                          │ ┌─────────────┐ │                                        │
+│                          │ │Index Writer │ │                                        │
+│                          │ └─────────────┘ │                                        │
+│                          └─────────────────┘                                        │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

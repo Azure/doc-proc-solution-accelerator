@@ -136,6 +136,13 @@ Write-BlueOutput "Environment: $Environment"
 Write-BlueOutput "Image Tag: $Tag"
 Write-Host ""
 
+# Confirm to continue
+$confirm = Read-Host "Proceed with deployment? (y/n)"
+if ($confirm -ne "y") {
+    Write-YellowOutput "⚠️ Deployment cancelled by user."
+    exit 0
+}
+
 # Check if Azure CLI is installed
 try {
     $azVersion = az version --output json 2>$null | ConvertFrom-Json
@@ -533,9 +540,16 @@ if ($DeploymentResults.CrawlerSuccess) {
     Write-GreenOutput "✅ Crawler: Container App deployed"
 }
 
+if (-not $DeploymentResults.ApiSuccess -and -not $DeploymentResults.WebSuccess -and -not $DeploymentResults.WorkerSuccess -and -not $DeploymentResults.CrawlerSuccess) {
+    Write-YellowOutput "⚠️ No applications were deployed successfully."
+    Write-YellowOutput " - Did you run BuildAndPushImages.ps1 first?"
+    Write-YellowOutput " - Are you missing the prefix or environment args?"
+    Write-YellowOutput "Please check the logs above for errors."
+}
+
 Write-Host ""
 Write-Host ""
 Write-BlueOutput "🔧 Next Steps (if needed):"
-Write-Host "1. Setup Sample Doc Proc Pipeline using setup-sample-pipeline.ps1 script"
-Write-Host "   pwsh .\doc-proc-deploy\setup-sample-pipeline.ps1 -ResourceGroup '$ResourceGroup' -Environment '$Environment'"
+Write-Host "1. Setup Sample Doc Proc Pipeline using SetupSamplePipeline.ps1 script"
+Write-Host "   pwsh .\doc-proc-deploy\SetupSamplePipeline.ps1 -ResourceGroup '$ResourceGroup' -Environment '$Environment'"
 Write-Host ""

@@ -147,7 +147,9 @@ class DocumentTypeIdentifierStep(StepBase):
             final_identification = await self._combine_identification_results(
                 identification_results
             )
-                
+
+            return final_identification
+
         except Exception as e:
             logger.error(f"Document type identification failed for {file_path}: {str(e)}")
             raise
@@ -156,12 +158,12 @@ class DocumentTypeIdentifierStep(StepBase):
         """Identify document type using magic bytes/file signatures"""
         
         try:
-            import magic
-        except ImportError as e:
-            logger.error("python-magic module is required for magic bytes detection. Please install it using 'pip install python-magic'.")
-            raise StepExecutionError("python-magic module is required for magic bytes detection. Please install it using 'pip install python-magic'.")
-        
-        try:
+            try:
+                import magic
+            except ImportError as e:
+                logger.error("python-magic module is required for magic bytes detection. Please install it using 'pip install python-magic'.")
+                raise StepExecutionError("python-magic module is required for magic bytes detection. Import Error: " + str(e))
+
             if isinstance(file_content, str):
                 file_content = file_content.encode()
             

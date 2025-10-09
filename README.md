@@ -19,6 +19,9 @@ This solution accelerator provides a production-ready foundation for building do
 - **RESTful API Backend**: FastAPI-based service (`doc-proc-api`) with Azure Cosmos DB for data persistence
 - **Infrastructure as Code**: Bicep templates for automated Azure deployment (`doc-proc-deploy`)
 
+
+### **[Getting Started →](#getting-started)**
+
 ## ✨ Key Benefits
 
 - **🏃‍♂️ Rapid Development**: Get started with document processing in minutes, not months
@@ -265,18 +268,20 @@ Streamline government document processing workflows:
 - **Tax Documents**: Process returns, extract key financial data
 
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 Before getting started, ensure you have the following:
 
-**Development Environment:**
+**Deployment/Development Environment:**
 - Python 3.11+ with pip
-- Node.js 18+ with npm
+- Node.js 18+ with npm (required for building front-end)
 - Docker Desktop (optional, for containerized development)
 - Git for version control
 - Azure CLI (required for Azure deployment)
+- Powershell Version 7.0 or higher (if using powershell scripts for deployment)
+- bash (if using bash scripts for deployment)
 
 **Azure Resources:**
 - Azure subscription with appropriate permissions
@@ -290,6 +295,7 @@ Choose the deployment method that best fits your needs:
 #### ☁️ **Azure Cloud Deployment**
 Production-ready deployment on Azure with full scalability:
 
+**Using Powershell for deployment**
 ```powershell
 # 0. Clone the repository
 git clone https://github.com/Azure/doc-proc-solution-accelerator.git
@@ -303,6 +309,22 @@ pwsh .\doc-proc-deploy\BuildAndPushImages.ps1 -Registry myregistry.azurecr.io -T
 
 # 3. Deploy applications to Azure Container Apps
 pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup myResourceGroup
+```
+
+**Using shell scripts for deployment**
+```bash
+# 0. Clone the repository
+git clone https://github.com/Azure/doc-proc-solution-accelerator.git
+cd doc-proc-solution-accelerator
+
+# 1. Deploy Azure infrastructure (AI Foundry, Container Apps, Cosmos DB, Storage Account, etc.)
+./doc-proc-deploy/deploy-azure-infra.sh -g myResourceGroup -l westus -p docproc
+
+# 2. Build and push Docker images to Azure Container Registry
+./doc-proc-deploy/build-and-push-images.sh -r myregistry.azurecr.io -t latest
+
+# 3. Deploy applications to Azure Container Apps
+./doc-proc-deploy/deploy-apps.sh -g myResourceGroup
 ```
 
 This creates:
@@ -334,6 +356,9 @@ cp doc-proc-web\.env.example doc-proc-web\.env
 
 # Start all services locally with auto-reload
 pwsh .\doc-proc-deploy\StartServicesLocally.ps1
+
+#./doc-proc-deploy/start-services-locally.sh  # if using shell
+
 ```
 
 **Required Configuration Values:**
@@ -439,7 +464,7 @@ doc-proc-solution-accelerator/
 ## 💡 Planned Features
 
 Some of the great features planned for the next release:
-- Deployment in as per Zero Trust Architecture best practices with integration with VNETs.
+- Deployment as per Zero Trust Architecture best practices with integration with VNETs.
 - Pipelines for management of deletions of documents.
 - More Sources, Steps and Services for various use cases.
 
@@ -465,4 +490,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-⚡ **Ready to get started?** Follow the [Getting Started](#-getting-started) guide above or dive deep into the [doc-proc-lib documentation](./doc-proc-lib/README.md).
+⚡ **Ready to get started?** Follow the [Getting Started](#getting-started) guide above or dive deep into the [doc-proc-lib documentation](./doc-proc-lib/README.md).

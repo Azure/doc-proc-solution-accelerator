@@ -173,7 +173,7 @@ class AzureBlobSource(SourceBase):
                    max_documents: Optional[int] = None,
                    file_filters: Optional[List[str]] = None,
                    incremental: Optional[bool] = True,
-                   checkpoint_time: Optional[str] = None) -> AsyncGenerator[SourceItemMetadata, None]:
+                   checkpoint_time: Optional[datetime] = None) -> AsyncGenerator[SourceItemMetadata, None]:
         """
         Crawl Azure Blob Storage to discover available blobs.
         
@@ -192,14 +192,20 @@ class AzureBlobSource(SourceBase):
         try:
             container_client = self._get_container_client()
             
+            logger.debug(f"Starting crawl in container '{self.container_name}' with path prefix '{path}', filters: {file_filters}' and checkpoint_time: {checkpoint_time}")
+          
             # Create the prefix for blob listing
             name_starts_with = path.rstrip('/') + '/' if path else None
             
-            # List all blobs with the given prefix
+            # List all blobs with the given prefix and that are created/modified after checkpoint_time if provided
             async for blob in container_client.list_blobs(name_starts_with=name_starts_with):
                 # Skip directories (blobs ending with /)
                 if blob.name.endswith('/'):
                     continue
+                
+                if blob.last_modified and checkpoint_time:
+                    if blob.last_modified <= checkpoint_time:
+                        continue
                 
                 # Apply file filters
                 if self._matches_filter(blob.name, file_filters):

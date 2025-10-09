@@ -154,6 +154,18 @@ catch {
     exit 1
 }
 
+# Check if npm is installed
+try {
+    $npmVersion = npm --version 2>$null
+    if (-not $npmVersion) {
+        throw "npm not found"
+    }
+}
+catch {
+    Write-RedOutput "❌ npm is not installed. Please install Node.js and npm first."
+    exit 1
+}
+
 # Check if Azure CLI is installed
 try {
     $azVersion = az version --output json 2>$null | ConvertFrom-Json
@@ -300,10 +312,10 @@ Write-Host ""
 Write-Host ""
 if ($AllSuccessful -and $ResourceGroup) {
     Write-BlueOutput "➡️ Next step: Deploy the applications using the deployment script"
-    Write-Host "   pwsh .\doc-proc-deploy\deploy-apps.ps1 -ResourceGroup '$ResourceGroup'"
+    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup '$ResourceGroup'"
 } elseif ($AllSuccessful) {
     Write-BlueOutput "➡️ Next step: Deploy the applications using the deployment script"
-    Write-Host "   pwsh .\doc-proc-deploy\deploy-apps.ps1 -ResourceGroup '<your-resource-group>'"
+    Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -ResourceGroup '<your-resource-group>'"
 } else {
     Write-YellowOutput "Please fix the build errors and try again."
 }
