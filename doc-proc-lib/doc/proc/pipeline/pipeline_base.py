@@ -4,6 +4,7 @@ import os
 import traceback
 import asyncio
 from typing import List, Literal, Optional, Any, Dict
+import uuid
 from pydantic import BaseModel
 import logging
 
@@ -32,6 +33,10 @@ class PipelineExecutionContext:
     
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+
+    def get_execution_id(self) -> str:
+        """Get the unique execution ID for this pipeline run."""
+        return getattr(self, 'execution_id', None)
 
     def get_service(self, service_name: str) -> Optional[ServiceBase]:
         """Get a service by name from the execution context."""
@@ -315,11 +320,12 @@ class Pipeline:
         logger.info(f"Pipeline instance '{pipeline_instance.name}' created successfully with {len(pipeline_instance.pipeline_execution_steps)} execution steps.")
         return pipeline_instance
 
-    def _evaluate_document_condition(self, document: dict, condition: str) -> bool:
+    def _evaluate_document_condition(self, document_id: str, document_data: dict, condition: str) -> bool:
         """
         Evaluate a step's condition against a specific document.
         
         Args:
+            document_id: The ID of the document being evaluated
             document: The document to evaluate the condition against
             condition: The condition to evaluate
 
@@ -329,17 +335,17 @@ class Pipeline:
         Raises:
             Exception: If condition evaluation fails
         """
-        if not document or not condition or not self.condition_evaluator:
+        if not document_data or not condition or not self.condition_evaluator:
             return True  # No condition means always process
         
         try:
             # Create evaluation context with document data
             evaluation_data = {}
 
-            logger.debug(f"Evaluating condition {condition} for document {document}")
+            logger.debug(f"Evaluating condition {condition} for document {document_id}")
 
             # Add document data to evaluation context
-            evaluation_data.update(document)
+            evaluation_data.update(document_data)
             
             # Evaluate the condition
             condition_group = self.condition_evaluator.parse_condition_string(condition)
@@ -388,7 +394,7 @@ class Pipeline:
                     continue
 
                 # Evaluate the condition for the step
-                if step.condition and not self._evaluate_document_condition(document=_document_data.data, condition=step.condition):
+                if step.condition and not self._evaluate_document_condition(document_id=document_id, document_data=_document_data.data, condition=step.condition):
                     step_result.result = "Skipped"
                     step_result.reason = "Condition not met"
                     step_result.elapsed_time_secs = (datetime.now() - step_start_time).total_seconds()
@@ -456,7 +462,8 @@ class Pipeline:
             logger.error("Pipeline execution steps are not defined. Please check the pipeline configuration.")
             raise PipelineConfigError("No execution steps defined in the pipeline")
 
-        context = PipelineExecutionContext(pipeline=self, services=self.services, sources=self.sources, start_time=datetime.now())
+        execution_id = f"{self.name.replace(' ', '-')}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:6]}"
+        context = PipelineExecutionContext(pipeline=self, services=self.services, sources=self.sources, start_time=datetime.now(), execution_id=execution_id)
 
         if not isinstance(input_data, PipelineInput):
             logger.error("Input data must be an instance of PipelineInput")

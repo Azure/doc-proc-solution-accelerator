@@ -1,17 +1,17 @@
-# PDF Text Extractor Step Documentation
+# AI PDF Text Extractor Step Documentation
 
 ## Overview
 
-The PDF Text Extractor step is a specialized component of the document processing pipeline that extracts text and metadata from PDF documents using advanced AI-powered optical character recognition (OCR) and image analysis. This step combines PDF page rendering with Azure AI Inference services to convert PDF pages into structured markdown content.
+The AI PDF Text Extractor step is a specialized component of the document processing pipeline that extracts text and metadata from PDF documents using advanced AI-powered optical character recognition (OCR) and image analysis. This step combines PDF page rendering with Azure AI Inference services to convert PDF pages into structured markdown content.
 
 ## Step Information
 
-- **Step ID**: `pdf_text_extractor`
-- **Step Name**: PDF Text Extractor
-- **Category**: Document Processing
+- **Step ID**: `ai_pdf_text_extractor`
+- **Step Name**: AI PDF Text Extractor
+- **Category**: Extractor
 - **Version**: 1.0
-- **Module**: `doc.proc.step.pdf_text_extractor`
-- **Class**: `PDFTextExtractorStep`
+- **Module**: `doc.proc.step.ai_pdf_text_extractor`
+- **Class**: `AIPDFTextExtractorStep`
 
 ## Description
 
@@ -24,7 +24,6 @@ The PDF Text Extractor step processes PDF documents by first converting each pag
 - **AI-Powered Text Extraction**: Uses Azure AI Inference for intelligent text recognition
 - **Structured Output**: Separates extracted text from image descriptions
 - **Flexible Configuration**: Customizable prompts, page limits, and output formats
-- **Batch Processing**: Process multiple documents efficiently
 - **Error Handling**: Robust error handling with detailed logging and recovery options
 - **Debug Mode**: Comprehensive logging for troubleshooting
 
@@ -77,15 +76,16 @@ Extract structured data from filled forms and applications.
 The step expects input data in the following structure:
 
 ```python
+# Document model
 {
-  "documents": [
+  "id": ContentIdentifier
+  "data":
     {
-      "file_path": "/path/to/document.pdf",
+      "temp_file_path": "/path/to/document.pdf",
       "document_type": {
-                "primary_type": "pdf" # if type condition is used - see below.
-            }
+        "primary_type": "pdf"  # if type condition is used - see below.
+      }
     }
-  ]
 }
 ```
 
@@ -96,18 +96,26 @@ The step expects input data in the following structure:
 #### AI Inference Service
 - **Parameter**: `ai_model_inference_service`
 - **Type**: String
-- **Description**: Reference to the Azure AI Inference service instance
+- **Description**: Reference to the AI service instance to use
 - **Required**: Yes
 - **UI Component**: Service Selector (azure_ai_inference)
 
 ### File Processing Settings
+
+#### Output Field Name
+- **Parameter**: `output_field_name`
+- **Type**: String
+- **Description**: Field name in document data dict to store the extracted content
+- **Required**: Yes
+- **Default**: `chunks`
+- **Pattern**: `^[a-zA-Z_][a-zA-Z0-9_]*$`
 
 #### PNG Output Folder
 - **Parameter**: `png_output_folder`
 - **Type**: String
 - **Description**: Directory path where PNG files will be saved
 - **Required**: Yes
-- **Default**: `./output/png`
+- **Default**: `./tmp/docproc/pdf-output/png`
 - **Pattern**: `^\\.\\/.*` (must start with `./`)
 
 #### Number of Pages
@@ -118,46 +126,23 @@ The step expects input data in the following structure:
 - **Default**: `-1`
 - **Range**: `-1` to `200`
 
-#### DPI Resolution
-- **Parameter**: `dpi`
-- **Type**: Integer
-- **Description**: Resolution for PNG output in dots per inch
-- **Required**: No
-- **Default**: `300`
-- **Range**: `72` to `600`
-
-#### Image Format
-- **Parameter**: `image_format`
-- **Type**: String
-- **Description**: Output image format
-- **Required**: No
-- **Default**: `PNG`
-- **Options**: `PNG`, `JPEG`, `TIFF`
-
 ### AI Processing Settings
 
-#### Prompts Configuration
-- **Parameter**: `prompts`
-- **Type**: Object
-- **Description**: Contains system and user prompts for AI processing
-- **Required**: Yes
-- **Structure**:
-  - `system`: System-level instructions for the AI
-  - `user`: User prompt template for processing images
-
 #### System Prompt
-- **Parameter**: `prompts.system`
+- **Parameter**: `system_prompt`
 - **Type**: String
 - **Description**: Instructions for the AI system
 - **Required**: Yes
 - **Default**: `You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown.`
+- **UI Component**: Textarea
 
 #### User Prompt Template
-- **Parameter**: `prompts.user`
+- **Parameter**: `user_prompt`
 - **Type**: String
 - **Description**: Template for user prompts sent to AI
 - **Required**: Yes
-- **Default**: Complex template with structured output format
+- **Default**: Complex template with structured output format for extracting text and image descriptions
+- **UI Component**: Textarea
 
 #### Max Completion Tokens
 - **Parameter**: `max_completion_tokens`
@@ -181,7 +166,7 @@ The step expects input data in the following structure:
 - **Type**: Number
 - **Description**: Controls diversity of AI responses
 - **Required**: No
-- **Default**: `1.0`
+- **Default**: `0.4`
 - **Range**: `0.0` to `1.0`
 - **Step**: `0.1`
 
@@ -231,7 +216,7 @@ condition: "file_size > 1048576"
 condition: "file_name.contains('report')"
 ```
 
-When a condition is not met, the document is skipped and counted in the `skipped_documents` statistic.
+When a condition is not met, the document is skipped and not processed.
 
 ### Debug Configuration
 
@@ -264,7 +249,7 @@ When set to `true`, any document processing error will cause the entire step to 
 ```yaml
 steps:
   - name: extract_pdf_text
-    step_catalog_id: pdf_text_extractor
+    step_catalog_id: ai_pdf_text_extractor
     enabled: true
     fail_pipeline_on_error: true
     retry_on_failure: false
@@ -275,31 +260,25 @@ steps:
     fail_step_on_document_error: false
     debug_mode: false
     settings:
-      png_output_folder: "./output/png"
+      ai_model_inference_service: "primary_ai_inference_service"
+      output_field_name: "chunks"
+      png_output_folder: "./tmp/docproc/pdf-output/png"
       num_pages: 10
-      dpi: 300
-      image_format: "PNG"
-      prompts:
-        system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-        user: |
-          Extract the text from the following image into markdown and provide descriptions of images. 
-          Always format the markdown as follows to distinguish the text extracted from image descriptions:
-          
-          ==Extracted-Text==
-          {Insert extracted text as markdown here}
-          ==End-Extracted-Text==
-
-          ==Image-Descriptions==
-          {Insert image descriptions as markdown here}
-          ==End-Image-Descriptions==
+      system_prompt: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+      user_prompt: |
+        Extract the text from the following image into markdown and provide descriptions of images. 
+        Always format the markdown as follows to distinguish the text extracted from image descriptions:
+        ==Extracted-Text==
+        {Insert extracted text as markdown here}==End-Extracted-Text==
+        
+        ==Image-Descriptions==
+        {Insert image descriptions as markdown here}==End-Image-Descriptions==
       max_completion_tokens: 4000
       temperature: 1.0
-      top_p: 1.0
+      top_p: 0.4
       frequency_penalty: 0.0
       presence_penalty: 0.0
 ```
-
-## Service Configuration
 
 ## Service Configuration
 
@@ -313,7 +292,8 @@ services:
     service_catalog_id: azure_ai_inference_service_01
     settings:
       endpoint: "https://your-ai-service.cognitiveservices.azure.com/"
-      api_version: "2024-02-01"
+      credential_type: "default_azure_credential"
+      model_name: "gpt-4.1-mini"
 ```
 
 ## Processing Workflow
@@ -346,35 +326,21 @@ The step produces a structured output with detailed chunks for each page:
 
 ```python
 {
-  "summary_data": {
-    "pdf_text_extractor_stats": {
-      "total_documents": 1,
-      "successful_documents": 1,
-      "skipped_documents": 0,
-      "failed_documents": 0
+  "temp_file_path": "/path/to/document.pdf",
+  "chunks": [
+    {
+      "input_file_path": "/path/to/document.pdf",
+      "chunk_id": "abc123def456...",
+      "chunk_num": 1,
+      "chunk_type": "page",
+      "page_num": 1,
+      "png": "./tmp/docproc/pdf-output/png/document_pdf_page_1.png",
+      "markdown": "==Extracted-Text==\n# Document Title\n...\n==End-Extracted-Text==\n\n==Image-Descriptions==\n...\n==End-Image-Descriptions==",
+      "page_text": "# Document Title\n...",
+      "page_image_descriptions": "Description of charts and figures...",
+      "markdown_text": "# Document Title\n...Description of charts and figures..."
     }
-  },
-  "data": {
-    "documents": [
-      {
-        "file_path": "/path/to/document.pdf",
-        "chunks": [
-          {
-            "input_file_path": "/path/to/document.pdf",
-            "chunk_id": "abc123def456...",
-            "chunk_num": 1,
-            "chunk_type": "page",
-            "page_num": 1,
-            "png": "./output/png/page_1.png",
-            "markdown": "==Extracted-Text==\n# Document Title\n...\n==End-Extracted-Text==\n\n==Image-Descriptions==\n...\n==End-Image-Descriptions==",
-            "page_text": "# Document Title\n...",
-            "page_image_descriptions": "Description of charts and figures...",
-            "text": "# Document Title\n...Description of charts and figures..."
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }
 ```
 
@@ -391,29 +357,7 @@ The step produces a structured output with detailed chunks for each page:
 | `markdown` | String | Complete markdown content with structured sections |
 | `page_text` | String | Plain text extracted from the page |
 | `page_image_descriptions` | String | Descriptions of images found on the page |
-| `text` | String | Combined text content (page_text + page_image_descriptions) |
-
-## Execution Statistics
-
-The step tracks detailed execution statistics for monitoring and debugging purposes:
-
-### Statistics Fields
-
-| Field | Description |
-|-------|-------------|
-| `total_documents` | Total number of documents processed |
-| `successful_documents` | Number of documents processed successfully |
-| `skipped_documents` | Number of documents skipped due to conditions |
-| `failed_documents` | Number of documents that failed processing |
-
-### Statistics Usage
-
-These statistics are included in the `summary_data` section of the output under the key `{step_name}_stats` (e.g., `pdf_text_extractor_1_stats`). They can be used for:
-
-- **Monitoring**: Track processing success rates
-- **Debugging**: Identify failure patterns
-- **Optimization**: Understand processing bottlenecks
-- **Reporting**: Generate processing summaries
+| `markdown_text` | String | Combined text content (page_text + page_image_descriptions) |
 
 ## Prompt Engineering
 
@@ -427,14 +371,11 @@ You are an AI assistant that helps convert images of pages of a pdf document to 
 
 ```
 Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:
-
 ==Extracted-Text==
-{Insert extracted text as markdown here}
-==End-Extracted-Text==
+{Insert extracted text as markdown here}==End-Extracted-Text==
 
 ==Image-Descriptions==
-{Insert image descriptions as markdown here}
-==End-Image-Descriptions==
+{Insert image descriptions as markdown here}==End-Image-Descriptions==
 ```
 
 ### Custom Prompt Design
@@ -506,11 +447,6 @@ Extract the text from the following image into markdown. Focus on scientific acc
 - **Setting**: `fail_step_on_document_error`
 - **Default**: `false`
 - **Description**: Whether to fail the entire step if a single document fails
-
-#### Retry Configuration
-- **Retry on Failure**: `true`
-- **Retry Count**: `3`
-- **Timeout**: `600` seconds
 
 ### Common Error Scenarios
 
@@ -619,26 +555,22 @@ pipeline:
   
   steps:
     - name: extract_pdf_text
-      step_catalog_id: pdf_text_extractor
+      step_catalog_id: ai_pdf_text_extractor
       services: [primary_ai_inference_service]
       settings:
-        png_output_folder: "./output/png"
+        ai_model_inference_service: "primary_ai_inference_service"
+        output_field_name: "chunks"
+        png_output_folder: "./tmp/docproc/pdf-output/png"
         num_pages: 20
-        dpi: 300
-        image_format: "PNG"
-        prompts:
-            system: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
-            user: |
-              Extract the text from the following image into markdown and provide descriptions of images. 
-              Always format the markdown as follows to distinguish the text extracted from image descriptions:
-              
-              ==Extracted-Text==
-                {Insert extracted text as markdown here}
-              ==End-Extracted-Text==
-                
-              ==Image-Descriptions==
-                {Insert image descriptions as markdown here}
-              ==End-Image-Descriptions==
+        system_prompt: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+        user_prompt: |
+          Extract the text from the following image into markdown and provide descriptions of images. 
+          Always format the markdown as follows to distinguish the text extracted from image descriptions:
+          ==Extracted-Text==
+          {Insert extracted text as markdown here}==End-Extracted-Text==
+          
+          ==Image-Descriptions==
+          {Insert image descriptions as markdown here}==End-Image-Descriptions==
         max_completion_tokens: 4000
         temperature: 0.7
         top_p: 0.4
@@ -656,7 +588,8 @@ pipeline:
             "page_num": "page_num",
             "markdown": "content",
             "page_text": "text_content",
-            "page_image_descriptions": "image_descriptions"
+            "page_image_descriptions": "image_descriptions",
+            "markdown_text": "combined_text"
           }
 ```
 
@@ -669,25 +602,22 @@ pipeline:
   
   steps:
     - name: extract_legal_documents
-      step_catalog_id: pdf_text_extractor
+      step_catalog_id: ai_pdf_text_extractor
       services: [primary_blob_storage, primary_ai_inference_service]
       settings:
-        png_output_folder: "./output/legal_docs"
+        ai_model_inference_service: "primary_ai_inference_service"
+        output_field_name: "chunks"
+        png_output_folder: "./tmp/docproc/legal_docs"
         num_pages: -1  # Process all pages
-        dpi: 300
-        prompts:
-          system: "You are an AI assistant specialized in legal document analysis. Convert PDF pages to markdown while preserving legal terminology and clause structures."
-          user: |
-            Extract the text from this legal document page into markdown. 
-            Preserve the hierarchical structure and legal formatting.
-            
-            ==Extracted-Text==
-            {Insert extracted legal text with proper formatting}
-            ==End-Extracted-Text==
-            
-            ==Image-Descriptions==
-            {Insert descriptions of any diagrams, signatures, or visual elements}
-            ==End-Image-Descriptions==
+        system_prompt: "You are an AI assistant specialized in legal document analysis. Convert PDF pages to markdown while preserving legal terminology and clause structures."
+        user_prompt: |
+          Extract the text from this legal document page into markdown. 
+          Preserve the hierarchical structure and legal formatting.
+          ==Extracted-Text==
+          {Insert extracted legal text with proper formatting}==End-Extracted-Text==
+          
+          ==Image-Descriptions==
+          {Insert descriptions of any diagrams, signatures, or visual elements}==End-Image-Descriptions==
 ```
 
 ## Troubleshooting
@@ -753,7 +683,7 @@ Enable debug mode for comprehensive logging:
 ```yaml
 steps:
   - name: extract_pdf_text
-    step_catalog_id: pdf_text_extractor
+    step_catalog_id: ai_pdf_text_extractor
     debug_mode: true
     # ... other settings
 ```
@@ -841,14 +771,6 @@ Debug mode provides:
 - **Performance Tuning**: Optimize settings based on usage patterns
 - **Cost Optimization**: Monitor and optimize Azure service costs
 
-### Alerting
-
-Set up alerts for:
-- High error rates
-- Processing delays
-- Resource constraints
-- Service availability issues
-
 ## Version History
 
 - **Version 1.0**: Initial release with basic PDF to markdown conversion
@@ -860,7 +782,7 @@ Set up alerts for:
 
 ## Support and Resources
 
-- **Step Implementation**: `doc/proc/step/pdf_text_extractor.py`
+- **Step Implementation**: `doc/proc/step/ai_pdf_text_extractor.py`
 - **Step Catalog**: `step_catalog.yaml`
 - **Service Catalog**: `service_catalog.yaml`
 - **PyMuPDF Documentation**: [PyMuPDF Documentation](https://pymupdf.readthedocs.io/)

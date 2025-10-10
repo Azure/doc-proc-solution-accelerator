@@ -309,6 +309,7 @@ try {
 }
 catch {
     Write-RedOutput "❌ Container Apps Environment not found. Please run deploy-azure-infra.ps1 first."
+    Write-RedOutput "Did you forget to set the correct prefix or environment?"
     exit 1
 }
 

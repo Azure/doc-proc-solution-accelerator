@@ -34,12 +34,13 @@ The Excel Text Extractor Step requires the following configuration:
   fail_step_on_document_error: true
   debug_mode: true
   settings:
-    png_output_folder: "./output/png"
+    output_field_name: "chunks"
+    png_output_folder: "./tmp/docproc/excel_output/png"
     extract_images: true
     extract_charts: true
     max_rows_per_sheet: -1  # -1 = all rows
     max_columns_per_sheet: -1  # -1 = all columns
-    sheets_to_process: []  # Empty = all sheets
+    sheets_to_process: ""  # Empty string = all sheets
 ```
 
 ## Input Data Structure
@@ -48,53 +49,44 @@ The step expects input data in the following format:
 
 ```python
 {
-    "documents": [
-        {
-            "file_path": "/path/to/spreadsheet.xlsx",
-            "document_type": {
-                "primary_type": "excel_spreadsheet" # if type condition is used
-            }
-        }
-    ]
+    "temp_file_path": "/path/to/spreadsheet.xlsx",
+    "document_type": {
+        "primary_type": "excel_spreadsheet"  # if type condition is used
+    }
 }
 ```
 
 ## Output Data Structure
 
-The step extends each document with extracted chunks:
+The step adds extracted chunks to the document:
 
 ```python
 {
-    "documents": [
+    "temp_file_path": "/path/to/spreadsheet.xlsx",
+    "chunks": [
         {
-            "file_path": "/path/to/spreadsheet.xlsx",
-            "file_name": "spreadsheet.xlsx",
-            "chunks": [
-                {
-                    "chunk_id": "abc123def456...",
-                    "chunk_index": 1,
-                    "chunk_type": "sheet",
-                    "sheet_name": "Sheet1",
-                    "text": "Header1\tHeader2\nValue1\tValue2",
-                    "input_file_path": "/path/to/spreadsheet.xlsx"
-                },
-                {
-                    "chunk_id": "def456ghi789...",
-                    "chunk_index": 2,
-                    "chunk_type": "image",
-                    "sheet_name": "Sheet1",
-                    "image_path": "/output/png/excel_sheet_Sheet1_image_1.png",
-                    "input_file_path": "/path/to/spreadsheet.xlsx"
-                },
-                {
-                    "chunk_id": "ghi789jkl012...",
-                    "chunk_index": 3,
-                    "chunk_type": "chart",
-                    "sheet_name": "Sheet1",
-                    "text": "Chart: Sales Chart\nSeries: 2 data series",
-                    "input_file_path": "/path/to/spreadsheet.xlsx"
-                }
-            ]
+            "chunk_id": "abc123def456...",
+            "chunk_index": 1,
+            "chunk_type": "sheet",
+            "sheet_name": "Sheet1",
+            "text": "Header1\tHeader2\nValue1\tValue2",
+            "input_file_path": "/path/to/spreadsheet.xlsx"
+        },
+        {
+            "chunk_id": "def456ghi789...",
+            "chunk_index": 2,
+            "chunk_type": "image",
+            "sheet_name": "Sheet1",
+            "image_path": "/tmp/docproc/excel_output/png/sheet_Sheet1_image_1.png",
+            "input_file_path": "/path/to/spreadsheet.xlsx"
+        },
+        {
+            "chunk_id": "ghi789jkl012...",
+            "chunk_index": 3,
+            "chunk_type": "chart",
+            "sheet_name": "Sheet1",
+            "text": "Chart: Sales Chart\nSeries: 2 data series",
+            "input_file_path": "/path/to/spreadsheet.xlsx"
         }
     ]
 }
@@ -104,16 +96,15 @@ The step extends each document with extracted chunks:
 
 ### Core Settings
 
-- **`png_output_folder`** (string, default: `"output_pngs"`): Directory path where extracted PNG images will be saved
-- **`extract_images`** (boolean, default: `false`): Whether to extract embedded images from sheets
-- **`extract_charts`** (boolean, default: `false`): Whether to extract and process charts from sheets
-- **`max_rows_per_sheet`** (integer, default: `-1`): Maximum number of rows to process per sheet (-1 = all rows)
-- **`max_columns_per_sheet`** (integer, default: `-1`): Maximum number of columns to process per sheet (-1 = all columns)
-- **`sheets_to_process`** (array, default: `[]`): List of specific sheet names to process (empty = all sheets)
+- **`output_field_name`** (string, default: `"chunks"`): Field name in document data dict to store the extracted content
+- **`png_output_folder`** (string, default: `"./tmp/docproc/excel_output/png"`): Directory path where extracted PNG images will be saved
+- **`extract_images`** (boolean, default: `true`): Whether to extract embedded images from sheets
+- **`extract_charts`** (boolean, default: `true`): Whether to extract and process charts from sheets
+- **`max_rows_per_sheet`** (integer, default: `-1`): Maximum number of rows to process per sheet (-1 = all rows, max: 10000)
+- **`max_columns_per_sheet`** (integer, default: `-1`): Maximum number of columns to process per sheet (-1 = all columns, max: 500)
+- **`sheets_to_process`** (string, default: `""`): Comma separated list of sheet names to process (empty = all sheets)
 
-### AI Processing Settings
 
-*Note: AI processing settings are not currently implemented in this step. Images and charts are extracted but not processed with AI.*
 
 ## Chunk Types
 
@@ -177,7 +168,7 @@ settings:
 
 ```yaml
 settings:
-  sheets_to_process: ["Summary", "Data", "Charts"]
+  sheets_to_process: "Summary,Data,Charts"
   extract_images: true
 ```
 

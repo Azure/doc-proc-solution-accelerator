@@ -73,38 +73,6 @@ step_catalog:
       description_short: "Retreives content from various sources."
       description_long: "Retreives content from various sources. Essential first step for processing content from sources."
 
-  ########################################################
-  # File Downloader Step
-  - id: file_downloader
-    name: "File Downloader"
-    description: "Downloads files from Azure Blob Storage to local temporary directory"
-    module_name: file_downloader
-    module_path: ./doc/proc/step/file_downloader.py
-    class_name: FileDownloaderStep
-    tags: [file, download, azure, blob, storage]
-    category: "Input"
-    version: "1.0"
-
-    # Settings schema for UI generation and validation
-    settings_schema:
-      storage_service:
-        type: string
-        title: "Storage Service"
-        description: "Reference to the storage service instance to use"
-        required: true
-        ui_component: "service_selector"
-        service_type: "azure_blob_storage"
-      temp_folder:
-        type: string
-        title: "Temporary Folder"
-        description: "Path to temporary folder for downloaded files. Uses system temp if not specified."
-        default: "./tmp/docproc_downloads"
-        ui_component: "input"
-    # UI metadata for dynamic form generation
-    ui_metadata:
-      icon: "download"
-      description_short: "Downloads files from Azure Blob Storage to local storage."
-      description_long: "Downloads files from Azure Blob Storage using blob details or SAS URLs to a configurable temporary directory. Essential first step for processing remote files."
 
   ########################################################
   # Document type identification Step
@@ -152,11 +120,18 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document data dict to store the extracted content"
+        default: "chunks"
+        required: true
+        pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
       png_output_folder:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./tmp/pdf-output/png"
+        default: "./tmp/docproc/pdf-output/png"
         required: true
         pattern: "^\\.\\/.*"
         ui_component: "input"
@@ -253,11 +228,18 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document data dict to store the extracted content"
+        default: "chunks"
+        required: true
+        pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
       png_output_folder:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./tmp/word_output/png"
+        default: "./tmp/docproc/word_output/png"
         required: true
         pattern: "^\\.\\/.*"
         ui_component: "input"
@@ -371,11 +353,18 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document data dict to store the extracted content"
+        default: "chunks"
+        required: true
+        pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
       png_output_folder:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./tmp/pptx_output/png"
+        default: "./tmp/docproc/pptx_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -477,11 +466,18 @@ step_catalog:
         
     # Settings schema for UI generation and validation
     settings_schema:
+      output_field_name:
+        type: string
+        title: "Output Field Name"
+        description: "Field name in document data dict to store the extracted content"
+        default: "chunks"
+        required: true
+        pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
       png_output_folder:
         type: string
         title: "PNG Output Folder"
         description: "Directory path where PNG files will be saved"
-        default: "./tmp/excel_output/png"
+        default: "./tmp/docproc/excel_output/png"
         required: true
         pattern: "^\\.\\/.*"
       extract_images:
@@ -543,6 +539,12 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_search"
+      chunks_field_name:
+        type: string
+        title: "Chunks Field Name"
+        description: "Field in document that include list of content chunks to be indexed"
+        default: "chunks"
+        ui_component: "input"
       index_name:
         type: string
         title: "Azure AI Index Name"
@@ -552,7 +554,7 @@ step_catalog:
       index_field_mappings:
         type: string
         title: "Index Field Mappings"
-        description: "Mappings of document fields to index fields. Document fields are mapped from the StepInputOutput object model."
+        description: "Mappings of document data chunk fields to index fields. Document fields are mapped from the Document data dictionary."
         default: |
                   {
                     "page_id": "id",
@@ -560,11 +562,14 @@ step_catalog:
                     "page_num": "page_num",
                     "markdown": "page_markdown",
                     "markdown_text": "markdown_text",
-                    "markdown_image_descriptions": "image_descriptions",
+                    "page_text": "page_text",
+                    "text": "page_text",
+                    "page_image_descriptions": "image_descriptions",
+                    "custom_ai_prompt_output": "ai_result",
                     "summary": "summary"
                   }
         ui_component: "textarea"
-      
+
     ui_metadata:
       icon: "text-search"
       description_short: "Writes AI-generated summaries and metadata to search index."
@@ -592,22 +597,22 @@ step_catalog:
         required: true
         ui_component: "service_selector"
         service_type: "azure_ai_inference"
-      chunks_iterator_field:
+      content_iterator_field:
         type: string
-        title: "Chunks Iterator Field"
-        description: "Field in document that include list of chunks that will be iterated"
+        title: "Content Chunks Iterator Field"
+        description: "Field in document that include list of content chunks that will be iterated"
         default: "chunks"
         ui_component: "input"
-      chunk_field_to_apply_prompt_on:
+      chunk_fields_to_apply_prompt_on:
         type: string
         title: "Fields to Apply Prompt On."
-        description: "Comma separated list of field keys in document.chunks.chunk which the AI prompt will be applied to. The first field with a value will be used."
+        description: "Comma separated list of field keys in document.chunks which the AI prompt will be applied to. The first field with a value will be used."
         default: "markdown_text,text"
         ui_component: "input"
       output_field_name:
         type: string
         title: "Output Field Name"
-        description: "Field name in document.chunks.chunk to store the AI response"
+        description: "Field name in document data to store the AI response"
         default: "custom_ai_prompt_output"
         ui_component: "input"
       system_prompt:
@@ -668,150 +673,150 @@ step_catalog:
       description_long: "Writes AI-generated summaries and metadata to search index. Supports custom field mappings and index names."
 
 
-  ########################################################
-  # Entity Extractor step
-  - id: entity_extractor
-    name: "Entity Extractor Step"
-    description: "Extract named entities and relationships from document content"
-    module_name: entity_extractor
-    module_path: ./doc/proc/step/entity_extractor.py
-    class_name: EntityExtractorStep
-    tags: [ai, nlp, entities, relationships, ner]
-    category: "Extractor"
-    version: "1.0"
+  # ########################################################
+  # # Entity Extractor step
+  # - id: entity_extractor
+  #   name: "Entity Extractor Step"
+  #   description: "Extract named entities and relationships from document content"
+  #   module_name: entity_extractor
+  #   module_path: ./doc/proc/step/entity_extractor.py
+  #   class_name: EntityExtractorStep
+  #   tags: [ai, nlp, entities, relationships, ner]
+  #   category: "Extractor"
+  #   version: "1.0"
         
-    # Settings schema for UI generation and validation
-    settings_schema:
-      ai_model_inference_service:
-        type: string
-        title: "AI Inference Service"
-        description: "Reference to the AI service instance to use"
-        required: true
-        ui_component: "service_selector"
-        service_type: "azure_ai_inference"
-      chunk_field_to_extract_entities_from:
-        type: string
-        title: "Field to Extract Entities From"
-        description: "The field key in document.chunks.chunk from which entities will be extracted"
-        default: "text"
-        ui_component: "input"
-      output_field_name:
-        type: string
-        title: "Output Field Name"
-        description: "Field name in document.chunks.chunk to store the extracted entities"
-        default: "extracted_entities"
-        ui_component: "input"
-      extract_people:
-        type: boolean
-        title: "Extract People"
-        description: "Extract person entities (names of individuals)"
-        default: true
-        ui_component: "checkbox"
-      extract_places:
-        type: boolean
-        title: "Extract Places"
-        description: "Extract place entities (geographical locations, cities, countries)"
-        default: true
-        ui_component: "checkbox"
-      extract_locations:
-        type: boolean
-        title: "Extract Locations"
-        description: "Extract location entities (addresses, buildings, facilities)"
-        default: true
-        ui_component: "checkbox"
-      extract_organizations:
-        type: boolean
-        title: "Extract Organizations"
-        description: "Extract organization entities (companies, institutions)"
-        default: true
-        ui_component: "checkbox"
-      extract_relationships:
-        type: boolean
-        title: "Extract Relationships"
-        description: "Extract relationships between entities"
-        default: true
-        ui_component: "checkbox"
-      custom_entity_types:
-        type: string
-        title: "Custom Entity Types"
-        description: "Comma separated list of custom entity types to extract (e.g., PRODUCT, TECHNOLOGY)"
-        default: ""
-        ui_component: "input"
-      output_format:
-        type: string
-        title: "Output Format"
-        description: "Format for the output data"
-        default: "structured"
-        enum: ["structured", "json"]
-        ui_component: "select"
-      include_confidence:
-        type: boolean
-        title: "Include Confidence Scores"
-        description: "Include confidence scores in the output"
-        default: true
-        ui_component: "checkbox"
-      include_context:
-        type: boolean
-        title: "Include Context"
-        description: "Include surrounding text context for entities"
-        default: true
-        ui_component: "checkbox"
-      system_prompt:
-        type: string
-        title: "System Prompt"
-        description: "Instructions for the AI system for entity extraction"
-        default: ""
-        ui_component: "textarea"
-      user_prompt:
-        type: string
-        title: "User Prompt Template"
-        description: "Template for user prompts sent to AI"
-        default: ""
-        ui_component: "textarea"
-      max_completion_tokens:
-        type: integer
-        title: "Max Completion Tokens"
-        description: "Maximum number of tokens to generate"
-        default: 4000
-        min: 100
-        max: 8000
-      temperature:
-        type: number
-        title: "Temperature"
-        description: "Controls randomness in AI responses (0.0 = deterministic, 2.0 = very random)"
-        default: 0.1
-        min: 0.0
-        max: 2.0
-        multipleOf: 0.01
-      top_p:
-        type: number
-        title: "Top P"
-        description: "Controls diversity of AI responses"
-        default: 1.0
-        min: 0.0
-        max: 1.0
-        multipleOf: 0.1
-      frequency_penalty:
-        type: number
-        title: "Frequency Penalty"
-        description: "Reduces repetition in AI responses"
-        default: 0.0
-        min: -2.0
-        max: 2.0
-        multipleOf: 0.1
-      presence_penalty:
-        type: number
-        title: "Presence Penalty"
-        description: "Encourages AI to talk about new topics"
-        default: 0.0
-        min: -2.0
-        max: 2.0
-        multipleOf: 0.1
+  #   # Settings schema for UI generation and validation
+  #   settings_schema:
+  #     ai_model_inference_service:
+  #       type: string
+  #       title: "AI Inference Service"
+  #       description: "Reference to the AI service instance to use"
+  #       required: true
+  #       ui_component: "service_selector"
+  #       service_type: "azure_ai_inference"
+  #     chunk_field_to_extract_entities_from:
+  #       type: string
+  #       title: "Field to Extract Entities From"
+  #       description: "The field key in document.chunks.chunk from which entities will be extracted"
+  #       default: "text"
+  #       ui_component: "input"
+  #     output_field_name:
+  #       type: string
+  #       title: "Output Field Name"
+  #       description: "Field name in document.chunks.chunk to store the extracted entities"
+  #       default: "extracted_entities"
+  #       ui_component: "input"
+  #     extract_people:
+  #       type: boolean
+  #       title: "Extract People"
+  #       description: "Extract person entities (names of individuals)"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     extract_places:
+  #       type: boolean
+  #       title: "Extract Places"
+  #       description: "Extract place entities (geographical locations, cities, countries)"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     extract_locations:
+  #       type: boolean
+  #       title: "Extract Locations"
+  #       description: "Extract location entities (addresses, buildings, facilities)"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     extract_organizations:
+  #       type: boolean
+  #       title: "Extract Organizations"
+  #       description: "Extract organization entities (companies, institutions)"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     extract_relationships:
+  #       type: boolean
+  #       title: "Extract Relationships"
+  #       description: "Extract relationships between entities"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     custom_entity_types:
+  #       type: string
+  #       title: "Custom Entity Types"
+  #       description: "Comma separated list of custom entity types to extract (e.g., PRODUCT, TECHNOLOGY)"
+  #       default: ""
+  #       ui_component: "input"
+  #     output_format:
+  #       type: string
+  #       title: "Output Format"
+  #       description: "Format for the output data"
+  #       default: "structured"
+  #       enum: ["structured", "json"]
+  #       ui_component: "select"
+  #     include_confidence:
+  #       type: boolean
+  #       title: "Include Confidence Scores"
+  #       description: "Include confidence scores in the output"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     include_context:
+  #       type: boolean
+  #       title: "Include Context"
+  #       description: "Include surrounding text context for entities"
+  #       default: true
+  #       ui_component: "checkbox"
+  #     system_prompt:
+  #       type: string
+  #       title: "System Prompt"
+  #       description: "Instructions for the AI system for entity extraction"
+  #       default: ""
+  #       ui_component: "textarea"
+  #     user_prompt:
+  #       type: string
+  #       title: "User Prompt Template"
+  #       description: "Template for user prompts sent to AI"
+  #       default: ""
+  #       ui_component: "textarea"
+  #     max_completion_tokens:
+  #       type: integer
+  #       title: "Max Completion Tokens"
+  #       description: "Maximum number of tokens to generate"
+  #       default: 4000
+  #       min: 100
+  #       max: 8000
+  #     temperature:
+  #       type: number
+  #       title: "Temperature"
+  #       description: "Controls randomness in AI responses (0.0 = deterministic, 2.0 = very random)"
+  #       default: 0.1
+  #       min: 0.0
+  #       max: 2.0
+  #       multipleOf: 0.01
+  #     top_p:
+  #       type: number
+  #       title: "Top P"
+  #       description: "Controls diversity of AI responses"
+  #       default: 1.0
+  #       min: 0.0
+  #       max: 1.0
+  #       multipleOf: 0.1
+  #     frequency_penalty:
+  #       type: number
+  #       title: "Frequency Penalty"
+  #       description: "Reduces repetition in AI responses"
+  #       default: 0.0
+  #       min: -2.0
+  #       max: 2.0
+  #       multipleOf: 0.1
+  #     presence_penalty:
+  #       type: number
+  #       title: "Presence Penalty"
+  #       description: "Encourages AI to talk about new topics"
+  #       default: 0.0
+  #       min: -2.0
+  #       max: 2.0
+  #       multipleOf: 0.1
 
-    ui_metadata:
-      icon: "list-tree"
-      description_short: "Extracts named entities and relationships from text."
-      description_long: "Uses AI to identify and extract people, places, organizations, and custom entities along with their relationships from document content."
+  #   ui_metadata:
+  #     icon: "list-tree"
+  #     description_short: "Extracts named entities and relationships from text."
+  #     description_long: "Uses AI to identify and extract people, places, organizations, and custom entities along with their relationships from document content."
 
 
   ########################################################
@@ -840,7 +845,7 @@ step_catalog:
         title: "Output Field Name"
         description: "Field name in document dictionary to store the extracted content"
         required: true
-        default: "doc_intell_extraction"
+        default: "doc_intell_chunks"
         ui_component: "input"
       model_id:
         type: string

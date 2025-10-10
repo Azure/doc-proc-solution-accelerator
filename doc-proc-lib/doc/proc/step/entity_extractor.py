@@ -18,7 +18,9 @@ from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.entity_extractor") # need to specify the logger name as this module is loaded dynamically
 
-#TODO: fic this one
+# Implementation of this is not complete yet.
+# TODO: Complete the implementation of EntityExtractorStep
+ 
 class EntityExtractorStep(StepBase):
 
     def __init__(self, instance_config: StepInstanceConfig, **kwargs):
@@ -100,11 +102,11 @@ class EntityExtractorStep(StepBase):
         relationships_instruction = ""
         if self.extract_relationships:
             relationships_instruction = """
-Also extract RELATIONSHIPS between entities, such as:
-- Person works for Organization
-- Person lives in Location
-- Organization located in Place
-- Any other meaningful relationships between entities"""
+            Also extract RELATIONSHIPS between entities, such as:
+            - Person works for Organization
+            - Person lives in Location
+            - Organization located in Place
+            - Any other meaningful relationships between entities"""
 
         return f"""You are an expert entity extraction system. Your task is to identify and extract entities from the provided text.
 
@@ -254,7 +256,6 @@ Return only the JSON output with extracted entities and relationships."""
 
         return None
     
-
     async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_model_inference_service) -> Dict:
         """
         Process a single document to extract entities.

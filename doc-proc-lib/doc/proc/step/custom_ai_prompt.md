@@ -78,24 +78,24 @@ Compare document content against standards, templates, or other documents.
 
 ### Input Data Requirements
 
-The step expects input data in the following structure:
+The step expects a `Document` instance with the following data structure:
 
 ```json
 {
-  "documents": [
+  "chunks": [
     {
-      "chunks": [
-        {
-          "page_id": "unique_identifier",
-          "page_num": 1,
-          "markdown_text": "content_to_process",
-          "markdown": "full_markdown_content"
-        }
-      ]
+      "chunk_id": "unique_identifier",
+      "chunk_num": 1,
+      "markdown_text": "content_to_process",
+      "text": "alternative_text_content"
     }
   ]
 }
 ```
+
+**Required Fields:**
+- Content iterator field (default: `chunks`): Array containing chunks to process
+- Each chunk should have at least one of the fields specified in `chunk_fields_to_apply_prompt_on`
 
 ## Configuration
 
@@ -110,12 +110,20 @@ The step expects input data in the following structure:
 
 ### Processing Configuration
 
-#### Field to Apply Prompt On
-- **Parameter**: `chunk_field_to_apply_prompt_on`
+#### Content Iterator Field
+- **Parameter**: `content_iterator_field`
 - **Type**: String
-- **Description**: The field key in document.chunks.chunk which the AI prompt will be applied to
+- **Description**: The field in document data containing chunks to iterate over
 - **Required**: Yes
-- **Default**: `markdown_text`
+- **Default**: `chunks`
+- **UI Component**: Input
+
+#### Chunk Fields to Apply Prompt On
+- **Parameter**: `chunk_fields_to_apply_prompt_on`
+- **Type**: String
+- **Description**: Comma-separated list of field names in chunks to apply AI prompt to (uses first available field)
+- **Required**: Yes
+- **Default**: `markdown_text,text`
 - **UI Component**: Input
 
 #### Output Field Name
@@ -198,8 +206,8 @@ steps:
     step_catalog_id: custom_ai_prompt
     services: [primary_ai_inference_service]
     settings:
-      ai_model_inference_service: "primary_ai_inference_service"
-      chunk_field_to_apply_prompt_on: "markdown_text"
+      content_iterator_field: "chunks"
+      chunk_fields_to_apply_prompt_on: "markdown_text,text"
       output_field_name: "summary"
       system_prompt: "You are an expert summarization assistant. Create concise, accurate summaries that capture the key points and main ideas."
       user_prompt: |
@@ -214,6 +222,55 @@ steps:
       top_p: 0.8
       frequency_penalty: 0.1
       presence_penalty: 0.0
+```
+
+## Usage Example
+
+```python
+from doc.proc.step.custom_ai_prompt import CustomAIPromptStep
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import Document
+
+# Configure the step
+instance_config = StepInstanceConfig(
+    name="summarize_content",
+    step_catalog_id="custom_ai_prompt",
+    enabled=True,
+    services=["primary_ai_inference_service"],
+    settings={
+        "content_iterator_field": "chunks",
+        "chunk_fields_to_apply_prompt_on": "markdown_text,text",
+        "output_field_name": "summary",
+        "system_prompt": "You are an expert summarization assistant. Create concise, accurate summaries that capture the key points and main ideas.",
+        "user_prompt": "Please provide a comprehensive summary of the following text. Focus on the main ideas, key findings, and important details.\n\nText to summarize:\n{chunk_content}\n\nSummary:",
+        "max_completion_tokens": 2000,
+        "temperature": 0.3,
+        "top_p": 1.0,
+        "frequency_penalty": 0.1,
+        "presence_penalty": 0.0
+    },
+    debug_mode=False
+)
+
+# Create step instance
+prompt_step = CustomAIPromptStep(instance_config=instance_config)
+
+# Prepare input document
+document = Document(
+    id="doc_1",
+    data={
+        "chunks": [
+            {
+                "chunk_id": "chunk_1",
+                "chunk_num": 1,
+                "markdown_text": "Text content to be processed by AI..."
+            }
+        ]
+    }
+)
+
+# Process document (requires pipeline context)
+# result = await prompt_step.run(document, context)
 ```
 
 ## Service Configuration
@@ -399,32 +456,19 @@ user_prompt: |
 
 ## Output Data Structure
 
-The step produces enhanced document chunks with AI-generated content:
+The step enhances the document chunks by adding AI-generated content to each chunk:
 
 ```json
 {
-  "summary_data": {
-    "custom_ai_prompt_stats": {
-      "total_documents": 1,
-      "successful_documents": 1,
-      "failed_documents": 0
+  "chunks": [
+    {
+      "chunk_id": "unique_identifier",
+      "chunk_num": 1,
+      "markdown_text": "original_content",
+      "text": "alternative_text_content",
+      "custom_ai_prompt_output": "ai_generated_response_based_on_prompt"
     }
-  },
-  "data": {
-    "documents": [
-      {
-        "chunks": [
-          {
-            "page_id": "unique_identifier",
-            "page_num": 1,
-            "markdown_text": "original_content",
-            "markdown": "full_markdown_content",
-            "custom_ai_prompt_output": "ai_generated_response"
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }
 ```
 

@@ -8,7 +8,7 @@ WORKDIR /app
 COPY doc-proc-web/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy source code
 COPY doc-proc-web/. .

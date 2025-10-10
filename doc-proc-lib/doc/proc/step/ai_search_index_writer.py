@@ -9,7 +9,6 @@ from doc.proc.models import StepExecutionError, Document
 
 logger = logging.getLogger("doc.proc.step.ai_search_index_writer")
 
-#TODO: fix this
 class AISearchIndexWriterStep(StepBase):
     """
     Step to write to Azure AI Search Index.
@@ -22,12 +21,19 @@ class AISearchIndexWriterStep(StepBase):
         if not self.settings:
             self.settings = {}
 
+        self.chunks_field_name = self.settings.get("chunks_field_name", "chunks")
+        if not self.chunks_field_name or self.chunks_field_name.strip() == "":
+            logger.error("Chunks field name not found in settings.")
+            raise ValueError("Chunks field name not found in settings.")
+        self.chunks_field_name = self.chunks_field_name.strip()
+
         # get search index name from settings
         self.index_name = self.settings.get("index_name", "")
         if not self.index_name:
             logger.error("Index name not found in settings.")
             raise ValueError("Index name not found in settings.")
-
+        self.index_name = self.index_name.strip()
+        
         self.index_field_mappings = self.settings.get("index_field_mappings", "")
         if not self.index_field_mappings:
             logger.error("Index field mappings not found in settings.")
@@ -37,7 +43,6 @@ class AISearchIndexWriterStep(StepBase):
 
         logger.debug(f"Initialized AISearchIndexWriterStep with index_name: {self.index_name}, "
                      f"index_field_mappings: {self.index_field_mappings}")
-
 
     def parse_index_field_mappings(self, mappings_str: str) -> dict:
         """
@@ -54,14 +59,14 @@ class AISearchIndexWriterStep(StepBase):
             logger.error(f"Error parsing index field mappings: {e}")
             raise ValueError("Invalid index field mappings format.")
 
+    async def run(self, document: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
 
-    async def run(self, input_data: Document, context: "PipelineExecutionContext", **kwargs) -> Document:
+        # Check if document has the required data structure
+        if not document or not isinstance(document, Document) or not hasattr(document, 'data') or document.data is None:
+            logger.error(f"Invalid input document. Expected Document instance with 'data' attribute.")
+            raise StepExecutionError(f"Invalid input document. Expected Document instance.")
 
-        # Check if input_data has the required data structure
-        if not input_data or not isinstance(input_data, Document) or not hasattr(input_data, 'data') or input_data.data is None:
-            logger.error(f"Invalid input data: {input_data}. Expected Document instance.")
-            raise StepExecutionError(f"Invalid input data: {input_data}. Expected Document instance.")
-        
+        doc_id = document.id
 
         # get Azure AI Search Service from context
         ai_search_service = self.get_ai_search_service(context)
@@ -69,69 +74,30 @@ class AISearchIndexWriterStep(StepBase):
             logger.error("Azure AI Search Service not found in context.")
             raise StepExecutionError("Azure AI Search Service not found in context.")
 
-        _stats = {
-            "total_documents": 0,
-            "successful_documents": 0,
-            "failed_documents": 0,
-        }
-
-        # get documents from input data
-        documents = input_data.data.get("documents", [])
-        if not documents or not isinstance(documents, list):
-            logger.warning(f"No documents list found in input data.")
-            # skipping processing if no documents are found
-            return Document(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-        
-
-        # Iterate through each document in the input data
-        logger.info(f"Processing {len(documents)} documents...")
-
-        _stats["total_documents"] = len(documents)
+        # get document from input data
+        data_to_process = document.data
+        if not data_to_process or not isinstance(data_to_process, dict):
+            logger.error(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
+            raise StepExecutionError(f"No document data found in input data. Expected a dictionary of fields. Reference document id: {doc_id}")
             
-        for document in documents:
-            try:
-                if self.debug_mode:
-                    logger.debug(f"Processing document: {document}")
+        try:
+            if self.debug_mode:
+                logger.debug(f"Processing document: {doc_id}")
+
+            # Process the document
+            # This will extend the document with extracted text and images for each page/chunk
+            await self._process_document(data=data_to_process, 
+                                         context=context, 
+                                         ai_search_service=ai_search_service)
                 
-                # Check if the document is a dictionary
-                if not isinstance(document, dict):
-                    raise ValueError(f"Invalid document format: {document}. Expected a dictionary.")
-                    
-                # Process each document
-                await self.process_document(document=document, 
-                                            context=context, 
-                                            ai_search_service=ai_search_service)
+            logger.debug(f"Successfully processed document: {doc_id}")
+                
+            # Return the updated document
+            return document
 
-                _stats["successful_documents"] += 1
-
-                if self.debug_mode:
-                    logger.debug(f"Successfully processed document: {document}")
-
-            except Exception as e:
-                logger.error(f"Error processing document: {e}")
-                _stats["failed_documents"] += 1
-
-                if self.fail_step_on_document_error:
-                    # If the step is configured to fail on document error, raise an exception
-                    raise StepExecutionError(f"Failed to process document: {e}")
-
-        # Return the updated StepInputOutput
-        return Document(summary_data=
-                                    {
-                                        **input_data.summary_data, f"{self.name}_stats": _stats
-                                    }, 
-                               data=
-                                    {
-                                        **input_data.data
-                                    })
-
+        except Exception as e:
+            logger.error(f"Error processing document: {e}")
+            raise e
 
     def get_ai_search_service(self, context: "PipelineExecutionContext"):
         """
@@ -150,56 +116,41 @@ class AISearchIndexWriterStep(StepBase):
 
         return None
 
-
-    async def process_document(self, document: dict, context: "PipelineExecutionContext", ai_search_service) -> None:
-        """Process a single document and write it to the Azure AI Search Index.
+    async def _process_document(self, data: dict, context: "PipelineExecutionContext", ai_search_service):
+        """Process the document data and write it to the Azure AI Search Index.
 
         Args:
-            document (dict): The document to process.
+            data (dict): The document data to process.
             context (PipelineExecutionContext): The pipeline execution context.
             ai_search_service: The Azure AI Search Service instance.
         """
-
         try:
             # get the chunks from the document
-            chunks = document.get("chunks", None)
+            chunks = data.get(self.chunks_field_name, None)
 
             if not chunks:
-                logger.error(f"No chunks found in document.")
-                raise StepExecutionError(f"No chunks found in document. Please check the document structure and try again.")
+                logger.warning(f"No chunks found in document.")
+                return
 
             # generate the documents to be indexed
-            index_documents = []
+            documents_to_index = []
 
             for chunk in chunks:
                 index_doc = {}
                 for doc_field, index_field in self.index_field_mappings.items():
-                    index_doc[index_field] = value = chunk.get(doc_field, None)
+                    index_doc[index_field] = chunk.get(doc_field, None)
 
-                index_documents.append(index_doc)
-
+                documents_to_index.append(index_doc)
 
             # Write documents to Azure AI Search Index
-            logger.debug(f"Writing {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
-            indexing_result = await ai_search_service.write_documents(index_name=self.index_name, documents=index_documents)
+            logger.debug(f"Writing {len(documents_to_index)} documents to Azure AI Search Index '{self.index_name}'")
+            indexing_result = await ai_search_service.write_documents(index_name=self.index_name, documents=documents_to_index)
 
             if self.debug_mode:
                 logger.debug(f"Indexing result: {indexing_result}")
 
-            logger.debug(f"Successfully wrote {len(index_documents)} documents to Azure AI Search Index '{self.index_name}'")
+            logger.debug(f"Successfully wrote {len(documents_to_index)} documents to Azure AI Search Index '{self.index_name}'")
 
         except Exception as e:
             logger.error(f"Error writing to Azure AI Search Index: {e}")
             raise StepExecutionError(f"Error writing to Azure AI Search Index: {e}")
-
-
-    def convert_png_to_base64(self, png_path: str) -> str:
-        """
-        Convert a PNG file to a base64 encoded string.
-        
-        :param png_path: Path to the PNG file.
-        :return: Base64 encoded string of the PNG file.
-        """
-        with open(png_path, "rb") as png_file:
-            png_data = png_file.read()
-            return base64.b64encode(png_data).decode('ascii')

@@ -105,12 +105,27 @@ class AzureBlobSource(SourceBase):
         if self._container_client is None:
             blob_service_client = self._get_blob_service_client()
             self._container_client = blob_service_client.get_container_client(self.container_name)
-        
+            
         return self._container_client
 
+    async def _ensure_container(self, container_name: str):
+        """Ensure the specified container exists, creating it if necessary."""
+        container_client = self._get_container_client()
+        try:
+            await container_client.create_container()
+            logger.debug(f"Container '{container_name}' created.")
+        except Exception as e:
+            if "ContainerAlreadyExists" in str(e):
+                logger.debug(f"Container '{container_name}' already exists.")
+            else:
+                logger.error(f"Failed to create container '{container_name}': {str(e)}")
+                raise ServiceExecutionError(f"Failed to create or access container '{container_name}': {str(e)}")
+    
     async def test_connection(self) -> bool:
         """Test the connection to Azure Blob Storage."""
         try:
+            await self._ensure_container(self.container_name)
+            
             container_client = self._get_container_client()
             # Try to get container properties to test connection
             await container_client.get_container_properties()

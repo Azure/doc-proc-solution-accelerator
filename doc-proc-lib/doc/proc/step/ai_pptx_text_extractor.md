@@ -1,6 +1,6 @@
-# PowerPoint Text Extractor Step
+# AI PowerPoint Text Extractor Step
 
-The PowerPoint Text Extractor Step is a document processing component that extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx and .ppt formats). It follows the same architectural pattern as the PDF and Word Text Extractor Steps.
+The AI PowerPoint Text Extractor Step is a document processing component that extracts text content, tables, and images from Microsoft PowerPoint presentations (.pptx and .ppt formats). It follows the same architectural pattern as the AI PDF and Word Text Extractor Steps.
 
 ## Features
 
@@ -24,8 +24,8 @@ pip install python-pptx
 The PowerPoint Text Extractor Step requires the following configuration:
 
 ```yaml
-- name: pptx_text_extractor_1
-  step_catalog_id: pptx_text_extractor
+- name: ai_pptx_text_extractor_1
+  step_catalog_id: ai_pptx_text_extractor
   enabled: true
   fail_pipeline_on_error: true
   retry_on_failure: false
@@ -36,30 +36,25 @@ The PowerPoint Text Extractor Step requires the following configuration:
   fail_step_on_document_error: true
   debug_mode: false
   settings:
-    png_output_folder: "./output/png"
+    ai_model_inference_service: "primary_ai_inference_service"
+    output_field_name: "chunks"
+    png_output_folder: "./tmp/docproc/pptx_output/png"
     num_slides: -1  # -1 means all slides
     extract_images: true
-    extract_image_descriptions: false
+    extract_image_descriptions: true
     extract_tables: true
     extract_shapes: true
-    dpi: 300
-    image_format: "PNG"
-    prompts:
-      system: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
-      user: |
-        Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
-        Always format the markdown as follows to distinguish the text extracted from image descriptions:
-        
-        ==Extracted-Text==
-        {Insert extracted text as markdown here}
-        ==End-Extracted-Text==
-
-        ==Image-Descriptions==
-        {Insert image descriptions as markdown here}
-        ==End-Image-Descriptions==
+    system_prompt: "You are an AI assistant that helps convert images from a pptx slide to markdown text. Only output valid markdown."
+    user_prompt: |
+      Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows to distinguish the text extracted from image descriptions:
+      ==Extracted-Text==
+      {Insert extracted text as markdown here}==End-Extracted-Text==
+      
+      ==Image-Descriptions==
+      {Insert image descriptions as markdown here}==End-Image-Descriptions==
     max_completion_tokens: 4000
     temperature: 1.0
-    top_p: 1.0
+    top_p: 0.4
     frequency_penalty: 0.0
     presence_penalty: 0.0
 ```
@@ -70,23 +65,20 @@ The step expects input data in the following format:
 
 ```python
 {
-    "documents": [
-        {
-            "file_path": "/path/to/presentation.pptx",
-            "document_type": {
-                "primary_type": "powerpoint_presentation" # if type condition is used - see below.
-            }
-        }
-    ]
+    "temp_file_path": "/path/to/presentation.pptx",
+    "document_type": {
+        "primary_type": "powerpoint_presentation"  # if type condition is used - see below.
+    }
 }
 ```
 
 ## Output Data Structure
 
-The step adds a `chunks` array to each document with the following structure:
+The step adds a `chunks` array to the document with the following structure:
 
 ```python
 {
+    "temp_file_path": "/path/to/presentation.pptx",
     "chunks": [
         {
             "input_file_path": "/path/to/presentation.pptx",
@@ -135,24 +127,26 @@ The extractor handles various PowerPoint shape types:
 
 ## Settings Configuration
 
+### Required Settings
+- `ai_model_inference_service`: Reference to the AI service instance to use to extract text from images in slides (required)
+- `output_field_name`: Field name in document data dict to store the extracted content (default: "chunks")
+
 ### Core Settings
-- `png_output_folder`: Directory for saving extracted images (default: "output_pngs")
+- `png_output_folder`: Directory for saving extracted images (default: "./tmp/docproc/pptx_output/png")
 - `extract_images`: Enable/disable image extraction (default: true)
 - `extract_image_descriptions`: Enable/disable AI-generated image descriptions (default: true)
 - `extract_tables`: Enable/disable table extraction (default: true)
-- `extract_shapes`: Enable/disable shape processing (default: false)
-- `num_slides`: Number of slides to process (-1 for all, default: -1)
-- `dpi`: Resolution for image extraction (default: 300)
-- `image_format`: Output format for extracted images (default: "PNG")
+- `extract_shapes`: Enable/disable shape processing (default: true)
+- `num_slides`: Number of slides to process (-1 for all, default: -1, max: 200)
 
 ### AI Processing Settings
-- `prompts.system`: System prompt for AI image analysis
-- `prompts.user`: User prompt template for AI image analysis
-- `max_completion_tokens`: Maximum tokens for AI responses (default: 4000)
+- `system_prompt`: System prompt for AI image analysis (default: "You are an AI assistant that helps convert images from a pptx slide to markdown text. Only output valid markdown.")
+- `user_prompt`: User prompt template for AI image analysis
+- `max_completion_tokens`: Maximum tokens for AI responses (default: 4000, range: 100-8000)
 - `temperature`: AI model temperature 0.0-2.0 (default: 1.0)
-- `top_p`: AI model top-p sampling (default: 1.0)
-- `frequency_penalty`: AI model frequency penalty (default: 0.0)
-- `presence_penalty`: AI model presence penalty (default: 0.0)
+- `top_p`: AI model top-p sampling (default: 0.4, range: 0.0-1.0)
+- `frequency_penalty`: AI model frequency penalty (default: 0.0, range: -2.0 to 2.0)
+- `presence_penalty`: AI model presence penalty (default: 0.0, range: -2.0 to 2.0)
 
 ## Error Handling
 
@@ -165,77 +159,49 @@ The step includes comprehensive error handling:
 - **Configurable Failure**: `fail_step_on_document_error` controls whether document errors fail the step
 - **Statistics Tracking**: Maintains counts of successful, failed, and skipped documents
 
-## Statistics Output
-
-The step provides processing statistics in the summary data:
-
-```python
-{
-    "total_documents": 5,
-    "successful_documents": 4,
-    "skipped_documents": 1,
-    "failed_documents": 0
-}
-```
-
 ## Usage Example
 
 ```python
-from doc.proc.step.pptx_text_extractor import PowerPointTextExtractorStep
-from doc.proc.step.step_base import StepInputOutput, StepInstanceConfig
+from doc.proc.step.ai_pptx_text_extractor import AIPowerPointTextExtractorStep
+from doc.proc.step.step_config import StepInstanceConfig
+from doc.proc.models import Document
 
 # Configure the step
 config = StepInstanceConfig(
-    name="pptx_extractor_1",
-    step_catalog_id="pptx_text_extractor",
+    name="ai_pptx_extractor_1",
+    step_catalog_id="ai_pptx_text_extractor",
     enabled=True,
     services=["primary_ai_inference_service"],
     condition="document_type.primary_type == 'powerpoint_presentation'",
     settings={
-        "png_output_folder": "./output/png",
+        "ai_model_inference_service": "primary_ai_inference_service",
+        "output_field_name": "chunks",
+        "png_output_folder": "./tmp/docproc/pptx_output/png",
         "extract_images": True,
         "extract_tables": True,
         "extract_shapes": True,
         "num_slides": -1,
-        "prompts": {
-            "system": "You are an AI assistant that helps convert images...",
-            "user": "Extract the text from the following image..."
-        }
+        "system_prompt": "You are an AI assistant that helps convert images from a pptx slide to markdown text. Only output valid markdown.",
+        "user_prompt": "Extract the text from the following image into markdown and provide descriptions of images..."
     }
 )
 
 # Create step instance
-pptx_extractor = PowerPointTextExtractorStep(instance_config=config)
+pptx_extractor = AIPowerPointTextExtractorStep(instance_config=config)
 
 # Prepare input data
-input_data = StepInputOutput(
+input_document = Document(
     data={
-        "documents": [
-            {
-                "file_path": "/path/to/presentation.pptx",
-                "document_type": {"primary_type": "powerpoint_presentation"}
-            }
-        ]
+        "temp_file_path": "/path/to/presentation.pptx",
+        "document_type": {"primary_type": "powerpoint_presentation"}
     }
 )
 
 # Process documents (requires pipeline context)
-# result = await pptx_extractor.run(input_data, context)
+# result = await pptx_extractor.run(input_document, context)
 ```
 
-## Comparison with Other Text Extractors
 
-| Feature | PDF Extractor | Word Extractor | PowerPoint Extractor |
-|---------|---------------|----------------|---------------------|
-| **Input Format** | PDF files | Word documents (.docx) | PowerPoint presentations (.pptx/.ppt) |
-| **Processing Unit** | Pages | Content blocks | Slides |
-| **Text Extraction** | AI-powered from images | Direct text extraction | Direct text extraction |
-| **Table Support** | AI-powered from images | Native table extraction | Native table extraction |
-| **Image Support** | Page images | Embedded images | Slide images |
-| **Structure** | Page-based | Content-based | Slide-based |
-| **Performance** | Slower (AI processing) | Faster (direct extraction) | Medium (direct + optional AI) |
-| **Metadata** | Page numbers | Chunk types | Slide numbers + types |
-| **Condition Support** | Yes | Yes | Yes |
 
 ## PowerPoint-Specific Features
 
@@ -293,4 +259,3 @@ input_data = StepInputOutput(
 - Shape processing extracts text from any shape with a text property
 - Slide context is preserved throughout the extraction process
 - Condition evaluation allows selective processing based on document properties
-- Statistics tracking provides visibility

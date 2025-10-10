@@ -83,18 +83,21 @@ echo ""
 # Get script directory and project root
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PYTHON_SCRIPT="${SCRIPT_DIR}/setup-pipeline.py"
+PYTHON_REQUIREMENTS="${SCRIPT_DIR}/requirements.txt"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo -e "${BLUE}📁 Moving to Project Root: $PROJECT_ROOT${NC}"
 # Change to project root
 cd "$PROJECT_ROOT"
 
-
+# install the required Python packages
+echo ""
+echo -e "${BLUE}Installing required Python packages...${NC}"
+pip install -r "$PYTHON_REQUIREMENTS"
 
 echo ""
 echo -e "${BLUE}Retrieving required parameters for setup...${NC}"
 echo "------------------"
-
 
 
 echo -e "${BLUE}Retrieving App Configuration - (1/3)...${NC}"
@@ -109,7 +112,7 @@ fi
 
 echo ""
 echo -e "${BLUE}Retrieving API URL - (2/3)...${NC}"
-API_APP_NAME=$(az containerapp list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, 'docproc-api')].name | [0]" --output tsv)
+API_APP_NAME=$(az containerapp list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, 'api')].name | [0]" --output tsv)
 if [[ -n "$API_APP_NAME" ]]; then
     API_URL=$(az containerapp show \
                 --name "$API_APP_NAME" \

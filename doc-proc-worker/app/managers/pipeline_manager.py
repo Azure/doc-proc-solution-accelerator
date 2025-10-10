@@ -39,8 +39,7 @@ class PipelineManager():
         
         self._pipeline_factory = None
         self._pipeline_cache = {}
-    
-    
+        
         logger.info(f"PipelineManager initialized with pipelines_container: {pipelines_container_name}, step_catalog_container: {step_catalog_container_name}, service_catalog_container: {service_catalog_container_name}")
 
     async def __initialize_factory(self):
@@ -73,15 +72,13 @@ class PipelineManager():
         pipeline_config = await self._load_pipeline_config(pipeline_name, step_instances, service_instances, source_instances)
         
         if pipeline_config:
-
             pipeline = await self._pipeline_factory.create_pipeline(pipeline_config=pipeline_config)
-            
             # Cache the pipeline
             self._pipeline_cache[pipeline_name] = pipeline
-            
             return pipeline
 
         return None
+
     
     async def _get_pipeline_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a pipeline instance by name from Cosmos DB"""
@@ -89,6 +86,7 @@ class PipelineManager():
         parameters = [{"name": "@name", "value": name}]
         results = self._db.list(container=self._pipelines_container_name, query=query, parameters=parameters)
         return results[0] if results else None
+
 
     async def _load_pipeline_config(self, pipeline_name:str, step_instances:List[StepInstanceConfig], service_instances:List[ServiceInstanceConfig], source_instances:List[SourceInstanceConfig]) -> PipelineConfig:
         """Load pipeline config from Cosmos DB"""
