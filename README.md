@@ -34,12 +34,11 @@ This solution accelerator provides a production-ready foundation for building do
 ## 🏗️ Architecture Overview
 
 The solution consists of the following building blocks:
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagram-1-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/diagram-1-light.png">
-  <img alt="Solution building blocks">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="./assets/diagram-1-light.png">
 </picture>
-
 
 ## 📦 Core Components
 
