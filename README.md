@@ -33,40 +33,13 @@ This solution accelerator provides a production-ready foundation for building do
 
 ## 🏗️ Architecture Overview
 
-The solution follows a microservices architecture with clear separation of concerns:
+The solution consists of the following building blocks:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/diagram-1-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/diagram-1-light.png">
+  <img alt="Solution building blocks">
+</picture>
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                           Document Processing Solution Architecture                   │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                     │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                │
-│  │  doc-proc-web   │    │  doc-proc-api   │    │ doc-proc-crawler│                │
-│  │  Management UI  │◄──►│  REST API       │◄──►│ Document        │                │
-│  │  (React/TS)     │    │  (FastAPI)      │    │ Discovery       │                │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘                │
-│           │                       │                       │                        │
-│           │                       ▼                       ▼                        │
-│           │              ┌─────────────────┐    ┌─────────────────┐                │
-│           │              │ Azure Cosmos DB │    │ Azure Storage   │                │
-│           │              │ Configuration   │    │ Queues & Blobs  │                │
-│           │              └─────────────────┘    └─────────────────┘                │
-│           │                       │                       │                        │
-│           │                       ▼                       ▼                        │
-│           │              ┌─────────────────┐    ┌─────────────────┐                │
-│           └─────────────►│ doc-proc-worker │◄───│  doc-proc-lib   │                │
-│                          │ Queue Processor │    │ Pipeline Engine │                │
-│                          │ (Python)        │    │ (Python)        │                │
-│                          └─────────────────┘    └─────────────────┘                │
-│                                   │                       │                        │
-│                                   ▼                       ▼                        │
-│                          ┌─────────────────────────────────────────┐                │
-│                          │           Azure AI Services            │                │
-│                          │  Document Intelligence • OpenAI        │                │
-│                          │  Computer Vision • Custom Models       │                │
-│                          └─────────────────────────────────────────┘                │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-```
 
 ## 📦 Core Components
 
