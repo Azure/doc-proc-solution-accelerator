@@ -129,6 +129,41 @@ The solution consists of the following building blocks:
 
 This solution accelerator can be applied across various industries and document processing workflows. Below are common use cases with domain-specific examples and configuration patterns.
 
+
+### 📄 Multi-Modal Document Processing
+
+#### **Enterprise Content Unification**
+Process diverse document types and formats in a unified workflow with intelligent format detection and specialized extraction:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Mixed Content  │───▶│  Format         │───▶│  Specialized    │───▶│  Unified Data   │
+│  Repository     │    │  Detection      │    │  Extraction     │    │  Structure      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Supported Document Types:**
+- **Structured PDFs**: Forms, invoices, contracts with precise field extraction
+- **Scanned Images**: Historical documents, handwritten forms with OCR processing
+- **Office Documents**: Word, Excel, PowerPoint with native content extraction
+- **Email Archives**: Outlook PST/MSG files with attachment processing
+- **Web Content**: HTML pages, online forms with content scraping
+- **Audio/Video**: Meeting recordings, training materials with transcription
+
+**Intelligent Processing Pipeline:**
+- **Format Detection**: Automatic MIME type detection and content analysis
+- **Content Routing**: Route documents to specialized extraction services based on format
+- **Cross-Reference Linking**: Connect related documents across different formats
+- **Metadata Harmonization**: Standardize metadata across diverse document types
+- **Quality Validation**: Ensure extraction accuracy with confidence scoring
+
+**Key Benefits:**
+- **Format Agnostic**: Single pipeline handles any document type
+- **Intelligent Routing**: Automatic selection of optimal processing methods
+- **Preservation of Context**: Maintain relationships between multi-format document sets
+- **Scalable Processing**: Parallel processing of different formats simultaneously
+
+
 ### 🏢 Financial Services
 
 #### **Invoice Processing Automation**
@@ -220,24 +255,6 @@ Process inspection reports, certificates, and compliance documents:
 - **Certificates of Compliance**: Verify supplier certifications and standards
 - **Material Safety Data Sheets**: Extract safety information for regulatory compliance
 - **Purchase Orders**: Process and validate supplier documentation
-
-### 🎓 Education
-
-#### **Student Document Processing**
-Automate administrative processes in educational institutions:
-
-- **Transcripts**: Extract grades, course information, GPA calculations
-- **Application Documents**: Process admissions materials, essays, recommendations
-- **Financial Aid Forms**: Extract financial information for aid processing
-
-### 🏛️ Government & Public Sector
-
-#### **Permit and License Processing**
-Streamline government document processing workflows:
-
-- **Building Permits**: Extract project details, validate compliance requirements
-- **Business Licenses**: Process application forms, verify eligibility criteria
-- **Tax Documents**: Process returns, extract key financial data
 
 
 ## Getting Started
