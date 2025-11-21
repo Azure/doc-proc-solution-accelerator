@@ -62,11 +62,11 @@ resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@202
 }
 
 // Use Azure Verified Module for Container App (Crawler)
-module crawlerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+module crawlerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.19.0' = {
   name: 'crawlerAppDeployment'
   params: {
     name: appName
-    location: resourceGroup().location
+    location: containerAppsEnvironmentResource.location
     tags: tags
     environmentResourceId: containerAppsEnvironmentResource.id
     ingressAllowInsecure: false

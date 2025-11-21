@@ -276,7 +276,7 @@ if ($BuildAll -or $Web) {
     Write-BlueOutput "📦 Installing npm dependencies for web app..."
     try {
         Set-Location "$ProjectRoot/doc-proc-web"
-        npm ci
+        npm install
         Write-GreenOutput "✅ Successfully installed npm dependencies"
     }
     catch {

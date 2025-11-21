@@ -308,7 +308,7 @@ Creating custom services involves implementing the `ServiceBase` abstract class 
 
 Custom services can integrate with any external API, database, or cloud service while maintaining consistent authentication, configuration, and error handling patterns.
 
-View the [Service documentation](./doc/proc/service/SERVICE_README.md) for detailed implementation guidance.
+View the [Service documentation](./doc/proc/service/README.md) for detailed implementation guidance.
 
 ### Custom Step
 
@@ -324,7 +324,7 @@ Creating custom processing steps involves implementing the `StepBase` abstract c
 
 Custom steps can implement any processing logic including external API calls, complex data transformations, machine learning inference, or custom business rules.
 
-View the [Step documentation](./doc/proc/step/STEP_README.md) for comprehensive development guidance.
+View the [Step documentation](./doc/proc/step/README.md) for comprehensive development guidance.
 
 ### Custom Source
 

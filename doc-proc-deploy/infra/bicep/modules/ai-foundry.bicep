@@ -2,7 +2,7 @@
 param location string = resourceGroup().location
 
 @description('Required: Name of the Container Registry')
-param aiFoundryBaseName string = 'docproc-aifoundry'
+param aiFoundryBaseName string
 
 @description('Managed Identity that will be given access to the AI Foundry Resource')
 param roleAssignedManagedIdentityPrincipalIds string[]
@@ -10,7 +10,7 @@ param roleAssignedManagedIdentityPrincipalIds string[]
 @description('Tags for resources')
 param tags object = {}
 
-module aiFoundry 'br/public:avm/ptn/ai-ml/ai-foundry:0.4.0' = {
+module aiFoundry 'br/public:avm/ptn/ai-ml/ai-foundry:0.5.0' = {
   params: {
     // Required parameters
     baseName: aiFoundryBaseName

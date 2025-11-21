@@ -209,7 +209,7 @@ if [ "$BUILD_ALL" = "true" ] || [ "$BUILD_WEB" = "true" ]; then
     # build npm dependencies first
     echo -e "${YELLOW}📦 Installing npm dependencies for web app...${NC}"
     cd doc-proc-web
-    if npm ci; then
+    if npm install; then
         echo -e "${GREEN}✅ Successfully installed npm dependencies${NC}"
     else
         echo -e "${RED}❌ Failed to install npm dependencies${NC}"

@@ -14,7 +14,7 @@ param containerImage string
 param allowOrigins string[] = ['*']
 
 @description('CPU cores for the container')
-param cpuCores string = '1.0'
+param cpuCores int = 1
 
 @description('Memory in GB for the container')
 param memoryInGB string = '2Gi'
@@ -57,11 +57,11 @@ resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@202
 }
 
 // Use Azure Verified Module for Container App (Web App)
-module webApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+module webApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.19.0' = {
   name: 'webAppDeployment'
   params: {
     name: appName
-    location: resourceGroup().location
+    location: containerAppsEnvironmentResource.location
     tags: tags
     environmentResourceId: containerAppsEnvironmentResource.id
     corsPolicy: {

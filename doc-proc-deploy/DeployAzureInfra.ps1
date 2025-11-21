@@ -14,7 +14,7 @@
     Azure Resource Group name (required)
 
 .PARAMETER Location
-    Azure location (default: westus2)
+    Azure location (default: westus)
 
 .PARAMETER NamePrefix
     Resource name prefix (default: docproc)
@@ -242,11 +242,11 @@ Write-Host ""
 Write-BlueOutput "Next Steps:"
 Write-Host "1. Build and push your Docker images to the Container Registry:"
 if ($AcrLoginServer) {
-    Write-Host "   .\doc-proc-deploy\BuildAndPushImages.ps1 -r $AcrLoginServer"
+    Write-Host "   pwsh .\doc-proc-deploy\BuildAndPushImages.ps1 -r $AcrLoginServer"
 } else {
-    Write-Host "   .\doc-proc-deploy\BuildAndPushImages.ps1 -r <ACR_LOGIN_SERVER>"
+    Write-Host "   pwsh .\doc-proc-deploy\BuildAndPushImages.ps1 -r <ACR_LOGIN_SERVER>"
 }
 Write-Host ""
 Write-Host "2. Deploy your applications using pushed images:"
-Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -g $ResourceGroup"
+Write-Host "   pwsh .\doc-proc-deploy\DeployApps.ps1 -g $ResourceGroup -p $NamePrefix -e $Environment"
 Write-Host ""

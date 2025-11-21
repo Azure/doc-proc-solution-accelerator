@@ -1,0 +1,169 @@
+# Multi-Format Document Processing Pipeline Configuration
+
+# Service instances
+service_instances:
+  - name: primary_ai_inference_service
+    service_catalog_id: azure_ai_inference_service_01
+    settings:
+      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+
+# Pipeline definition
+pipelines:
+  - name: multi_format_processor
+    description: 'Pipeline to process PDF, Word, PowerPoint, and Excel documents'
+    version: '1.0'
+
+    # Pipeline steps with conditional execution
+    steps:
+      # Step 1: Retrieve content from source
+      - name: content_retriever
+        step_catalog_id: content_retriever
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: []
+        debug_mode: false
+        settings:
+          temp_folder: "./tmp/multi_format/downloads"
+          include_content_bytes_as_field: false
+          use_temp_file_for_content: true
+
+      # Step 2: Identify document type
+      - name: document_type_identifier
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 300
+        services: []
+        debug_mode: false
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+
+      # Step 3: Extract text from PDF (only for PDF documents)
+      - name: pdf_text_extractor
+        step_catalog_id: ai_pdf_text_extractor
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 1800
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'pdf'"
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/multi_format/pdf_output"
+          num_pages: -1
+          system_prompt: "You are an AI assistant that helps convert images of pages of a pdf document to markdown text. Only output valid markdown."
+          user_prompt: |
+            Extract the text from the following image into markdown and provide descriptions of images. 
+            Always format the markdown as follows to distinguish the text extracted from image descriptions:
+
+            ==Extracted-Text==
+              {Insert extracted text as markdown here}
+              ==End-Extracted-Text==
+
+              ==Image-Descriptions==
+              {Insert image descriptions as markdown here}
+              ==End-Image-Descriptions==
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 0.4
+
+      # Step 4: Extract text from Word documents (only for Word files)
+      - name: word_text_extractor
+        step_catalog_id: ai_word_text_extractor
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 1800
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'word' or document_type.mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/multi_format/word_output"
+          extract_images: true
+          extract_image_desacriptions: true
+          extract_tables: true
+          max_chunk_size: 4000
+          system_prompt: "You are an AI assistant that helps convert images extracted from a word document to markdown text. Only output valid markdown."
+          user_prompt: |
+            Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
+            Always format the markdown as follows to distinguish the text extracted from image descriptions:
+
+            ==Extracted-Text==
+              {Insert extracted text as markdown here}
+              ==End-Extracted-Text==
+
+              ==Image-Descriptions==
+              {Insert image descriptions as markdown here}
+              ==End-Image-Descriptions==
+          max_completion_tokens: 4000
+          temperature: 1.0
+
+      # Step 5: Extract text from PowerPoint (only for PPTX files)
+      - name: pptx_text_extractor
+        step_catalog_id: ai_pptx_text_extractor
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 1800
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'pptx' or document_type.mime_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation'"
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/multi_format/pptx_output"
+          extract_images: true
+          extract_image_desacriptions: true
+          extract_tables: true
+          extract_shapes: true
+          num_slides: -1
+          system_prompt: "You are an AI assistant that helps convert images extracted from a pptx document to markdown text. Only output valid markdown."
+          user_prompt: |
+              Extract the text from the following image into markdown and provide descriptions of images. If the image has no text, don't output any text, just provide the image description. 
+              Always format the markdown as follows to distinguish the text extracted from image descriptions:
+              
+              ==Extracted-Text==
+              {Insert extracted text as markdown here}
+              ==End-Extracted-Text==
+
+              ==Image-Descriptions==
+              {Insert image descriptions as markdown here}
+              ==End-Image-Descriptions==
+          max_completion_tokens: 4000
+          temperature: 1.0
+
+      # Step 6: Extract data from Excel (only for Excel files)
+      - name: excel_text_extractor
+        step_catalog_id: excel_text_extractor
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 1200
+        services: []
+        condition: "document_type.primary_type == 'excel' or document_type.mime_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'"
+        debug_mode: false
+        settings:
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/multi_format/excel_output"
+          extract_images: true
+          extract_charts: true
+          max_rows_per_sheet: -1
+          max_columns_per_sheet: -1
+          sheets_to_process: ""
+
+    execution_sequence: [content_retriever, document_type_identifier, pdf_text_extractor, word_text_extractor, pptx_text_extractor, excel_text_extractor]

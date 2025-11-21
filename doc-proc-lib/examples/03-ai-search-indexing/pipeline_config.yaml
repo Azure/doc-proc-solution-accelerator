@@ -1,0 +1,108 @@
+# AI Search Indexing Pipeline Configuration
+
+# Service instances
+service_instances:
+  - name: primary_ai_inference_service
+    service_catalog_id: azure_ai_inference_service_01
+    settings:
+      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+
+  - name: primary_ai_search_service
+    service_catalog_id: azure_ai_search_service_01
+    settings:
+      account_name: ${AZURE_AI_SEARCH_SERVICE_ACCOUNT_NAME}
+      credential_type: ${AZURE_AI_SEARCH_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_SEARCH_SERVICE_API_KEY}
+      api_version: "2025-05-01-preview"
+      index_name: "documents_index"
+
+# Pipeline definition
+pipelines:
+  - name: ai_search_indexer
+    description: 'Pipeline to extract document content and write to Azure AI Search index'
+    version: '1.0'
+
+    # Pipeline steps
+    steps:
+      # Step 1: Retrieve content
+      - name: content_retriever
+        step_catalog_id: content_retriever
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: []
+        debug_mode: false
+        settings:
+          temp_folder: "./tmp/search_indexing/downloads"
+          include_content_bytes_as_field: false
+          use_temp_file_for_content: true
+
+      # Step 2: Identify document type
+      - name: document_type_identifier
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 300
+        services: []
+        debug_mode: false
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+
+      # Step 3: Extract text from PDF
+      - name: pdf_text_extractor
+        step_catalog_id: ai_pdf_text_extractor
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: true
+        retries: 2
+        timeout: 1800
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'pdf'"
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/search_indexing/pdf_output"
+          num_pages: -1
+          system_prompt: "You are an AI assistant that converts PDF pages to markdown text. Only output valid markdown."
+          user_prompt: "Extract the text from the following image into markdown and provide descriptions of images. Always format the markdown as follows:\n==Extracted-Text==\n{Insert extracted text here}\n==End-Extracted-Text==\n\n==Image-Descriptions==\n{Insert image descriptions here}\n==End-Image-Descriptions=="
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 0.4
+
+      # Step 4: Write to Azure AI Search Index
+      - name: search_index_writer
+        step_catalog_id: ai_search_index_writer
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: true
+        retries: 3
+        timeout: 600
+        services: [primary_ai_search_service]
+        debug_mode: false
+        settings:
+          ai_search_service: "primary_ai_search_service"
+          chunks_field_name: "chunks"
+          index_name: "documents_index"
+          index_field_mappings: |
+            {
+              "page_id": "id",
+              "input_file_path": "file_name",
+              "file_name": "file_name",
+              "page_num": "page_num",
+              "markdown": "page_markdown",
+              "markdown_text": "markdown_text",
+              "page_text": "page_text",
+              "text": "page_text",
+              "page_image_descriptions": "image_descriptions",
+              "custom_ai_prompt_output": "ai_result",
+              "summary": "summary"
+            }
+            
+    execution_sequence: [content_retriever, document_type_identifier, pdf_text_extractor, search_index_writer]

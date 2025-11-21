@@ -1,0 +1,216 @@
+{
+  "pipeline_name": "document_intelligence_processor",
+  "result": "Succeeded",
+  "reason": "All 2 documents processed successfully",
+  "elapsed_time_secs": 9.386957,
+  "document_results": [
+    {
+      "document_id": {
+        "canonical_id": "di_doc_001",
+        "unique_id": "di_doc_001",
+        "source_id": "local_file_source",
+        "source_name": "local_file",
+        "source_type": "local_file",
+        "container": null,
+        "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.pdf",
+        "metadata": null
+      },
+      "result": "Succeeded",
+      "reason": null,
+      "elapsed_time_secs": 9.386577,
+      "data": {
+        "temp_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+        "metadata": {
+          "source": "local_file",
+          "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.pdf"
+        },
+        "document_type": {
+          "primary_type": "pdf",
+          "mime_type": "application/pdf",
+          "confidence": 0.9025,
+          "best_method": "magic_bytes",
+          "all_methods": {
+            "magic_bytes": {
+              "mime_type": "application/pdf",
+              "type": "pdf",
+              "confidence": 0.95,
+              "method": "magic_bytes"
+            },
+            "file_extension": {
+              "type": "pdf",
+              "mime_type": "application/pdf",
+              "subtype": "pdf",
+              "extension": ".pdf",
+              "confidence": 0.9,
+              "method": "file_extension"
+            }
+          }
+        },
+        "doc_intell_chunks": [
+          {
+            "input_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "027edf51cb0cd7d04722a7aaf22f6038588e2a55",
+            "chunk_type": "page",
+            "chunk_num": 1,
+            "page_num": 1,
+            "markdown_text": "Lorem Ipsum Sample Document\nA Well-Structured Example with Headings and Subheadings\nIntroduction to Lorem Ipsum\nLorem is an adventurous and curious individual, always eager to embark on new quests\nand explore the unknown. With an energetic spirit and a heart full of wonder, Lorem often\nleads the way into exciting escapades and encourages others to join in the journey.\nIpsum, in contrast, is thoughtful and wise, preferring to reflect on the deeper meaning\nbehind each adventure. Calm and analytical, Ipsum brings balance to the duo, offering\ninsight, careful planning, and a steady presence throughout their travels.\nTogether, Lorem and Ipsum complement each other perfectly: Lorem's boldness and\nenthusiasm paired with Ipsum's wisdom and prudence make them an inseparable team,\nready to face any challenge and discover new stories side by side.\nLOREM IPSUM\nThe Adventures of Lorem and Ipsum\nIn a quaint village nestled between rolling hills, there lived two inseparable friends: Lorem\nand Ipsum. Lorem, with a knack for adventure and a heart full of curiosity, was always the\nfirst to suggest a new quest. Ipsum, on the other hand, was thoughtful and wise, preferring\nto ponder over the meaning behind each journey. Together, they dreamed of exploring the\nworld beyond their familiar fields, eager to discover what mysteries awaited them.",
+            "json": "",
+            "raw_text": "Lorem Ipsum Sample Document\nA Well-Structured Example with Headings and Subheadings\nIntroduction to Lorem Ipsum\nLorem is an adventurous and curious individual, always eager to embark on new quests\nand explore the unknown. With an energetic spirit and a heart full of wonder, Lorem often\nleads the way into exciting escapades and encourages others to join in the journey.\nIpsum, in contrast, is thoughtful and wise, preferring to reflect on the deeper meaning\nbehind each adventure. Calm and analytical, Ipsum brings balance to the duo, offering\ninsight, careful planning, and a steady presence throughout their travels.\nTogether, Lorem and Ipsum complement each other perfectly: Lorem's boldness and\nenthusiasm paired with Ipsum's wisdom and prudence make them an inseparable team,\nready to face any challenge and discover new stories side by side.\nLOREM IPSUM\nThe Adventures of Lorem and Ipsum\nIn a quaint village nestled between rolling hills, there lived two inseparable friends: Lorem\nand Ipsum. Lorem, with a knack for adventure and a heart full of curiosity, was always the\nfirst to suggest a new quest. Ipsum, on the other hand, was thoughtful and wise, preferring\nto ponder over the meaning behind each journey. Together, they dreamed of exploring the\nworld beyond their familiar fields, eager to discover what mysteries awaited them.",
+            "structured_content": "",
+            "confidence": 0.9909198113207547
+          },
+          {
+            "input_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "1041cba46e6a4108ef0681d8eb35c3fe10b402a3",
+            "chunk_type": "page",
+            "chunk_num": 2,
+            "page_num": 2,
+            "markdown_text": "One sunny morning, as the golden rays streamed through the towering cypress trees,\nLorem convinced Ipsum to embark on a search for the legendary Lost Paragraph-a\nmythical story segment said to contain the secret to endless creativity. Armed with only a\nmap drawn on parchment and a pocketful of ideas, the two friends set out, their laughter\nechoing along the dusty path. They encountered puzzling riddles, winding sentences, and a\ncast of quirky characters who offered both challenges and wisdom along their way.\nAs dusk settled over the horizon, Lorem and Ipsum finally arrived at the heart of the ancient\nLibrary of Syntax. There, hidden amongst the shelves, they discovered the Lost Paragraph.\nBut the true magic was not the words on the page, but the journey they had shared and the\nstories they created together. With hearts full of inspiration, Lorem and Ipsum returned\nhome, ready to fill the world with new tales of friendship, discovery, and endless\nimagination.\nThe Whispering Woods Quest\nNot long after their return from the Library of Syntax, Lorem and Ipsum found themselves\nitching for a new adventure. One evening, as the village gathered around the fire, a\nmysterious traveler recounted tales of the Whispering Woods-a forest where the trees\nwere said to share secrets in voices only the brave could hear.\nSetting Out into the Unknown\nDrawn to the mystery, Lorem's eyes sparkled with excitement, while Ipsum weighed the\nrisks and thought about what knowledge might be hidden among the ancient branches. By\ndawn, the friends had packed their satchels with snacks, notebooks, and a compass that\nIpsum insisted would keep them from getting lost.\nChallenges and Revelations\nUpon entering the woods, the whispers began-soft, elusive, and full of riddles. Lorem\nwanted to chase every voice, darting from tree to tree, but Ipsum advised patience,\nsuggesting they listen carefully and record the patterns. As they explored, they\nencountered gentle breezes that carried snippets of poetry, and shadows that danced in\nthe corners of their eyes, hinting at stories long forgotten.\nUncovering the Heart of the Forest\nAt the center of the woods, they stumbled upon a majestic oak whose bark was etched\nwith ancient script. Working together, Lorem's intuition and Ipsum's analytical mind solved\nthe puzzle, revealing a hidden message: \"Every journey is a story, and every story a journey.\"",
+            "json": "",
+            "raw_text": "One sunny morning, as the golden rays streamed through the towering cypress trees,\nLorem convinced Ipsum to embark on a search for the legendary Lost Paragraph-a\nmythical story segment said to contain the secret to endless creativity. Armed with only a\nmap drawn on parchment and a pocketful of ideas, the two friends set out, their laughter\nechoing along the dusty path. They encountered puzzling riddles, winding sentences, and a\ncast of quirky characters who offered both challenges and wisdom along their way.\nAs dusk settled over the horizon, Lorem and Ipsum finally arrived at the heart of the ancient\nLibrary of Syntax. There, hidden amongst the shelves, they discovered the Lost Paragraph.\nBut the true magic was not the words on the page, but the journey they had shared and the\nstories they created together. With hearts full of inspiration, Lorem and Ipsum returned\nhome, ready to fill the world with new tales of friendship, discovery, and endless\nimagination.\nThe Whispering Woods Quest\nNot long after their return from the Library of Syntax, Lorem and Ipsum found themselves\nitching for a new adventure. One evening, as the village gathered around the fire, a\nmysterious traveler recounted tales of the Whispering Woods-a forest where the trees\nwere said to share secrets in voices only the brave could hear.\nSetting Out into the Unknown\nDrawn to the mystery, Lorem's eyes sparkled with excitement, while Ipsum weighed the\nrisks and thought about what knowledge might be hidden among the ancient branches. By\ndawn, the friends had packed their satchels with snacks, notebooks, and a compass that\nIpsum insisted would keep them from getting lost.\nChallenges and Revelations\nUpon entering the woods, the whispers began-soft, elusive, and full of riddles. Lorem\nwanted to chase every voice, darting from tree to tree, but Ipsum advised patience,\nsuggesting they listen carefully and record the patterns. As they explored, they\nencountered gentle breezes that carried snippets of poetry, and shadows that danced in\nthe corners of their eyes, hinting at stories long forgotten.\nUncovering the Heart of the Forest\nAt the center of the woods, they stumbled upon a majestic oak whose bark was etched\nwith ancient script. Working together, Lorem's intuition and Ipsum's analytical mind solved\nthe puzzle, revealing a hidden message: \"Every journey is a story, and every story a journey.\"",
+            "structured_content": "",
+            "confidence": 0.9924341085271318
+          },
+          {
+            "input_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "54f0abd39ef71b7ebaec787b32c643dc96976d06",
+            "chunk_type": "page",
+            "chunk_num": 3,
+            "page_num": 3,
+            "markdown_text": "The oak, pleased with their discovery, gifted them each a leaf-a symbol of wisdom and\nadventure intertwined.\nA Triumphant Return\nWith the woods' secrets safely noted in their journals, Lorem and Ipsum returned to their\nvillage. They shared their findings, inspiring others to listen closely to the world around\nthem and to seek adventure in the everyday. Their bond had grown even stronger, and they\nknew many more stories awaited just beyond the next horizon.",
+            "json": "",
+            "raw_text": "The oak, pleased with their discovery, gifted them each a leaf-a symbol of wisdom and\nadventure intertwined.\nA Triumphant Return\nWith the woods' secrets safely noted in their journals, Lorem and Ipsum returned to their\nvillage. They shared their findings, inspiring others to listen closely to the world around\nthem and to seek adventure in the everyday. Their bond had grown even stronger, and they\nknew many more stories awaited just beyond the next horizon.",
+            "structured_content": "",
+            "confidence": 0.9933333333333333
+          }
+        ]
+      },
+      "summary_data": {},
+      "step_results": [
+        {
+          "step_name": "content_retriever",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.005872,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "document_type_identifier",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.016752,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "doc_intelligence_layout_extractor",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 9.363159,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        }
+      ]
+    },
+    {
+      "document_id": {
+        "canonical_id": "di_doc_002",
+        "unique_id": "di_doc_002",
+        "source_id": "local_file_source",
+        "source_name": "local_file",
+        "source_type": "local_file",
+        "container": null,
+        "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.docx",
+        "metadata": null
+      },
+      "result": "Succeeded",
+      "reason": null,
+      "elapsed_time_secs": 3.634329,
+      "data": {
+        "temp_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.docx",
+        "metadata": {
+          "source": "local_file",
+          "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.docx"
+        },
+        "document_type": {
+          "primary_type": "word_document",
+          "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "confidence": 0.9025,
+          "best_method": "magic_bytes",
+          "all_methods": {
+            "magic_bytes": {
+              "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "type": "word_document",
+              "confidence": 0.95,
+              "method": "magic_bytes"
+            },
+            "file_extension": {
+              "type": "word_document",
+              "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "subtype": "openxml",
+              "extension": ".docx",
+              "confidence": 0.9,
+              "method": "file_extension"
+            }
+          }
+        },
+        "doc_intell_chunks": [
+          {
+            "input_file_path": "./tmp/doc_intelligence/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.docx",
+            "chunk_id": "002f2775c08830ca58a50e4b9b84f34951faa6ae",
+            "chunk_type": "page",
+            "chunk_num": 1,
+            "page_num": 1,
+            "markdown_text": "Lorem\nIpsum\nSample\nDocument\nA\nWell-Structured\nExample\nwith\nHeadings\nand\nSubheadings\nIntroduction\nto\nLorem\nIpsum\nLorem\nis\nan\nadventurous\nand\ncurious\nindividual,\nalways\neager\nto\nembark\non\nnew\nquests\nand\nexplore\nthe\nunknown.\nWith\nan\nenergetic\nspirit\nand\na\nheart\nfull\nof\nwonder,\nLorem\noften\nleads\nthe\nway\ninto\nexciting\nescapades\nand\nencourages\nothers\nto\njoin\nin\nthe\njourney.\nIpsum,\nin\ncontrast,\nis\nthoughtful\nand\nwise,\npreferring\nto\nreflect\non\nthe\ndeeper\nmeaning\nbehind\neach\nadventure.\nCalm\nand\nanalytical,\nIpsum\nbrings\nbalance\nto\nthe\nduo,\noffering\ninsight,\ncareful\nplanning,\nand\na\nsteady\npresence\nthroughout\ntheir\ntravels.\nTogether,\nLorem\nand\nIpsum\ncomplement\neach\nother\nperfectly:\nLorem’s\nboldness\nand\nenthusiasm\npaired\nwith\nIpsum’s\nwisdom\nand\nprudence\nmake\nthem\nan\ninseparable\nteam,\nready\nto\nface\nany\nchallenge\nand\ndiscover\nnew\nstories\nside\nby\nside.\nThe\nAdventures\nof\nLorem\nand\nIpsum\nIn\na\nquaint\nvillage\nnestled\nbetween\nrolling\nhills,\nthere\nlived\ntwo\ninseparable\nfriends:\nLorem\nand\nIpsum.\nLorem,\nwith\na\nknack\nfor\nadventure\nand\na\nheart\nfull\nof\ncuriosity,\nwas\nalways\nthe\nfirst\nto\nsuggest\na\nnew\nquest.\nIpsum,\non\nthe\nother\nhand,\nwas\nthoughtful\nand\nwise,\npreferring\nto\nponder\nover\nthe\nmeaning\nbehind\neach\njourney.\nTogether,\nthey\ndreamed\nof\nexploring\nthe\nworld\nbeyond\ntheir\nfamiliar\nfields,\neager\nto\ndiscover\nwhat\nmysteries\nawaited\nthem.\nOne\nsunny\nmorning,\nas\nthe\ngolden\nrays\nstreamed\nthrough\nthe\ntowering\ncypress\ntrees,\nLorem\nconvinced\nIpsum\nto\nembark\non\na\nsearch\nfor\nthe\nlegendary\nLost\nParagraph—a\nmythical\nstory\nsegment\nsaid\nto\ncontain\nthe\nsecret\nto\nendless\ncreativity.\nArmed\nwith\nonly\na\nmap\ndrawn\non\nparchment\nand\na\npocketful\nof\nideas,\nthe\ntwo\nfriends\nset\nout,\ntheir\nlaughter\nechoing\nalong\nthe\ndusty\npath.\nThey\nencountered\npuzzling\nriddles,\nwinding\nsentences,\nand\na\ncast\nof\nquirky\ncharacters\nwho\noffered\nboth\nchallenges\nand\nwisdom\nalong\ntheir\nway.\nAs\ndusk\nsettled\nover\nthe\nhorizon,\nLorem\nand\nIpsum\nfinally\narrived\nat\nthe\nheart\nof\nthe\nancient\nLibrary\nof\nSyntax.\nThere,\nhidden\namongst\nthe\nshelves,\nthey\ndiscovered\nthe\nLost\nParagraph.\nBut\nthe\ntrue\nmagic\nwas\nnot\nthe\nwords\non\nthe\npage,\nbut\nthe\njourney\nthey\nhad\nshared\nand\nthe\nstories\nthey\ncreated\ntogether.\nWith\nhearts\nfull\nof\ninspiration,\nLorem\nand\nIpsum\nreturned\nhome,\nready\nto\nfill\nthe\nworld\nwith\nnew\ntales\nof\nfriendship,\ndiscovery,\nand\nendless\nimagination.\nThe\nWhispering\nWoods\nQuest\nNot\nlong\nafter\ntheir\nreturn\nfrom\nthe\nLibrary\nof\nSyntax,\nLorem\nand\nIpsum\nfound\nthemselves\nitching\nfor\na\nnew\nadventure.\nOne\nevening,\nas\nthe\nvillage\ngathered\naround\nthe\nfire,\na\nmysterious\ntraveler\nrecounted\ntales\nof\nthe\nWhispering\nWoods—a\nforest\nwhere\nthe\ntrees\nwere\nsaid\nto\nshare\nsecrets\nin\nvoices\nonly\nthe\nbrave\ncould\nhear.\nSetting\nOut\ninto\nthe\nUnknown\nDrawn\nto\nthe\nmystery,\nLorem’s\neyes\nsparkled\nwith\nexcitement,\nwhile\nIpsum\nweighed\nthe\nrisks\nand\nthought\nabout\nwhat\nknowledge\nmight\nbe\nhidden\namong\nthe\nancient\nbranches.\nBy\ndawn,\nthe\nfriends\nhad\npacked\ntheir\nsatchels\nwith\nsnacks,\nnotebooks,\nand\na\ncompass\nthat\nIpsum\ninsisted\nwould\nkeep\nthem\nfrom\ngetting\nlost.\nChallenges\nand\nRevelations\nUpon\nentering\nthe\nwoods,\nthe\nwhispers\nbegan—soft,\nelusive,\nand\nfull\nof\nriddles.\nLorem\nwanted\nto\nchase\nevery\nvoice,\ndarting\nfrom\ntree\nto\ntree,\nbut\nIpsum\nadvised\npatience,\nsuggesting\nthey\nlisten\ncarefully\nand\nrecord\nthe\npatterns.\nAs\nthey\nexplored,\nthey\nencountered\ngentle\nbreezes\nthat\ncarried\nsnippets\nof\npoetry,\nand\nshadows\nthat\ndanced\nin\nthe\ncorners\nof\ntheir\neyes,\nhinting\nat\nstories\nlong\nforgotten.\nUncovering\nthe\nHeart\nof\nthe\nForest\nAt\nthe\ncenter\nof\nthe\nwoods,\nthey\nstumbled\nupon\na\nmajestic\noak\nwhose\nbark\nwas\netched\nwith\nancient\nscript.\nWorking\ntogether,\nLorem’s\nintuition\nand\nIpsum’s\nanalytical\nmind\nsolved\nthe\npuzzle,\nrevealing\na\nhidden\nmessage:\n“Every\njourney\nis\na\nstory,\nand\nevery\nstory\na\njourney.”\nThe\noak,\npleased\nwith\ntheir\ndiscovery,\ngifted\nthem\neach\na\nleaf—a\nsymbol\nof\nwisdom\nand\nadventure\nintertwined.\nA\nTriumphant\nReturn\nWith\nthe\nwoods’\nsecrets\nsafely\nnoted\nin\ntheir\njournals,\nLorem\nand\nIpsum\nreturned\nto\ntheir\nvillage.\nThey\nshared\ntheir\nfindings,\ninspiring\nothers\nto\nlisten\nclosely\nto\nthe\nworld\naround\nthem\nand\nto\nseek\nadventure\nin\nthe\neveryday.\nTheir\nbond\nhad\ngrown\neven\nstronger,\nand\nthey\nknew\nmany\nmore\nstories\nawaited\njust\nbeyond\nthe\nnext\nhorizon.",
+            "json": "",
+            "raw_text": "Lorem\nIpsum\nSample\nDocument\nA\nWell-Structured\nExample\nwith\nHeadings\nand\nSubheadings\nIntroduction\nto\nLorem\nIpsum\nLorem\nis\nan\nadventurous\nand\ncurious\nindividual,\nalways\neager\nto\nembark\non\nnew\nquests\nand\nexplore\nthe\nunknown.\nWith\nan\nenergetic\nspirit\nand\na\nheart\nfull\nof\nwonder,\nLorem\noften\nleads\nthe\nway\ninto\nexciting\nescapades\nand\nencourages\nothers\nto\njoin\nin\nthe\njourney.\nIpsum,\nin\ncontrast,\nis\nthoughtful\nand\nwise,\npreferring\nto\nreflect\non\nthe\ndeeper\nmeaning\nbehind\neach\nadventure.\nCalm\nand\nanalytical,\nIpsum\nbrings\nbalance\nto\nthe\nduo,\noffering\ninsight,\ncareful\nplanning,\nand\na\nsteady\npresence\nthroughout\ntheir\ntravels.\nTogether,\nLorem\nand\nIpsum\ncomplement\neach\nother\nperfectly:\nLorem’s\nboldness\nand\nenthusiasm\npaired\nwith\nIpsum’s\nwisdom\nand\nprudence\nmake\nthem\nan\ninseparable\nteam,\nready\nto\nface\nany\nchallenge\nand\ndiscover\nnew\nstories\nside\nby\nside.\nThe\nAdventures\nof\nLorem\nand\nIpsum\nIn\na\nquaint\nvillage\nnestled\nbetween\nrolling\nhills,\nthere\nlived\ntwo\ninseparable\nfriends:\nLorem\nand\nIpsum.\nLorem,\nwith\na\nknack\nfor\nadventure\nand\na\nheart\nfull\nof\ncuriosity,\nwas\nalways\nthe\nfirst\nto\nsuggest\na\nnew\nquest.\nIpsum,\non\nthe\nother\nhand,\nwas\nthoughtful\nand\nwise,\npreferring\nto\nponder\nover\nthe\nmeaning\nbehind\neach\njourney.\nTogether,\nthey\ndreamed\nof\nexploring\nthe\nworld\nbeyond\ntheir\nfamiliar\nfields,\neager\nto\ndiscover\nwhat\nmysteries\nawaited\nthem.\nOne\nsunny\nmorning,\nas\nthe\ngolden\nrays\nstreamed\nthrough\nthe\ntowering\ncypress\ntrees,\nLorem\nconvinced\nIpsum\nto\nembark\non\na\nsearch\nfor\nthe\nlegendary\nLost\nParagraph—a\nmythical\nstory\nsegment\nsaid\nto\ncontain\nthe\nsecret\nto\nendless\ncreativity.\nArmed\nwith\nonly\na\nmap\ndrawn\non\nparchment\nand\na\npocketful\nof\nideas,\nthe\ntwo\nfriends\nset\nout,\ntheir\nlaughter\nechoing\nalong\nthe\ndusty\npath.\nThey\nencountered\npuzzling\nriddles,\nwinding\nsentences,\nand\na\ncast\nof\nquirky\ncharacters\nwho\noffered\nboth\nchallenges\nand\nwisdom\nalong\ntheir\nway.\nAs\ndusk\nsettled\nover\nthe\nhorizon,\nLorem\nand\nIpsum\nfinally\narrived\nat\nthe\nheart\nof\nthe\nancient\nLibrary\nof\nSyntax.\nThere,\nhidden\namongst\nthe\nshelves,\nthey\ndiscovered\nthe\nLost\nParagraph.\nBut\nthe\ntrue\nmagic\nwas\nnot\nthe\nwords\non\nthe\npage,\nbut\nthe\njourney\nthey\nhad\nshared\nand\nthe\nstories\nthey\ncreated\ntogether.\nWith\nhearts\nfull\nof\ninspiration,\nLorem\nand\nIpsum\nreturned\nhome,\nready\nto\nfill\nthe\nworld\nwith\nnew\ntales\nof\nfriendship,\ndiscovery,\nand\nendless\nimagination.\nThe\nWhispering\nWoods\nQuest\nNot\nlong\nafter\ntheir\nreturn\nfrom\nthe\nLibrary\nof\nSyntax,\nLorem\nand\nIpsum\nfound\nthemselves\nitching\nfor\na\nnew\nadventure.\nOne\nevening,\nas\nthe\nvillage\ngathered\naround\nthe\nfire,\na\nmysterious\ntraveler\nrecounted\ntales\nof\nthe\nWhispering\nWoods—a\nforest\nwhere\nthe\ntrees\nwere\nsaid\nto\nshare\nsecrets\nin\nvoices\nonly\nthe\nbrave\ncould\nhear.\nSetting\nOut\ninto\nthe\nUnknown\nDrawn\nto\nthe\nmystery,\nLorem’s\neyes\nsparkled\nwith\nexcitement,\nwhile\nIpsum\nweighed\nthe\nrisks\nand\nthought\nabout\nwhat\nknowledge\nmight\nbe\nhidden\namong\nthe\nancient\nbranches.\nBy\ndawn,\nthe\nfriends\nhad\npacked\ntheir\nsatchels\nwith\nsnacks,\nnotebooks,\nand\na\ncompass\nthat\nIpsum\ninsisted\nwould\nkeep\nthem\nfrom\ngetting\nlost.\nChallenges\nand\nRevelations\nUpon\nentering\nthe\nwoods,\nthe\nwhispers\nbegan—soft,\nelusive,\nand\nfull\nof\nriddles.\nLorem\nwanted\nto\nchase\nevery\nvoice,\ndarting\nfrom\ntree\nto\ntree,\nbut\nIpsum\nadvised\npatience,\nsuggesting\nthey\nlisten\ncarefully\nand\nrecord\nthe\npatterns.\nAs\nthey\nexplored,\nthey\nencountered\ngentle\nbreezes\nthat\ncarried\nsnippets\nof\npoetry,\nand\nshadows\nthat\ndanced\nin\nthe\ncorners\nof\ntheir\neyes,\nhinting\nat\nstories\nlong\nforgotten.\nUncovering\nthe\nHeart\nof\nthe\nForest\nAt\nthe\ncenter\nof\nthe\nwoods,\nthey\nstumbled\nupon\na\nmajestic\noak\nwhose\nbark\nwas\netched\nwith\nancient\nscript.\nWorking\ntogether,\nLorem’s\nintuition\nand\nIpsum’s\nanalytical\nmind\nsolved\nthe\npuzzle,\nrevealing\na\nhidden\nmessage:\n“Every\njourney\nis\na\nstory,\nand\nevery\nstory\na\njourney.”\nThe\noak,\npleased\nwith\ntheir\ndiscovery,\ngifted\nthem\neach\na\nleaf—a\nsymbol\nof\nwisdom\nand\nadventure\nintertwined.\nA\nTriumphant\nReturn\nWith\nthe\nwoods’\nsecrets\nsafely\nnoted\nin\ntheir\njournals,\nLorem\nand\nIpsum\nreturned\nto\ntheir\nvillage.\nThey\nshared\ntheir\nfindings,\ninspiring\nothers\nto\nlisten\nclosely\nto\nthe\nworld\naround\nthem\nand\nto\nseek\nadventure\nin\nthe\neveryday.\nTheir\nbond\nhad\ngrown\neven\nstronger,\nand\nthey\nknew\nmany\nmore\nstories\nawaited\njust\nbeyond\nthe\nnext\nhorizon.",
+            "structured_content": "",
+            "confidence": 1.0
+          }
+        ]
+      },
+      "summary_data": {},
+      "step_results": [
+        {
+          "step_name": "content_retriever",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.000997,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "document_type_identifier",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.002513,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "doc_intelligence_layout_extractor",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 3.630584,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        }
+      ]
+    }
+  ],
+  "summary_stats": {
+    "total_documents": 2,
+    "successful_documents": 2,
+    "failed_documents": 0,
+    "success_rate": 100.0
+  },
+  "started_at": "2025-11-20T19:22:20.999962+00:00",
+  "completed_at": "2025-11-20T19:22:30.386919+00:00"
+}

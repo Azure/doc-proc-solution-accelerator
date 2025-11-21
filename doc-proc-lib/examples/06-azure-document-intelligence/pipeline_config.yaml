@@ -1,0 +1,68 @@
+# Azure Document Intelligence Pipeline Configuration
+
+# Service instances
+service_instances:
+  - name: primary_document_intelligence_service
+    service_catalog_id: azure_document_intelligence_service_01
+    settings:
+      endpoint: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_ENDPOINT}
+      credential_type: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_DOCUMENT_INTELLIGENCE_SERVICE_API_KEY}
+
+# Pipeline definition
+pipelines:
+  - name: document_intelligence_processor
+    description: 'Pipeline using Azure Document Intelligence for structured document extraction'
+    version: '1.0'
+
+    # Pipeline steps
+    steps:
+      # Step 1: Retrieve content
+      - name: content_retriever
+        step_catalog_id: content_retriever
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: []
+        debug_mode: false
+        settings:
+          temp_folder: "./tmp/doc_intelligence/downloads"
+          include_content_bytes_as_field: false
+          use_temp_file_for_content: true
+
+      # Step 2: Identify document type
+      - name: document_type_identifier
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 300
+        services: []
+        debug_mode: false
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+
+      # Step 3: Extract with Document Intelligence (prebuilt-layout model)
+      - name: doc_intelligence_layout_extractor
+        step_catalog_id: azure_document_intelligence_extractor
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 3
+        timeout: 1800
+        services: [primary_document_intelligence_service]
+        debug_mode: false
+        settings:
+          azure_document_intelligence_service: "primary_document_intelligence_service"
+          output_field_name: "doc_intell_chunks"
+          model_id: "prebuilt-layout"
+          extract_tables: true
+          extract_key_value_pairs: true
+          extract_paragraphs: true
+          chunk_by_pages: true
+          output_format: "markdown"
+
+    execution_sequence: [content_retriever, document_type_identifier, doc_intelligence_layout_extractor]

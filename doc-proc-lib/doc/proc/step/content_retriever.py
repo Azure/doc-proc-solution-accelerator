@@ -76,7 +76,7 @@ class ContentRetrieverStep(StepBase):
             # write the content to a temp file if content exists
             if processed_doc.get('content'):
                 if self.use_temp_file_for_content:
-                    temp_file_path = os.path.join(self.temp_folder, f"{doc_identifier.path.replace('/', '_')}")
+                    temp_file_path = os.path.join(self.temp_folder, f"{doc_identifier.path.replace('/', '_').replace('\\', '_')}")
                     with open(temp_file_path, 'wb') as temp_file:
                         temp_file.write(processed_doc['content'])
                         
@@ -98,6 +98,23 @@ class ContentRetrieverStep(StepBase):
         """Process a single document for file download."""
         
         source_name = doc_id.source_name
+        
+        # manage local sources where content is already available on the local filesystem
+        if source_name == "local_file":
+            local_path = doc_id.path
+            if not os.path.isfile(local_path):
+                raise FileNotFoundError(f"Local file '{local_path}' not found for document ID '{doc_id.canonical_id}'.")
+
+            with open(local_path, 'rb') as file:
+                content_bytes = file.read()
+            
+            return {
+                "metadata": {
+                    "source": "local_file",
+                    "path": local_path
+                },
+                "content": content_bytes
+            }
         
         # get the source from context
         source_instance: SourceBase = context.get_source(source_name)

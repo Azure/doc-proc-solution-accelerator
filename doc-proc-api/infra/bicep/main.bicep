@@ -68,7 +68,7 @@ resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@202
 }
 
 // Use Azure Verified Module for Container App
-module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+module apiApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.19.0' = {
   name: 'apiAppDeployment'
   params: {
     name: appName

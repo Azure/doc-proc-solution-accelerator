@@ -1,0 +1,166 @@
+{
+  "pipeline_name": "custom_ai_processor",
+  "result": "Succeeded",
+  "reason": "All 1 documents processed successfully",
+  "elapsed_time_secs": 33.186542,
+  "document_results": [
+    {
+      "document_id": {
+        "canonical_id": "doc_pdf_001",
+        "unique_id": "doc_pdf_001",
+        "source_id": "local_file_source",
+        "source_name": "local_file",
+        "source_type": "local_file",
+        "container": null,
+        "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.pdf",
+        "metadata": null
+      },
+      "result": "Succeeded",
+      "reason": null,
+      "elapsed_time_secs": 33.186114,
+      "data": {
+        "source": "local_file",
+        "description": "Sample PDF document",
+        "temp_file_path": "./tmp/custom_ai/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+        "metadata": {
+          "source": "local_file",
+          "path": "/Users/nadeemis/Projects/doc-proc-solution-accelerator/doc-proc-lib/examples/sample_files/sample.pdf"
+        },
+        "document_type": {
+          "primary_type": "pdf",
+          "mime_type": "application/pdf",
+          "confidence": 0.9025,
+          "best_method": "magic_bytes",
+          "all_methods": {
+            "magic_bytes": {
+              "mime_type": "application/pdf",
+              "type": "pdf",
+              "confidence": 0.95,
+              "method": "magic_bytes"
+            },
+            "file_extension": {
+              "type": "pdf",
+              "mime_type": "application/pdf",
+              "subtype": "pdf",
+              "extension": ".pdf",
+              "confidence": 0.9,
+              "method": "file_extension"
+            }
+          }
+        },
+        "chunks": [
+          {
+            "input_file_path": "./tmp/custom_ai/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "3937b0c0d94f781550229e92fc808c33e0e0c79a",
+            "chunk_num": 1,
+            "chunk_type": "page",
+            "page_num": 1,
+            "png": "./tmp/custom_ai/pdf_output/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample_pdf_page_1.png",
+            "markdown": "```markdown\n# Lorem Ipsum Sample Document\n_A Well-Structured Example with Headings and Subheadings_\n\n## Introduction to Lorem Ipsum\n\n**Lorem** is an adventurous and curious individual, always eager to embark on new quests and explore the unknown. With an energetic spirit and a heart full of wonder, Lorem often leads the way into exciting escapades and encourages others to join in the journey.\n\n**Ipsum**, in contrast, is thoughtful and wise, preferring to reflect on the deeper meaning behind each adventure. Calm and analytical, Ipsum brings balance to the duo, offering insight, careful planning, and a steady presence throughout their travels.\n\nTogether, Lorem and Ipsum complement each other perfectly: Lorem’s boldness and enthusiasm paired with Ipsum’s wisdom and prudence make them an inseparable team, ready to face any challenge and discover new stories side by side.\n\n![LOREM IPSUM](image_path)\n\n## The Adventures of Lorem and Ipsum\n\nIn a quaint village nestled between rolling hills, there lived two inseparable friends: Lorem and Ipsum. Lorem, with a knack for adventure and a heart full of curiosity, was always the first to suggest a new quest. Ipsum, on the other hand, was thoughtful and wise, preferring to ponder over the meaning behind each journey. Together, they dreamed of exploring the world beyond their familiar fields, eager to discover what mysteries awaited them.\n```",
+            "page_text": "",
+            "page_image_descriptions": "",
+            "markdown_text": "",
+            "summary": "The document titled \"Lorem Ipsum Sample Document\" presents a narrative centered around two characters, Lorem and Ipsum, whose contrasting personalities create a balanced and dynamic partnership. The main themes revolve around adventure, curiosity, wisdom, and companionship. Lorem is depicted as energetic and bold, always eager to embark on new quests, while Ipsum serves as the thoughtful and analytical counterpart, providing insight and careful planning. Their complementary traits enable them to face challenges together and explore unknown territories.\n\nKey points include the characterization of Lorem and Ipsum as an inseparable duo whose strengths harmonize—Lorem’s enthusiasm drives their journeys, and Ipsum’s prudence ensures thoughtful reflection. The setting is introduced as a quaint village surrounded by rolling hills, symbolizing a familiar yet limited world that the pair aspires to explore beyond. The document emphasizes the balance between action and contemplation, highlighting the value of teamwork in discovery and adventure. Overall, it combines storytelling with thematic exploration of friendship and the pursuit of knowledge.",
+            "sentiment_analysis": "{\n  \"sentiment\": \"positive\",\n  \"tone\": \"formal and descriptive\",\n  \"confidence\": \"high\",\n  \"explanation\": \"The text uses positive language to describe the characters Lorem and Ipsum, highlighting their complementary traits and adventurous spirit. The tone is formal and descriptive, suitable for a well-structured sample document with headings and narrative style.\"\n}",
+            "topics_and_entities": "{\n  \"topics\": [\n    \"Character traits of Lorem and Ipsum\",\n    \"Friendship and teamwork\",\n    \"Adventure and exploration\",\n    \"Balance between boldness and wisdom\",\n    \"Imaginary storytelling\"\n  ],\n  \"entities\": {\n    \"people\": [\"Lorem\", \"Ipsum\"],\n    \"organizations\": [],\n    \"locations\": [\"a quaint village\", \"rolling hills\"],\n    \"dates\": [],\n    \"technologies\": []\n  }\n}"
+          },
+          {
+            "input_file_path": "./tmp/custom_ai/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "b28865b0e948b1cea112016059d3a2b35931fd03",
+            "chunk_num": 2,
+            "chunk_type": "page",
+            "page_num": 2,
+            "png": "./tmp/custom_ai/pdf_output/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample_pdf_page_2.png",
+            "markdown": "```markdown\nOne sunny morning, as the golden rays streamed through the towering cypress trees, Lorem convinced Ipsum to embark on a search for the legendary Lost Paragraph—a mythical story segment said to contain the secret to endless creativity. Armed with only a map drawn on parchment and a pocketful of ideas, the two friends set out, their laughter echoing along the dusty path. They encountered puzzling riddles, winding sentences, and a cast of quirky characters who offered both challenges and wisdom along their way.\n\nAs dusk settled over the horizon, Lorem and Ipsum finally arrived at the heart of the ancient Library of Syntax. There, hidden amongst the shelves, they discovered the Lost Paragraph. But the true magic was not the words on the page, but the journey they had shared and the stories they created together. With hearts full of inspiration, Lorem and Ipsum returned home, ready to fill the world with new tales of friendship, discovery, and endless imagination.\n\n### The Whispering Woods Quest\n\nNot long after their return from the Library of Syntax, Lorem and Ipsum found themselves itching for a new adventure. One evening, as the village gathered around the fire, a mysterious traveler recounted tales of the Whispering Woods—a forest where the trees were said to share secrets in voices only the brave could hear.\n\n### Setting Out into the Unknown\n\nDrawn to the mystery, Lorem’s eyes sparkled with excitement, while Ipsum weighed the risks and thought about what knowledge might be hidden among the ancient branches. By dawn, the friends had packed their satchels with snacks, notebooks, and a compass that Ipsum insisted would keep them from getting lost.\n\n### Challenges and Revelations\n\nUpon entering the woods, the whispers began—soft, elusive, and full of riddles. Lorem wanted to chase every voice, darting from tree to tree, but Ipsum advised patience, suggesting they listen carefully and record the patterns. As they explored, they encountered gentle breezes that carried snippets of poetry, and shadows that danced in the corners of their eyes, hinting at stories long forgotten.\n\n### Uncovering the Heart of the Forest\n\nAt the center of the woods, they stumbled upon a majestic oak whose bark was etched with ancient script. Working together, Lorem’s intuition and Ipsum’s analytical mind solved the puzzle, revealing a hidden message: “Every journey is a story, and every story a journey.”\n```",
+            "page_text": "",
+            "page_image_descriptions": "",
+            "markdown_text": "",
+            "summary": "The document narrates two intertwined adventures of two friends, Lorem and Ipsum, centered around themes of creativity, discovery, and the power of storytelling. The first tale follows their quest for the legendary Lost Paragraph, believed to hold the secret to endless creativity. Their journey is marked by encounters with riddles and quirky characters, culminating in the discovery that the true magic lies not in the paragraph itself but in the shared experience and inspiration gained along the way.\n\nThe second adventure, titled \"The Whispering Woods Quest,\" describes their exploration of a mystical forest where trees whisper secrets. This story emphasizes patience, collaboration, and attentive listening as Lorem and Ipsum navigate elusive riddles and poetic whispers. Their combined intuition and analytical skills lead them to uncover an ancient message inscribed on a majestic oak: “Every journey is a story, and every story a journey.” Together, these narratives highlight the importance of friendship, curiosity, and the creative process as ongoing, intertwined journeys.",
+            "sentiment_analysis": "{\n  \"sentiment\": \"positive\",\n  \"tone\": \"informal, narrative, whimsical\",\n  \"confidence\": \"high\",\n  \"explanation\": \"The text conveys a positive and uplifting sentiment through its depiction of an adventurous and imaginative journey filled with friendship, discovery, and inspiration. The tone is informal and narrative, with a whimsical and creative style that evokes a sense of wonder and storytelling.\"\n}",
+            "topics_and_entities": "{\n  \"topics\": [\n    \"Adventure and exploration\",\n    \"Friendship and collaboration\",\n    \"Discovery of mythical or hidden knowledge\",\n    \"Storytelling and creativity\",\n    \"Mystery of the Whispering Woods\"\n  ],\n  \"entities\": {\n    \"people\": [\"Lorem\", \"Ipsum\"],\n    \"organizations\": [\"Library of Syntax\"],\n    \"locations\": [\"Whispering Woods\", \"Library of Syntax\", \"village\"],\n    \"dates\": [],\n    \"technologies\": [\"map\", \"compass\", \"notebooks\"]\n  }\n}"
+          },
+          {
+            "input_file_path": "./tmp/custom_ai/downloads/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample.pdf",
+            "chunk_id": "dc84975abf2becaa6f5fabe6cb8a5880f585dd09",
+            "chunk_num": 3,
+            "chunk_type": "page",
+            "page_num": 3,
+            "png": "./tmp/custom_ai/pdf_output/_Users_nadeemis_Projects_doc-proc-solution-accelerator_doc-proc-lib_examples_sample_files_sample_pdf_page_3.png",
+            "markdown": "```markdown\nThe oak, pleased with their discovery, gifted them each a leaf—a symbol of wisdom and adventure intertwined.\n\n### A Triumphant Return\n\nWith the woods’ secrets safely noted in their journals, Lorem and Ipsum returned to their village. They shared their findings, inspiring others to listen closely to the world around them and to seek adventure in the everyday. Their bond had grown even stronger, and they knew many more stories awaited just beyond the next horizon.\n```",
+            "page_text": "",
+            "page_image_descriptions": "",
+            "markdown_text": "",
+            "summary": "The document excerpt centers on a symbolic moment of reward and the conclusion of an adventurous journey. The oak tree, representing wisdom and adventure, gifts the protagonists, Lorem and Ipsum, leaves as tokens of their discovery, highlighting themes of knowledge, growth, and the intertwining of learning with exploration.\n\nFollowing their encounter, Lorem and Ipsum return triumphantly to their village, sharing the secrets of the woods they documented. Their experience inspires the community to engage more deeply with their surroundings and embrace everyday adventures. The narrative emphasizes the strengthening of their friendship and the anticipation of future stories, underscoring themes of curiosity, connection, and the ongoing pursuit of discovery.",
+            "sentiment_analysis": "{\n  \"sentiment\": \"positive\",\n  \"tone\": \"narrative, uplifting, and slightly poetic\",\n  \"confidence\": \"high\",\n  \"explanation\": \"The text conveys a sense of accomplishment, inspiration, and warmth through phrases like 'pleased with their discovery,' 'a symbol of wisdom and adventure,' and 'inspiring others.' The language is descriptive and evocative, creating an uplifting and hopeful mood.\"\n}",
+            "topics_and_entities": "{\n  \"topics\": [\n    \"Discovery and adventure\",\n    \"Symbolism of the oak leaf\",\n    \"Exploration and storytelling\",\n    \"Connection with nature\",\n    \"Friendship and inspiration\"\n  ],\n  \"entities\": {\n    \"people\": [\"Lorem\", \"Ipsum\"],\n    \"organizations\": [],\n    \"locations\": [\"the woods\", \"their village\"],\n    \"dates\": [],\n    \"technologies\": []\n  }\n}"
+          }
+        ]
+      },
+      "summary_data": {},
+      "step_results": [
+        {
+          "step_name": "content_retriever",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.000984,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "document_type_identifier",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 0.01601,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "pdf_text_extractor",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 16.014376,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "document_summarizer",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 7.258276,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "sentiment_analyzer",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 5.116788,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        },
+        {
+          "step_name": "topic_extractor",
+          "result": "Succeeded",
+          "reason": null,
+          "elapsed_time_secs": 4.778872,
+          "error": null,
+          "error_message": null,
+          "error_traceback": null
+        }
+      ]
+    }
+  ],
+  "summary_stats": {
+    "total_documents": 1,
+    "successful_documents": 1,
+    "failed_documents": 0,
+    "success_rate": 100.0
+  },
+  "started_at": "2025-11-20T15:03:26.157683+00:00",
+  "completed_at": "2025-11-20T15:03:59.344225+00:00"
+}

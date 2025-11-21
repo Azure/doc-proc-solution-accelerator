@@ -62,11 +62,11 @@ resource containerAppsEnvironmentResource 'Microsoft.App/managedEnvironments@202
 }
 
 // Use Azure Verified Module for Container App (Worker)
-module workerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.18.1' = {
+module workerApp 'br:mcr.microsoft.com/bicep/avm/res/app/container-app:0.19.0' = {
   name: 'workerAppDeployment'
   params: {
     name: appName
-    location: resourceGroup().location
+    location: containerAppsEnvironmentResource.location
     tags: tags
     environmentResourceId: containerAppsEnvironmentResource.id
     ingressAllowInsecure: false

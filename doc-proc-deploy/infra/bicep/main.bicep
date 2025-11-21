@@ -249,11 +249,11 @@ module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
   }
 }
 
-
+// AI Foundry
 module aiFoundry 'modules/ai-foundry.bicep' = {
   name: 'aiFoundryDeployment.${substring(uniqueString(resourceGroup().id, deployment().name), 0, 8)}'
   params: {
-    aiFoundryBaseName: toLower(length('docprocai${environment}') > 12 ? substring('docprocai${environment}', 0, 12) : 'docprocai${environment}')
+    aiFoundryBaseName: substring(toLower(uniqueString('ai-${namePrefix}-${environment}-${resourceGroup().id}')), 0, 12) // AI Foundry base name has a max length of 12 characters
     roleAssignedManagedIdentityPrincipalIds: [userAssignedIdentity.outputs.principalId]
     location: aiFoundryLocation
     tags: tags

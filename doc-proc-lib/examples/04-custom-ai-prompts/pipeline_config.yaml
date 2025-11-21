@@ -1,0 +1,183 @@
+# Custom AI Prompt Processing Pipeline Configuration
+
+# Service instances
+service_instances:
+  - name: primary_ai_inference_service
+    service_catalog_id: azure_ai_inference_service_01
+    settings:
+      endpoint: ${AZURE_AI_INFERENCE_SERVICE_ENDPOINT}
+      credential_type: ${AZURE_AI_INFERENCE_SERVICE_CREDENTIAL_TYPE}
+      api_key: ${AZURE_AI_INFERENCE_SERVICE_API_KEY}
+
+# Pipeline definition
+pipelines:
+  - name: custom_ai_processor
+    description: 'Pipeline to process documents with custom AI prompts for summarization and analysis'
+    version: '1.0'
+
+    # Pipeline steps
+    steps:
+      # Step 1: Retrieve content
+      - name: content_retriever
+        step_catalog_id: content_retriever
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 600
+        services: []
+        debug_mode: false
+        settings:
+          temp_folder: "./tmp/custom_ai/downloads"
+          include_content_bytes_as_field: false
+          use_temp_file_for_content: true
+
+      # Step 2: Identify document type
+      - name: document_type_identifier
+        step_catalog_id: document_type_identifier
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: false
+        retries: 3
+        timeout: 300
+        services: []
+        debug_mode: false
+        settings:
+          identification_methods: "magic_bytes, file_extension"
+
+      # Step 3: Extract text from PDF
+      - name: pdf_text_extractor
+        step_catalog_id: ai_pdf_text_extractor
+        enabled: true
+        fail_pipeline_on_error: true
+        retry_on_failure: true
+        retries: 2
+        timeout: 1800
+        services: [primary_ai_inference_service]
+        condition: "document_type.primary_type == 'pdf'"
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          output_field_name: "chunks"
+          png_output_folder: "./tmp/custom_ai/pdf_output"
+          num_pages: -1
+          system_prompt: "You are an AI assistant that converts PDF pages to markdown text. Only output valid markdown."
+          user_prompt: "Extract the text from the following image into markdown."
+          max_completion_tokens: 4000
+          temperature: 1.0
+          top_p: 0.4
+
+      # Step 4: Generate document summary
+      - name: document_summarizer
+        step_catalog_id: custom_ai_prompt
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 900
+        services: [primary_ai_inference_service]
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          content_iterator_field: "chunks"
+          chunk_fields_to_apply_prompt_on: "markdown,text"
+          output_field_name: "summary"
+          system_prompt: "You are an expert document analyst. Your task is to create concise, accurate summaries of document content."
+          user_prompt: |
+            Please provide a comprehensive summary of the following document content. 
+            Include:
+            - Main topics and themes
+            - Key points and findings
+            - Important details
+            
+            Keep the summary concise but informative (2-3 paragraphs).
+            
+            Document content:
+            {chunk_content}
+          max_completion_tokens: 1000
+          temperature: 0.3
+          top_p: 0.9
+
+      # Step 5: Analyze sentiment and tone
+      - name: sentiment_analyzer
+        step_catalog_id: custom_ai_prompt
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 900
+        services: [primary_ai_inference_service]
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          content_iterator_field: "chunks"
+          chunk_fields_to_apply_prompt_on: "markdown,text"
+          output_field_name: "sentiment_analysis"
+          system_prompt: "You are a sentiment analysis expert. Analyze the tone and sentiment of text content."
+          user_prompt: |
+            Analyze the sentiment and tone of the following text.
+            Provide:
+            - Overall sentiment (positive, negative, neutral)
+            - Tone (formal, informal, technical, etc.)
+            - Confidence level (high, medium, low)
+            - Brief explanation
+            
+            Format your response as JSON:
+            {
+              "sentiment": "positive|negative|neutral",
+              "tone": "description",
+              "confidence": "high|medium|low",
+              "explanation": "brief explanation"
+            }
+            
+            Text:
+            {chunk_content}
+          max_completion_tokens: 500
+          temperature: 0.1
+          top_p: 0.9
+
+      # Step 6: Extract key topics and entities
+      - name: topic_extractor
+        step_catalog_id: custom_ai_prompt
+        enabled: true
+        fail_pipeline_on_error: false
+        retry_on_failure: true
+        retries: 2
+        timeout: 900
+        services: [primary_ai_inference_service]
+        debug_mode: false
+        settings:
+          ai_model_inference_service: "primary_ai_inference_service"
+          content_iterator_field: "chunks"
+          chunk_fields_to_apply_prompt_on: "markdown,text"
+          output_field_name: "topics_and_entities"
+          system_prompt: "You are an information extraction specialist. Extract key topics and named entities from text."
+          user_prompt: |
+            Extract the following from the text:
+            1. Main topics (list up to 5)
+            2. Named entities:
+               - People
+               - Organizations
+               - Locations
+               - Dates
+               - Technologies/Products
+            
+            Format as JSON:
+            {
+              "topics": ["topic1", "topic2", ...],
+              "entities": {
+                "people": [...],
+                "organizations": [...],
+                "locations": [...],
+                "dates": [...],
+                "technologies": [...]
+              }
+            }
+            
+            Text:
+            {chunk_content}
+          max_completion_tokens: 800
+          temperature: 0.2
+          top_p: 0.9
+
+    execution_sequence: [content_retriever, document_type_identifier, pdf_text_extractor, document_summarizer, sentiment_analyzer, topic_extractor]

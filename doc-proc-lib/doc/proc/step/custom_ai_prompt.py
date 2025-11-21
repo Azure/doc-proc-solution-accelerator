@@ -32,7 +32,7 @@ class CustomAIPromptStep(StepBase):
             logger.error("Content iterator field not found in settings.")
             raise ValueError("Content iterator field not found in settings.")
 
-        self.chunk_fields_to_apply_prompt_on = self.settings.get("chunk_fields_to_apply_prompt_on", "markdown_text,text")
+        self.chunk_fields_to_apply_prompt_on = self.settings.get("chunk_fields_to_apply_prompt_on", "markdown,text")
         if not self.chunk_fields_to_apply_prompt_on:
             logger.error("Chunk field to apply prompt on not found in settings.")
             raise ValueError("Chunk field to apply prompt on not found in settings.")
@@ -116,6 +116,7 @@ class CustomAIPromptStep(StepBase):
 
         except Exception as e:
             logger.error(f"Error processing document: {e}")
+            logger.exception(e)
             raise e
 
 
@@ -184,7 +185,7 @@ class CustomAIPromptStep(StepBase):
                 # Prepare the user message with the chunk content
                 if "{chunk_content}" in self.user_prompt:
                     # If the user prompt contains a placeholder for chunk content, format it
-                    user_message = self.user_prompt.format(chunk_content=chunk_field_value)
+                    user_message = self.user_prompt.replace("{chunk_content}", chunk_field_value)
                 else:
                     # If no placeholder, use the user prompt as is and append the chunk content
                     user_message = f"{self.user_prompt}\n\n{chunk_field_value}"
