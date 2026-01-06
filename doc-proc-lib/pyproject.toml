@@ -22,7 +22,7 @@ dependencies = [
     "pyyaml==6.0.3",
     "python-dotenv==1.1.1",
     "pydantic==2.11.9",
-    "aiohttp==3.12.15",
+    "aiohttp==3.13.3",
     "azure-ai-inference==1.0.0b9",
     "azure-core==1.35.1",
     "azure-identity==1.25.0",
