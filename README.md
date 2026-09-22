@@ -1,3 +1,9 @@
+> # ⚠️ This repository is archived
+>
+> ## It has been replaced by **[github.com/azure/contentflow](https://github.com/azure/contentflow)**
+
+<p><br /></p>
+
 <p align="center">
     <picture>
     <img src="logo.svg" alt="doc-proc-solution-accelerator" style="width:600px;height:240px" />
